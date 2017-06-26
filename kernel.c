@@ -8,6 +8,25 @@
 #endif
 
 
+#define VGA_BLACK     0x0
+#define VGA_BLUE      0x1
+#define VGA_GREEN     0x2
+#define VGA_CYAN      0x3
+#define VGA_RED       0x4
+#define VGA_MAGENTA   0x5
+#define VGA_BROWN     0x6
+#define VGA_GRAY      0x7
+#define VGA_DARK_GRAY 0x8
+#define VGA_BBLUE     0x9
+#define VGA_BGREEN    0xa
+#define VGA_BCYAN     0xb
+#define VGA_BRED      0xc
+#define VGA_BMAGENTA  0xd
+#define VGA_YELLOW    0xe
+#define VGA_WHITE     0xf
+
+#define VGA_COLOR(bg, fg) (bg << 4 | fg)
+
 #define VGA_COLS 80
 #define VGA_ROWS 25
 
@@ -15,7 +34,7 @@ volatile uint16_t *vga_buffer = (uint16_t*)0xb8000;
 
 int term_col = 0;
 int term_row = 0;
-uint8_t term_color = 0xf0; /* black bg, white fg */
+uint8_t term_color = VGA_COLOR(VGA_BLACK, VGA_WHITE);
 
 void term_init()
 {
