@@ -70,8 +70,22 @@ void term_putc(char c)
 	}
 
 	if (term_row >= VGA_ROWS) {
-		term_row = 0;
-		term_col = 0;
+		for (int row = 1; row < VGA_ROWS; ++row) {
+			for (int col = 0; col < VGA_COLS; ++col) {
+				int prev = (VGA_COLS * row) + col - VGA_COLS;
+				int cur  = (VGA_COLS * row) + col;
+				vga_buffer[prev] = vga_buffer[cur];
+			}
+		}
+
+		term_row = VGA_ROWS - 1;
+		/* clear last line */
+		if (c == '\n') {
+			for (int col = 0; col < VGA_COLS; ++col) {
+				int index = (VGA_COLS * term_row) + col;
+				vga_buffer[index] = (term_color << 8) | ' ';
+			}
+		}
 	}
 }
 
