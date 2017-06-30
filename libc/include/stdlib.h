@@ -3,6 +3,9 @@
 
 #include <sys/cdefs.h>
 
+#define NULL (void*)0
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
