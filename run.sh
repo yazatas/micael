@@ -1,6 +1,4 @@
-#!/bin/sh
-set -e
-. ./build.sh
+#!/bin/bash
 
 mkdir -p isodir
 mkdir -p isodir/boot
@@ -13,3 +11,5 @@ menuentry "micael" {
 }
 EOF
 grub-mkrescue -o micael.iso isodir
+
+qemu-system-$(./target-triplet-to-arch.sh $(./default-host.sh)) -cdrom micael.iso
