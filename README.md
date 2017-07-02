@@ -8,8 +8,7 @@ You'll need a [cross-compiler](http://wiki.osdev.org/GCC_Cross-Compiler) to comp
 
 Run following commands to compile and run micael:
 
-`./clean.sh; ./headers.sh; iso.sh; ./qemu.sh`
-
+`./build.sh; ./run`
 
 # Copying
 micael is free software. It's licensed under the MIT license.

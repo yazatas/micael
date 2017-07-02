@@ -4,55 +4,86 @@
 #include <string.h>
 
 #include <kernel/tty.h>
+#include <kernel/ssp.h>
 
 #include "vga.h"
 
 static const size_t VGA_WIDTH = 80;
 static const size_t VGA_HEIGHT = 25;
-static uint16_t* const VGA_MEMORY = (uint16_t*) 0xB8000;
+static volatile uint16_t *vga_buffer = (uint16_t*) 0xB8000;
 
-static size_t terminal_row;
-static size_t terminal_column;
-static uint8_t terminal_color;
-static uint16_t* terminal_buffer;
+static size_t term_row;
+static size_t term_col;
+static uint8_t term_color;
 
-void terminal_initialize(void) {
-	terminal_row = 0;
-	terminal_column = 0;
-	terminal_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-	terminal_buffer = VGA_MEMORY;
+static inline void term_putentryat(char c, uint8_t color, size_t x, size_t y)
+{
+	const size_t index = y * VGA_WIDTH + x;
+	vga_buffer[index] = vga_entry(c, color);
+}
+
+
+void term_init(void)
+{
+	term_row = term_col = 0;
+	term_color = vga_entry_color(VGA_COLOR_BLACK, VGA_COLOR_WHITE);
+
 	for (size_t y = 0; y < VGA_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_WIDTH; x++) {
 			const size_t index = y * VGA_WIDTH + x;
-			terminal_buffer[index] = vga_entry(' ', terminal_color);
+			vga_buffer[index] = vga_entry(0x0, term_color);
 		}
 	}
 }
 
-void terminal_setcolor(uint8_t color) {
-	terminal_color = color;
-}
+void term_putc(char c)
+{
+	switch (c) {
+		case '\n':
+			term_row++;
+			term_col = 0;
+			break;
 
-void terminal_putentryat(unsigned char c, uint8_t color, size_t x, size_t y) {
-	const size_t index = y * VGA_WIDTH + x;
-	terminal_buffer[index] = vga_entry(c, color);
-}
+		case '\b': /* backspace */
+			if (term_col != 0) {
+				term_putentryat(0x0, term_color, term_col, term_row);
+				term_col--;
+			}
+			break;
 
-void terminal_putchar(char c) {
-	unsigned char uc = c;
-	terminal_putentryat(uc, terminal_color, terminal_column, terminal_row);
-	if (++terminal_column == VGA_WIDTH) {
-		terminal_column = 0;
-		if (++terminal_row == VGA_HEIGHT)
-			terminal_row = 0;
+		default: {
+			term_putentryat(c, term_color, term_col, term_row);
+			term_col++;
+			break;
+		}
+	}
+
+	if (term_col >= VGA_WIDTH) {
+		term_col = 0;
+		term_row++;
+	}
+
+	if (term_row >= VGA_HEIGHT) {
+		for (size_t row = 1; row < VGA_HEIGHT; ++row) {
+			for (size_t col = 0; col < VGA_WIDTH; ++col) {
+				int prev = (VGA_WIDTH * row) + col - VGA_WIDTH;
+				int cur  = (VGA_WIDTH * row) + col;
+				vga_buffer[prev] = vga_buffer[cur];
+			}
+		}
+
+		term_row = VGA_HEIGHT - 1;
+		if (c == '\n') { /* clear last line */
+			for (size_t col = 0; col < VGA_WIDTH; ++col) {
+				size_t index = (VGA_WIDTH * term_row) + col;
+				vga_buffer[index] = vga_entry(0x0, term_color);
+			}
+		}
 	}
 }
 
-void terminal_write(const char* data, size_t size) {
+void term_puts(char* data, size_t size)
+{
 	for (size_t i = 0; i < size; i++)
-		terminal_putchar(data[i]);
-}
-
-void terminal_writestring(const char* data) {
-	terminal_write(data, strlen(data));
+		term_putc(data[i]);
 }
