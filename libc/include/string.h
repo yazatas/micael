@@ -33,7 +33,7 @@ char *strstr(const char *haystack, const char *needle);
 char *strtok(char *str, const char *delim);
 
 size_t strlen(const char *s);
-size_t strnlen(const char *s, size_t maxlen)
+size_t strnlen(const char *s, size_t maxlen);
 size_t strspn(const char *s, const char *accept);
 size_t strcspn(const char *s, const char *reject);
 size_t strxfrm(char *dest, const char *src, size_t n);
