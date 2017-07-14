@@ -1,20 +1,9 @@
-#ifndef _STDLIB_H
-#define _STDLIB_H 1
+#ifndef __STDLIB_H__
+#define __STDLIB_H__
 
 #include <sys/cdefs.h>
 
-#define NULL (void*)0
-
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 __attribute__((__noreturn__))
 void abort(void);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
