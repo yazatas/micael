@@ -29,6 +29,7 @@ SECTIONS
 	.data BLOCK(4K) : ALIGN(4K)
 	{
 		*(.data)
+		__data_end = .;
 	}
 
 	/* Read-write data (uninitialized) and stack */
@@ -36,6 +37,8 @@ SECTIONS
 	{
 		*(COMMON)
 		*(.bss)
+		__bss_end = .;
+		__kernel_end = .;
 	}
 
 	/* The compiler may produce other sections, put them in the proper place in
