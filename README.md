@@ -19,10 +19,19 @@ Following headers are provided in a freestanding environment by GCC:
 You'll need QEMU and a [cross-compiler](http://wiki.osdev.org/GCC_Cross-Compiler) to compile and run micael;
 
 ### What is ready:
-* string.h (NOT TESTED)
+* string.h (not tested)
+* ctype.h
 
 ### What is not ready
-* everything else
+* libc:
+  * errno.h
+  * stdio.h
+  * stdlib.h
+  * time.h
+  * signal.h
+  * TESTING!
+* kernel:
+  * everything
 
 # Compiling and running
 
