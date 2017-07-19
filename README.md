@@ -19,8 +19,8 @@ Following headers are provided in a freestanding environment by GCC:
 You'll need QEMU and a [cross-compiler](http://wiki.osdev.org/GCC_Cross-Compiler) to compile and run micael;
 
 ### What is ready:
-* string.h (not tested)
-* ctype.h
+* string.h
+* ctype.h (tested)
 
 ### What is not ready
 * libc:
@@ -37,7 +37,7 @@ You'll need QEMU and a [cross-compiler](http://wiki.osdev.org/GCC_Cross-Compiler
 
 Run following commands to compile and run micael:
 
-`./build.sh; ./run`
+`./build.sh; ./run.sh`
 
 # Copying
 micael is free software. It's licensed under the MIT license.
