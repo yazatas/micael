@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 
-struct gdt_desc_t gmts[GDT_SIZE];
+struct gdt_desc_t gmts[GDT_TABLE_SIZE];
 struct gdt_reg_t gdt_reg;
 
 static void init_gdt_desc(uint32_t base, uint32_t limit, uint8_t access,
@@ -24,7 +24,7 @@ void gdt_init(void)
 	init_gdt_desc(0x0, 0xfffff, 0x92, 0x0d, &gmts[2]); /* data */
 	/* TODO: task state segment */
 
-	gdt_reg.limit = GDT_SIZE * 3;
+	gdt_reg.limit = GDT_ENTRY_SIZE * GDT_TABLE_SIZE;
 	gdt_reg.base  = GDT_BASE;
 
 	memcpy((void*)gdt_reg.base, gmts, gdt_reg.limit);
