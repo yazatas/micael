@@ -12,4 +12,4 @@ menuentry "micael" {
 EOF
 grub-mkrescue -o micael.iso isodir
 
-qemu-system-$(./target-triplet-to-arch.sh $(./default-host.sh)) -cdrom micael.iso
+qemu-system-i386 -cdrom micael.iso
