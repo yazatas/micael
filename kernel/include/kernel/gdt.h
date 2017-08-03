@@ -3,27 +3,28 @@
 
 #include <stdint.h>
 
-struct gdt_reg_t {
+struct gdt_ptr_t {
     uint16_t limit;
     uint32_t base;
 } __attribute__((packed));
 
-struct gdt_desc_t {
-    uint16_t limit0_15;
-    uint16_t base0_15;
-    uint8_t  base16_23;
+struct gdt_entry_t {
+    uint16_t limit_low;
+    uint16_t base_low;
+    uint8_t  base_middle;
     uint8_t  access;
-    uint8_t  limit16_19:4;
-    uint8_t  other:4;
-    uint8_t  base24_31;
+	uint8_t  granularity;
+    uint8_t  base_high;
 } __attribute__((packed));
 
 #define GDT_BASE       0x00000800
-#define GDT_TABLE_SIZE 3
-#define GDT_ENTRY_SIZE (sizeof(struct gdt_desc_t))
+#define GDT_TABLE_SIZE 5
+#define GDT_ENTRY_SIZE (sizeof(struct gdt_entry_t))
 
-extern struct gdt_desc_t gmts[GDT_TABLE_SIZE];
-extern struct gdt_reg_t gdt_reg;
+struct gdt_entry_t GDT[GDT_TABLE_SIZE];
+struct gdt_ptr_t gdt_ptr;
+
+extern void gdt_flush();
 
 void gdt_init(void);
 

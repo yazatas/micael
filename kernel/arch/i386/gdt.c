@@ -2,42 +2,32 @@
 #include <string.h>
 #include <stdio.h>
 
-struct gdt_desc_t gmts[GDT_TABLE_SIZE];
-struct gdt_reg_t gdt_reg;
 
-static void init_gdt_desc(uint32_t base, uint32_t limit, uint8_t access,
-                   uint8_t other, struct gdt_desc_t *desc)
+static void gdt_set_gate(uint32_t base, uint32_t limit, uint8_t access,
+                   uint8_t gran, struct gdt_entry_t *entry)
 {
-	desc->limit0_15  = limit & 0xffff;
-	desc->base0_15   = base & 0xffff;
-	desc->base16_23  = (base >> 16) & 0xff;
-	desc->access     = access;
-	desc->limit16_19 = (base >> 16) & 0xf;
-	desc->other      = other & 0xf;
-	desc->base24_31  = (base >> 24) & 0xff;
+	entry->base_low    = base & 0xffff;
+	entry->base_middle = (base >> 16) & 0xff;
+	entry->base_high   = (base >> 24) & 0xff;
+
+	entry->limit_low   = limit & 0xffff;
+	entry->granularity = (limit >> 16) & 0xffff;
+	entry->granularity |= gran & 0xf0;
+	entry->access      = access;
 }
 
 void gdt_init(void)
 {
-	init_gdt_desc(0x0, 0x0, 0x0, 0x0, &gmts[0]);       /* null */
-	init_gdt_desc(0x0, 0xfffff, 0x9a, 0x0d, &gmts[1]); /* code */
-	init_gdt_desc(0x0, 0xfffff, 0x92, 0x0d, &gmts[2]); /* data */
-	/* TODO: task state segment */
+	gdt_ptr.limit = (GDT_ENTRY_SIZE * 5) - 1;	
+	gdt_ptr.base  = (uint32_t)&GDT;
 
-	gdt_reg.limit = GDT_ENTRY_SIZE * GDT_TABLE_SIZE;
-	gdt_reg.base  = GDT_BASE;
+	gdt_set_gate(0, 0, 0, 0, &GDT[0]);                /* null segment */
+	gdt_set_gate(0, 0xffffffff, 0x9a, 0xcf, &GDT[1]); /* code segment */
+	gdt_set_gate(0, 0xffffffff, 0x92, 0xcf, &GDT[2]); /* data segment */
+	gdt_set_gate(0, 0xffffffff, 0x7a, 0xcf, &GDT[3]); /* user mode code segment */
+	gdt_set_gate(0, 0xffffffff, 0x72, 0xcf, &GDT[4]); /* user mode data segment */
 
-	memcpy((void*)gdt_reg.base, gmts, gdt_reg.limit);
-
-	/* load registry */
-	asm volatile("lgdtl (gdt_reg)");
-
-	/* init segments */
-	asm volatile(" movw $0x10, %ax \n\
-			       movw %ax, %ds  \n\
-				   movw %ax, %es  \n\
-				   movw %ax, %fs  \n\
-				   movw %ax, %gs  \n\
-				   ljmp $0x8, $next \n\
-				   next:            \n");
+	/* TODO: move this to boot.s */
+	asm volatile ("lgdtl (gdt_ptr)");
+	gdt_flush((uint32_t)&gdt_ptr);
 }
