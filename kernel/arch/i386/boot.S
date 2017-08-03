@@ -71,8 +71,6 @@ gdt_flush:
 .global isr14 # page faul
 .global isr15 # unknown interrupt
 .global isr16 # coprocessor fault
-.global isr17 # alignment check
-.global isr18 # machine check
 
 # how everything works:
 # 1. clear interrupt flag
@@ -191,20 +189,6 @@ isr16:
 	cli
 	pushl $0
 	pushl $16
-	jmp isr_common
-
-# alignment check
-isr17:
-	cli
-	pushl $0
-	pushl $17
-	jmp isr_common
-
-# machine check
-isr18:
-	cli
-	pushl $0
-	pushl $18
 	jmp isr_common
 
 # save cpu state, call interrupt handler 

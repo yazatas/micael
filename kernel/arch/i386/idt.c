@@ -80,13 +80,11 @@ const char *interrupts[] = {
 	"page fault",
 	"unknown interrupt",
 	"coprocessor fault",
-	"alignment check",
-	"machine check",
 };
 
 void interrupt_handler(struct regs_t *cpu_state)
 {
-	if (cpu_state->isr_num <= 18) {
+	if (cpu_state->isr_num <= 16) {
 		puts(interrupts[cpu_state->isr_num]);
 	} else {
 		puts(interrupts[11]); /* gpf */
