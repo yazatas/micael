@@ -7,12 +7,12 @@ inline void outb(uint32_t addr, uint8_t v)
 
 inline void outw(uint32_t addr, uint16_t v)
 {
-    asm volatile("outw %%ax, %%dx", :: "d" (addr), "a" (v));
+    asm volatile("outw %%ax, %%dx" :: "d" (addr), "a" (v));
 }
 
 inline void outl(uint32_t addr, uint32_t v)
 {
-    asm volatile("outl %%eax, %%dx", :: "d" (addr), "a" (v));
+    asm volatile("outl %%eax, %%dx" :: "d" (addr), "a" (v));
 }
 
 inline uint8_t inb(uint32_t addr)
