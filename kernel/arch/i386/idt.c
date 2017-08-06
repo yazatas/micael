@@ -23,7 +23,7 @@ extern void isr14();
 extern void isr15();
 extern void isr16();
 
-static void idt_set_gate(uint32_t offset, uint16_t select, uint8_t type, struct idt_entry_t *entry)
+void idt_set_gate(uint32_t offset, uint16_t select, uint8_t type, struct idt_entry_t *entry)
 {
 	entry->offset0_15  = offset & 0xffff;
 	entry->offset16_31 = (offset >> 16) & 0xffff;
@@ -31,8 +31,6 @@ static void idt_set_gate(uint32_t offset, uint16_t select, uint8_t type, struct 
 	entry->zero        = 0;
 	entry->type        = type;
 }
-
-extern void idt_load();
 
 void idt_init(void)
 {
@@ -60,36 +58,4 @@ void idt_init(void)
 	idt_set_gate((uint32_t)isr16, 0x08, 0x8e, &IDT[16]);
 
 	asm volatile ("lidtl (idt_ptr)");
-}
-
-const char *interrupts[] = {
-	"division by zero", 
-	"debug exception",
-	"non-maskable interrupt",
-	"breakpoint",
-	"into detected overflow",
-	"out of bounds",
-	"invalid opcode",
-	"no coprocessor",
-	"double fault",
-	"coprocessor segment overrun",
-	"bad tss",
-	"segment not present",
-	"stack fault",
-	"general protection fault",
-	"page fault",
-	"unknown interrupt",
-	"coprocessor fault",
-};
-
-void interrupt_handler(struct regs_t *cpu_state)
-{
-	if (cpu_state->isr_num <= 16) {
-		puts(interrupts[cpu_state->isr_num]);
-	} else {
-		puts(interrupts[11]); /* gpf */
-	}
-
-	puts("halting system!");
-	asm ("hlt");
 }

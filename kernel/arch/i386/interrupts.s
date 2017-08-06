@@ -164,3 +164,142 @@ isr_common:
 	popa
 	addl $8, %esp
 	iret 
+
+
+# Interrupt requests
+.global irq0  # timer
+.global irq1  # keyboard
+.global irq2  # cascade
+.global irq3  # com2
+.global irq4  # com1
+.global irq5  # lpt2
+.global irq6  # floppy disk
+.global irq7  # lpt1
+.global irq8  # cmos real-time clock
+.global irq9  # legacy scsi / nic
+.global irq10 # scsi / nic
+.global irq11 # scsi / nic
+.global irq12 # ps2 mouse
+.global irq13 # fpu / coprocessor / inter-processor
+.global irq14 # primary ata hard disk
+.global irq15 # secondary ata hard disk
+
+irq0:
+	cli
+	pushl $0
+	pushl $32
+	jmp irq_common
+
+irq1:
+	cli
+	pushl $0
+	pushl $33
+	jmp irq_common
+
+irq2:
+	cli
+	pushl $0
+	pushl $34
+	jmp irq_common
+
+irq3:
+	cli
+	pushl $0
+	pushl $35
+	jmp irq_common
+
+irq4:
+	cli
+	pushl $0
+	pushl $36
+	jmp irq_common
+
+irq5:
+	cli
+	pushl $0
+	pushl $37
+	jmp irq_common
+
+irq6:
+	cli
+	pushl $0
+	pushl $38
+	jmp irq_common
+
+irq7:
+	cli
+	pushl $0
+	pushl $39
+	jmp irq_common
+
+irq8:
+	cli
+	pushl $0
+	pushl $40
+	jmp irq_common
+
+irq9:
+	cli
+	pushl $0
+	pushl $41
+	jmp irq_common
+
+irq10:
+	cli
+	pushl $0
+	pushl $42
+	jmp irq_common
+
+irq11:
+	cli
+	pushl $0
+	pushl $43
+	jmp irq_common
+
+irq12:
+	cli
+	pushl $0
+	pushl $44
+	jmp irq_common
+
+irq13:
+	cli
+	pushl $0
+	pushl $45
+	jmp irq_common
+
+irq14:
+	cli
+	pushl $0
+	pushl $46
+	jmp irq_common
+
+irq15:
+	cli
+	pushl $0
+	pushl $47
+	jmp irq_common
+
+irq_common:
+	pusha
+	pushw %ds
+	pushw %es
+	pushw %fs
+	pushw %gs
+	movw $0x10, %ax # load kernel data segment descriptor
+	movw %ax, %ds
+	movw %ax, %es
+	movw %ax, %fs
+	movw %ax, %gs
+	movl %esp, %eax # push current stack pointer
+	pushl %eax
+	mov $irq_handler, %eax
+	call *%eax
+	pop %eax
+	pop %gs
+	pop %fs
+	pop %es
+	pop %ds
+	popa
+	addl $8, %esp # discard irq number and error code
+	iret
