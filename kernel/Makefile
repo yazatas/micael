@@ -29,6 +29,8 @@ KERNEL_OBJS=\
 $(KERNEL_ARCH_OBJS) \
 kernel/kernel.o \
 kernel/isr.o \
+kernel/timer.o \
+kernel/keyboard.o \
 
 OBJS=\
 $(ARCHDIR)/crti.o \
