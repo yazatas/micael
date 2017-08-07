@@ -156,11 +156,11 @@ isr_common:
 	pushl %eax
 	mov $interrupt_handler, %eax
 	call *%eax
-	pop %eax
-	pop %gs
-	pop %fs
-	pop %es
-	pop %ds
+	popl %eax
+	popw %gs
+	popw %fs
+	popw %es
+	popw %ds
 	popa
 	addl $8, %esp
 	iret 
@@ -295,11 +295,11 @@ irq_common:
 	pushl %eax
 	mov $irq_handler, %eax
 	call *%eax
-	pop %eax
-	pop %gs
-	pop %fs
-	pop %es
-	pop %ds
+	popl %eax
+	popw %gs
+	popw %fs
+	popw %es
+	popw %ds
 	popa
 	addl $8, %esp # discard irq number and error code
 	iret
