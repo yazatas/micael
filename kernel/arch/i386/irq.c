@@ -3,6 +3,7 @@
 #include <kernel/irq.h>
 
 #include <stdint.h>
+#include <stdio.h>
 
 extern void irq0();
 extern void irq1();
@@ -21,7 +22,7 @@ extern void irq13();
 extern void irq14();
 extern void irq15();
 
-static void *irq_routines[16] = {0};
+static void *irq_routines[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 struct regs_t {
 	uint16_t gs, fs, es, ds;
@@ -29,6 +30,11 @@ struct regs_t {
 	uint32_t isr_num, err_num;
 	uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
 };
+
+void irq_install_handler(void (*handler)(struct regs_t *cpu), int irq_num)
+{
+	irq_routines[irq_num] = handler;
+}
 
 /* http://www.thesatya.com/8259.html */
 void irq_init(void)
@@ -72,9 +78,10 @@ void irq_init(void)
 	idt_set_gate((uint32_t)irq15, 0x08, 0x8e, &IDT[47]);
 }
 
+
 /* irq raised by master -> acknowledge master 
  * irq raised by slave, -> acknowledge both slave AND master */
-extern void irq_handler(struct regs_t *cpu_state)
+void irq_handler(struct regs_t *cpu_state)
 {
 	void (*handler)(struct regs_t *cpu_state);
 

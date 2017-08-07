@@ -8,5 +8,6 @@
 #define PIC_ACK              0x20
 
 void irq_init(void);
+void irq_install_handler(void (*handler)(), int irq_num);
 
 #endif /* end of include guard: __PIC_H__ */
