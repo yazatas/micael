@@ -9,8 +9,6 @@
 #include <kernel/timer.h>
 #include <kernel/keyboard.h>
 
-extern void time_handler();
-
 void kernel_main(void)
 {
 	term_init();
