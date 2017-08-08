@@ -13,9 +13,9 @@ extern void time_handler();
 
 void kernel_main(void)
 {
+	term_init();
 	gdt_init();
 	idt_init();
-	term_init();
 	irq_init();
 	asm ("sti"); /* enable hardware interrupts */
 

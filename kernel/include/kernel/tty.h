@@ -5,6 +5,6 @@
 
 void term_init(void);
 void term_putc(char c);
-void term_puts(char *data, size_t len);
+void term_puts(char *data);
 
 #endif

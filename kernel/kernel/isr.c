@@ -1,6 +1,8 @@
+#include <kernel/tty.h>
+#include <kernel/kprint.h>
+
 #include <stdint.h>
 #include <stdio.h>
-#include <kernel/tty.h>
 
 struct regs_t {
 	uint16_t gs, fs, es, ds;
@@ -32,11 +34,11 @@ const char *interrupts[] = {
 extern void interrupt_handler(struct regs_t *cpu_state)
 {
 	if (cpu_state->isr_num <= 16) {
-		puts(interrupts[cpu_state->isr_num]);
+		kprint("%s exception occurred!\n", interrupts[cpu_state->isr_num]);
 	} else {
-		puts("gpf");
+		kprint("gpf\n");
 	}
 
-	puts("halting system!");
+	kprint("halting system!\n");
 	for (;;);
 }

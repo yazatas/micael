@@ -82,8 +82,9 @@ void term_putc(char c)
 	}
 }
 
-void term_puts(char* data, size_t size)
+void term_puts(char *data)
 {
+	size_t size = strlen(data);
 	for (size_t i = 0; i < size; i++)
 		term_putc(data[i]);
 }
