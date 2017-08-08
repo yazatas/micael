@@ -1,4 +1,6 @@
 #include <kernel/gdt.h>
+#include <kernel/kprint.h>
+
 #include <string.h>
 #include <stdio.h>
 
@@ -30,4 +32,6 @@ void gdt_init(void)
 	/* TODO: move this to boot.s */
 	asm volatile ("lgdtl (gdt_ptr)");
 	gdt_flush((uint32_t)&gdt_ptr);
+
+	kprint("GDT initialized!\n");
 }
