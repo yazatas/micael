@@ -1,4 +1,5 @@
 #include <kernel/idt.h>
+#include <kernel/kprint.h>
 
 #include <stdint.h>
 #include <string.h>
@@ -58,4 +59,6 @@ void idt_init(void)
 	idt_set_gate((uint32_t)isr16, 0x08, 0x8e, &IDT[16]);
 
 	asm volatile ("lidtl (idt_ptr)");
+
+	kprint("IDT initialized!\n");
 }

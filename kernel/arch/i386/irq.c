@@ -1,6 +1,7 @@
 #include <kernel/io.h>
 #include <kernel/idt.h>
 #include <kernel/irq.h>
+#include <kernel/kprint.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -76,6 +77,8 @@ void irq_init(void)
 	idt_set_gate((uint32_t)irq13, 0x08, 0x8e, &IDT[45]);
 	idt_set_gate((uint32_t)irq14, 0x08, 0x8e, &IDT[46]);
 	idt_set_gate((uint32_t)irq15, 0x08, 0x8e, &IDT[47]);
+
+	kprint("IRQs enabled!\n");
 }
 
 
