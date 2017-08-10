@@ -1,5 +1,6 @@
 #include <kernel/tty.h>
 #include <kernel/kprint.h>
+#include <kernel/kpanic.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -33,12 +34,13 @@ const char *interrupts[] = {
 
 extern void interrupt_handler(struct regs_t *cpu_state)
 {
+	const char *err = NULL;
+
 	if (cpu_state->isr_num <= 16) {
-		kprint("%s exception occurred!\n", interrupts[cpu_state->isr_num]);
+		err = interrupts[cpu_state->isr_num];
 	} else {
-		kprint("gpf\n");
+		err = "gpf";
 	}
 
-	kprint("halting system!\n");
-	for (;;);
+	kpanic(err);
 }

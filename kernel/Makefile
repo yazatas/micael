@@ -32,6 +32,7 @@ kernel/isr.o \
 kernel/timer.o \
 kernel/keyboard.o \
 kernel/kprint.o \
+kernel/kpanic.o \
 
 OBJS=\
 $(ARCHDIR)/crti.o \

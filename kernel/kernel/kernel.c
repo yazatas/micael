@@ -11,7 +11,7 @@
 
 void kernel_main(void)
 {
-	term_init();
+	term_init_default();
 	gdt_init();
 	idt_init();
 	irq_init();
@@ -19,6 +19,8 @@ void kernel_main(void)
 
 	timer_install();
 	kb_install();
+
+	int v = 10 / 0;
 
 	for (;;);
 }
