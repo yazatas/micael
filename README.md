@@ -2,29 +2,18 @@
 
 micael is a 32-bit monolithic kernel written in C and x86 assembly.
 
-I'm currently implementing libc so there isn't going to be a lot of kernel functionality available for testing. I won't be implementing the whole library, only the most crucial parts (errno, std{io,lib}, time, string, ctype, signal)
-None of the functions in libc have been tested unless explicitly stated in "What is ready" section down below.
-
-Following headers are provided in a freestanding environment by GCC:
-
-* float.h
-* iso646.h
-* limits.h
-* stdarg.h
-* stdbool.h
-* stddef.h
-* stdint.h
-
+Currently I'm in the process of implementing virtual memory. I decided to give libc a rest as it's not going to be needed for a while. 
 
 You'll need QEMU and a [cross-compiler](http://wiki.osdev.org/GCC_Cross-Compiler) to compile and run micael;
 
 ### What is ready:
 * libc
-  * string.h
-  * ctype.h (tested)
+  * string.h (needs testing)
+  * ctype.h
 * kernel
   * global descriptor table
-  * interrupts
+  * interrupts (ISRs and IRQs)
+  * paging
 
 ### What is not ready
 * libc:
@@ -33,9 +22,11 @@ You'll need QEMU and a [cross-compiler](http://wiki.osdev.org/GCC_Cross-Compiler
   * stdlib.h
   * time.h
   * signal.h
-  * TESTING!
 * kernel:
-  * everything
+  * virtual memory
+  * kernel multitasking
+  * process management
+  * everything else
 
 # Compiling and running
 
