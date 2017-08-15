@@ -21,26 +21,9 @@ void kernel_main(void)
     idt_init();
     irq_init();
     asm ("sti"); /* enable hardware interrupts */
-    /* mmu_init(); */
 
     timer_install();
     kb_install();
 
-    uint32_t *ptr;
-    extern uint32_t __kernel_end;
-    pageframe_t tmp = kalloc_frame();
-
-    tmp = kalloc_frame();
-    ptr = (uint32_t*)tmp;
-
-    kprint("kernel end: 0x%x\n"
-           "page start: 0x%x\n"
-           "ptr start:  0x%x\n",
-           &__kernel_end, tmp, ptr);
-
-    memset(ptr, 'q', PF_SIZE);
-
-    for (int i = 0; i < 30; ++i) {
-        term_putc(*(ptr + i));
-    }
+    mmu_init();
 }
