@@ -8,7 +8,7 @@
 
 static const size_t VGA_WIDTH = 80;
 static const size_t VGA_HEIGHT = 25;
-static volatile uint16_t *vga_buffer = (uint16_t*) 0xB8000;
+static volatile uint32_t *vga_buffer = (uint32_t*) 0xC00B8000;
 
 static size_t term_row;
 static size_t term_col;
@@ -18,8 +18,8 @@ static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
 }
 
-static inline uint16_t vga_entry(uint8_t uc, uint8_t color) {
-	return (uint16_t)uc | (uint16_t)color << 8;
+static inline uint32_t vga_entry(uint8_t uc, uint8_t color) {
+	return (uint32_t)uc | (uint32_t)color << 8;
 }
 
 static inline void term_putentryat(char c, uint8_t color, size_t x, size_t y)

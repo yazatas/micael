@@ -14,7 +14,7 @@
 #include <kernel/mmu.h>
 #include <kernel/pfa.h>
 
-void kernel_main(void)
+void kmain(void)
 {
     term_init_default();
     gdt_init();
@@ -25,5 +25,11 @@ void kernel_main(void)
     timer_install();
     kb_install();
 
-    mmu_init();
+	/* kpanic("kissu"); */
+
+    /* mmu_init(); */
+
+	int va = 10/ 0;
+
+	for (;;);
 }

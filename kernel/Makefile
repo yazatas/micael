@@ -1,6 +1,6 @@
 HOSTARCH=i386
 
-CFLAGS?=-O2 -g
+CFLAGS?=-g
 CPPFLAGS?=
 LDFLAGS?=
 LIBS?=
@@ -34,21 +34,12 @@ kernel/keyboard.o \
 kernel/kprint.o \
 kernel/kpanic.o \
 
-OBJS=\
-$(ARCHDIR)/crti.o \
-$(ARCHDIR)/crtbegin.o \
-$(KERNEL_OBJS) \
-$(ARCHDIR)/crtend.o \
-$(ARCHDIR)/crtn.o \
+OBJS=$(KERNEL_OBJS)
 
 LINK_LIST=\
 $(LDFLAGS) \
-$(ARCHDIR)/crti.o \
-$(ARCHDIR)/crtbegin.o \
 $(KERNEL_OBJS) \
 $(LIBS) \
-$(ARCHDIR)/crtend.o \
-$(ARCHDIR)/crtn.o \
 
 .PHONY: all clean install install-headers install-kernel
 .SUFFIXES: .o .c .S

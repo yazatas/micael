@@ -12,4 +12,4 @@ menuentry "micael" {
 EOF
 grub-mkrescue -o micael.iso isodir
 
-qemu-system-i386 -cdrom micael.iso
+qemu-system-i386 -cdrom micael.iso -no-reboot -D /tmp/qemu.log -d cpu_reset,guest_errors,int,in_asm
