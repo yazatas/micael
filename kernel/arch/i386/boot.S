@@ -12,6 +12,20 @@
 .long FLAGS
 .long CHECKSUM
 
+.section .data
+.align 0x1000
+boot_page_table:
+	.set addr, 0
+	.rept 1024
+	.long addr | 3
+	.set addr, addr + 0x1000
+	.endr
+
+boot_page_dir:
+	.rept 1024
+	.long (boot_page_table - 0xc0000000) + 1 # present
+	.endr
+
 # Reserve a stack for the initial thread.
 .section .bss
 .align 16
@@ -23,22 +37,30 @@ stack_top:
 
 # The kernel entry point.
 .global _start
-.global isr0  # divide by zero
 
 _start:
+	cli
+
+	mov $(boot_page_dir - 0xc0000000), %ecx
+	mov %ecx, %cr3
+
+	mov %cr0, %ecx
+	or $0x80000000, %ecx
+	mov %ecx, %cr0
+
+	lea higher_half_kernel, %ecx
+	jmp *%ecx # long jump to update instruction pointer
+
+higher_half_kernel:
+
 	movl $stack_top, %esp
 
-	# Call the global constructors.
-	call _init
-
 	# Transfer control to the main kernel.
-	call kernel_main
+	call kmain
 
 	# Hang if kernel_main unexpectedly returns.
 	cli
-1:	hlt
-	jmp 1b
-
+	hlt
 
 .global gdt_flush
 gdt_flush:
