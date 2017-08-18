@@ -22,8 +22,8 @@ enum vga_color {
 	VGA_COLOR_WHITE = 15,
 };
 
-void term_init(int fg, int bg);
-void term_init_default(void);
+void tty_init(int fg, int bg);
+void tty_init_default(void);
 void term_putc(char c);
 void term_puts(char *data);
 

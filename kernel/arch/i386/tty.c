@@ -6,42 +6,37 @@
 #include <kernel/tty.h>
 #include <kernel/ssp.h>
 
+/* TODO: this whole thing needs a rewrite 
+ * and relocation to drivers directory 
+ *
+ * real vga when??? */
+
 static const size_t VGA_WIDTH = 80;
 static const size_t VGA_HEIGHT = 25;
-static volatile uint32_t *vga_buffer = (uint32_t*) 0xC00B8000;
+static volatile uint16_t *vga_buffer = (uint16_t*) 0xc00B8000;
 
-static size_t term_row;
-static size_t term_col;
 static uint8_t term_color;
+static size_t term_row, term_col;
 
-static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {
-	return fg | bg << 4;
-}
-
-static inline uint32_t vga_entry(uint8_t uc, uint8_t color) {
-	return (uint32_t)uc | (uint32_t)color << 8;
-}
-
-static inline void term_putentryat(char c, uint8_t color, size_t x, size_t y)
+static inline void tty_entry(char c, uint8_t color, size_t x, size_t y)
 {
-	const size_t index = y * VGA_WIDTH + x;
-	vga_buffer[index] = vga_entry(c, color);
+	size_t index = y * VGA_WIDTH + x;
+	vga_buffer[index] = c | (color << 8);
 }
 
-void term_init_default(void)
+void tty_init_default(void)
 {
-	term_init(VGA_COLOR_BLACK, VGA_COLOR_WHITE);
+	tty_init(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
 }
 
-void term_init(int fg, int bg)
+void tty_init(int fg, int bg)
 {
 	term_row = term_col = 0;
-	term_color = vga_entry_color(fg, bg);
+	term_color = fg | bg << 4;
 
-	for (size_t y = 0; y < VGA_HEIGHT; y++) {
-		for (size_t x = 0; x < VGA_WIDTH; x++) {
-			const size_t index = y * VGA_WIDTH + x;
-			vga_buffer[index] = vga_entry(0x0, term_color);
+	for (size_t x = 0; x < VGA_WIDTH; x++) {
+		for (size_t y = 0; y < VGA_HEIGHT; y++) {
+			tty_entry(0x0, term_color, x, y);
 		}
 	}
 }
@@ -54,15 +49,8 @@ void term_putc(char c)
 			term_col = 0;
 			break;
 
-		case '\b': /* backspace */
-			if (term_col != 0) {
-				term_putentryat(0x0, term_color, term_col, term_row);
-				term_col--;
-			}
-			break;
-
 		default: {
-			term_putentryat(c, term_color, term_col, term_row);
+			tty_entry(c, term_color, term_col, term_row);
 			term_col++;
 			break;
 		}
@@ -86,7 +74,7 @@ void term_putc(char c)
 		if (c == '\n') { /* clear last line */
 			for (size_t col = 0; col < VGA_WIDTH; ++col) {
 				size_t index = (VGA_WIDTH * term_row) + col;
-				vga_buffer[index] = vga_entry(0x0, term_color);
+				vga_buffer[index] = (0x0 | term_color << 8);
 			}
 		}
 	}
