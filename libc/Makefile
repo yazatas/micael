@@ -1,29 +1,11 @@
-HOSTARCH=i386
-
-CFLAGS?=-O2 -g
-CPPFLAGS?=
-LDFLAGS?=
-LIBS?=
-
-DESTDIR?=
-PREFIX?=/usr/local
-EXEC_PREFIX?=$(PREFIX)
-INCLUDEDIR?=$(PREFIX)/include
-LIBDIR?=$(EXEC_PREFIX)/lib
-
-CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra -g
-CPPFLAGS:=$(CPPFLAGS) -D__is_libc -Iinclude
-LIBK_CFLAGS:=$(CFLAGS)
-LIBK_CPPFLAGS:=$(CPPFLAGS) -D__is_libk
-
-ARCHDIR=arch/$(HOSTARCH)
-
+ROOTDIR?=$(shell pwd)/..
+include $(ROOTDIR)/Makefile.config
 include $(ARCHDIR)/make.config
 
-CFLAGS:=$(CFLAGS) $(ARCH_CFLAGS)
-CPPFLAGS:=$(CPPFLAGS) $(ARCH_CPPFLAGS)
-LIBK_CFLAGS:=$(LIBK_CFLAGS) $(KERNEL_ARCH_CFLAGS)
-LIBK_CPPFLAGS:=$(LIBK_CPPFLAGS) $(KERNEL_ARCH_CPPFLAGS)
+DESTDIR=$(realpath $(shell pwd)/../sysroot)
+
+CFLAGS:=$(CFLAGS) --sysroot=$(DESTDIR) -D__is_libc $(ARCH_CFLAGS)
+LIBK_CFLAGS:=$(CFLAGS) -D__is_libk $(KERNEL_ARCH_CFLAGS)
 
 FREEOBJS=\
 $(ARCH_FREEOBJS) \
@@ -37,13 +19,8 @@ string/memmove.o \
 string/memset.o \
 string/strlen.o \
 
-HOSTEDOBJS=\
-$(ARCH_HOSTEDOBJS) \
-
-OBJS=\
-$(FREEOBJS) \
-$(HOSTEDOBJS) \
-
+HOSTEDOBJS=$(ARCH_HOSTEDOBJS)
+OBJS=$(FREEOBJS) $(HOSTEDOBJS)
 LIBK_OBJS=$(FREEOBJS:.o=.libk.o)
 
 #BINARIES=libc.a libk.a # Not ready for libc yet.
@@ -61,16 +38,16 @@ libk.a: $(LIBK_OBJS)
 	$(AR) rcs $@ $(LIBK_OBJS)
 
 .c.o:
-	$(CC) -MD -c $< -o $@ -std=gnu11 $(CFLAGS) $(CPPFLAGS)
+	$(CC) -MD -c $< -o $@ -std=gnu11 $(CFLAGS)
 
 .c.S:
-	$(CC) -MD -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+	$(CC) -MD -c $< -o $@ $(CFLAGS)
 
 .c.libk.o:
-	$(CC) -MD -c $< -o $@ -std=gnu11 $(LIBK_CFLAGS) $(LIBK_CPPFLAGS)
+	$(CC) -MD -c $< -o $@ -std=gnu11 $(LIBK_CFLAGS)
 
 .S.libk.o:
-	$(CC) -MD -c $< -o $@ $(LIBK_CFLAGS) $(LIBK_CPPFLAGS)
+	$(CC) -MD -c $< -o $@ $(LIBK_CFLAGS)
 
 clean:
 	rm -f $(BINARIES) *.a
@@ -86,6 +63,3 @@ install-headers:
 install-libs: $(BINARIES)
 	mkdir -p $(DESTDIR)$(LIBDIR)
 	cp $(BINARIES) $(DESTDIR)$(LIBDIR)
-
--include $(OBJS:.o=.d)
--include $(LIBK_OBJS:.o=.d)
