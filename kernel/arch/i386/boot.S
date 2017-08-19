@@ -21,10 +21,12 @@ boot_page_table:
 	.set addr, addr + 0x1000
 	.endr
 
+.align 0x1000
 boot_page_dir:
 	.rept 1024
 	.long (boot_page_table - 0xc0000000) + 1 # present
 	.endr
+
 
 # Reserve a stack for the initial thread.
 .section .bss
