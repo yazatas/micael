@@ -27,6 +27,7 @@ boot_page_dir:
 	.long (boot_page_table - 0xc0000000) + 1 # present
 	.endr
 
+
 # Reserve a stack for the initial thread.
 .section .bss
 .align 16
