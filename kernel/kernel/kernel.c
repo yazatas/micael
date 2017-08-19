@@ -11,14 +11,19 @@
 #include <kernel/keyboard.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
-
 #include <kernel/mmu.h>
-#include <kernel/pfa.h>
 
 void kmain(void)
 {
     tty_init_default();
-	kprint("hello, world!");
+	gdt_init();
+	idt_init();
+	irq_init();
+	asm ("sti"); /* enable interrupts */
 
+	timer_install();
+	kb_install();
+
+	kprint("haloust");
 	for (;;);
 }
