@@ -3,11 +3,15 @@
 
 #include <stdint.h>
 
-/* each page dir element points to one page table */
-uint32_t page_dir[1024]   __attribute__((aligned(4096)));
-uint32_t page_table[1024] __attribute__((aligned(4096)));
+#define PF_SIZE             0x1000
+#define KALLOC_NO_MEM_ERROR 0xffffffff
+
+typedef uint32_t pageframe_t;
 
 void mmu_init(void);
 void *get_physaddr(void *virtaddr);
+
+void kfree_frame(pageframe_t frame);
+pageframe_t kalloc_frame(void);
 
 #endif /* end of include guard: __MMU_H__ */
