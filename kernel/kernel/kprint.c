@@ -111,6 +111,7 @@ static void va_kprint(const char *fmt, va_list args)
 			}
 		}
 
+		width = zero_padding = 0;
 		fmt++;
 	}
 }
