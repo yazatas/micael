@@ -3,7 +3,8 @@ ENTRY(_start)
 SECTIONS
 {
 	. = 0xc0100000;
-	__kernel_start = .;
+	__kernel_virtual_start = .;
+	__kernel_physical_start = . - 0xc0000000;
 
 	/* multiboot header and code */
 	.text ALIGN(0x1000) : AT(ADDR(.text) - 0xc0000000)
@@ -31,5 +32,6 @@ SECTIONS
 		*(.bss)
 	}
 
-	__kernel_end = .;
+	__kernel_virtual_end = .;
+	__kernel_physical_end = . - 0xc0000000;
 }
