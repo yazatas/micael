@@ -30,17 +30,24 @@ const char *interrupts[] = {
 	"page fault",
 	"unknown interrupt",
 	"coprocessor fault",
+	"alignment check",
+	"machine check",
+	"simd floating point",
+	"virtualization",
 };
 
 extern void interrupt_handler(struct regs_t *cpu_state)
 {
-	const char *err = NULL;
-
-	if (cpu_state->isr_num <= 16) {
-		err = interrupts[cpu_state->isr_num];
-	} else {
-		err = "gpf";
+	if (cpu_state->isr_num == 0xe) {
+		pf_handler(cpu_state->err_num);
+		return;
 	}
+
+	const char *err = "gpf";
+
+	if (cpu_state->isr_num <= 20) {
+		err = interrupts[cpu_state->isr_num];
+	} 
 
 	kpanic(err);
 }
