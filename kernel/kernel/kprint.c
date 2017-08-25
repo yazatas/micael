@@ -11,10 +11,10 @@ static void print_integer(uint32_t value, int width, int sign, bool zp)
 	char c[64] = {0};
 	int i = 0;
 
-	while (value != 0) {
+	do { 
 		c[i++] = (value % 10) + '0';
 		value /= 10;
-	}
+	} while (value != 0);
 
 	while (i < width && width != 0) {
 		c[i++] = zp ? '0' : ' ';
