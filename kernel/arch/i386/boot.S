@@ -13,18 +13,16 @@
 .long CHECKSUM
 
 .section .data
-.align 0x1000
-boot_page_table:
-	.set addr, 0
-	.rept 1024
-	.long addr | 3
-	.set addr, addr + 0x1000
-	.endr
-
+.global boot_page_dir
 .align 0x1000
 boot_page_dir:
-	.rept 1024
-	.long (boot_page_table - 0xc0000000) + 1 # present
+	.long 0x83 # map first 4M
+	.rept 768 - 1 # skip 3GB
+	.long 0
+	.endr
+	.long 0x83 # map first 4M of kernel space
+	.rept 256 - 1 # skip the rest
+	.long 0
 	.endr
 
 
@@ -46,6 +44,10 @@ _start:
 	mov $(boot_page_dir - 0xc0000000), %ecx
 	mov %ecx, %cr3
 
+	mov %cr4, %ecx
+	or $0x10, %ecx
+	mov %ecx, %cr4
+
 	mov %cr0, %ecx
 	or $0x80000000, %ecx
 	mov %ecx, %cr0
@@ -54,7 +56,6 @@ _start:
 	jmp *%ecx # long jump to update instruction pointer
 
 higher_half_kernel:
-
 	movl $stack_top, %esp
 
 	# Transfer control to the main kernel.
