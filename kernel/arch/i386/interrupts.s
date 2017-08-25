@@ -19,6 +19,10 @@
 .global isr14 # page faul
 .global isr15 # unknown interrupt
 .global isr16 # coprocessor fault
+.global isr17 # alignment check exception 
+.global isr18 # machine check exception
+.global isr19 # simd floating point exception
+.global isr20 # virtualization exception
 
 # how everything works:
 # 1. clear interrupt flag
@@ -137,6 +141,29 @@ isr16:
 	cli
 	pushl $0
 	pushl $16
+	jmp isr_common
+
+isr17:
+	cli
+	pushl $17
+	jmp isr_common
+
+isr18:
+	cli
+	pushl $0
+	pushl $18
+	jmp isr_common
+
+isr19:
+	cli
+	pushl $0
+	pushl $19
+	jmp isr_common
+
+isr20:
+	cli
+	pushl $0
+	pushl $20
 	jmp isr_common
 
 # save cpu state, call interrupt handler 
