@@ -49,6 +49,11 @@ void term_putc(char c)
 			term_col = 0;
 			break;
 
+		case '\b':
+			tty_entry(0x0, term_color, term_col, term_row);
+			term_col--;
+			break;
+
 		default: {
 			tty_entry(c, term_color, term_col, term_row);
 			term_col++;
