@@ -4,6 +4,7 @@
 
 void kpanic(const char *error)
 {
+	asm ("cli");
 	tty_init(VGA_COLOR_WHITE, VGA_COLOR_BLUE);
 	kprint("kernel panic: fatal exception: %s!\n", error);
 	

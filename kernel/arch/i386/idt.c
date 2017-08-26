@@ -23,6 +23,10 @@ extern void isr13();
 extern void isr14();
 extern void isr15();
 extern void isr16();
+extern void isr17();
+extern void isr18();
+extern void isr19();
+extern void isr20();
 
 void idt_set_gate(uint32_t offset, uint16_t select, uint8_t type, struct idt_entry_t *entry)
 {
@@ -57,6 +61,10 @@ void idt_init(void)
 	idt_set_gate((uint32_t)isr14, 0x08, 0x8e, &IDT[14]);
 	idt_set_gate((uint32_t)isr15, 0x08, 0x8e, &IDT[15]);
 	idt_set_gate((uint32_t)isr16, 0x08, 0x8e, &IDT[16]);
+	idt_set_gate((uint32_t)isr17, 0x08, 0x8e, &IDT[17]);
+	idt_set_gate((uint32_t)isr18, 0x08, 0x8e, &IDT[18]);
+	idt_set_gate((uint32_t)isr19, 0x08, 0x8e, &IDT[19]);
+	idt_set_gate((uint32_t)isr20, 0x08, 0x8e, &IDT[20]);
 
 	asm volatile ("lidtl (idt_ptr)");
 
