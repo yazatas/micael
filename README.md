@@ -24,7 +24,7 @@ Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
 * kernel
   * global descriptor table
   * interrupts (ISRs and IRQs)
-  * paging
+  * paging (demand paging)
 
 ### What is not ready
 * libc:
