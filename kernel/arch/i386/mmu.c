@@ -149,4 +149,8 @@ void mmu_init(void)
 	/* initialize recursive page directory */
 	PDIR_PHYS = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000);
 	PDIR_PHYS[1023] = (uint32_t)PDIR_PHYS | P_PRESENT | P_READWRITE;
+	PDIR_PHYS[0] = 0;
+
+	asm volatile ("mov %cr3, %ecx \n \
+				  mov %ecx, %cr3");
 }
