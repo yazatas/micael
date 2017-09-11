@@ -16,6 +16,7 @@
 extern uint32_t __kernel_virtual_start,  __kernel_virtual_end;
 extern uint32_t __kernel_physical_start, __kernel_physical_end;
 extern uint32_t boot_page_dir; 
+
 void kmain(void)
 {
     tty_init_default();
@@ -33,14 +34,12 @@ void kmain(void)
 
 	mmu_init();
 
-	
-	uint32_t *t = (uint32_t*)0xb0175012;
-	*t = 1337;
-	kprint("%u\n", *t);
-
-	uint32_t *v = (uint32_t*)0x59015099;
-	*v = 123;
-	kprint("%u\n", *v);
+	traverse();
+	uint32_t *ptr;
+	for (int i = 0; i < 10; ++i) {
+		ptr = kmalloc(i * 10 + 15);
+	}
+	traverse();
 
 	for (;;);
 }
