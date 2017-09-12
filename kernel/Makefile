@@ -16,6 +16,7 @@ kernel/timer.o \
 kernel/keyboard.o \
 kernel/kprint.o \
 kernel/kpanic.o \
+kernel/kheap.o  \
 
 OBJS=$(KERNEL_OBJS)
 LINK_LIST=$(KERNEL_OBJS) $(LDFLAGS)

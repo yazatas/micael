@@ -9,6 +9,11 @@
 #define PE_SIZE             0x80000
 #define KALLOC_NO_MEM_ERROR 0xffffffff
 
+enum {
+	P_PRESENT    = 1,
+	P_READWRITE  = 1 << 1,
+} PAGING_FLAGS;
+
 typedef uint32_t pageframe_t;
 
 /* general stuff */
@@ -21,10 +26,10 @@ void map_page(void *physaddr, void *virtaddr, uint32_t flags);
 pageframe_t kalloc_frame(void);
 void kfree_frame(pageframe_t frame);
 
-void *kmalloc(size_t size);
-void *kcalloc(size_t nmemb, size_t size);
-void *krealloc(void *ptr, size_t size);
-void kfree(void *ptr);
-void traverse();
+/* void *kmalloc(size_t size); */
+/* void *kcalloc(size_t nmemb, size_t size); */
+/* void *krealloc(void *ptr, size_t size); */
+/* void kfree(void *ptr); */
+/* void traverse(); */
 
 #endif /* end of include guard: __MMU_H__ */
