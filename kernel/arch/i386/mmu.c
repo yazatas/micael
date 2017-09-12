@@ -1,18 +1,14 @@
 #include <kernel/mmu.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/kheap.h>
 
 #include <stddef.h>
 #include <stdbool.h>
 
+/* TODO: improve paging stuff */
 #define FREE 0
 #define USED 1
-
-enum {
-	P_PRESENT    = 1,
-	P_READWRITE  = 1 << 1,
-	P_SUPERVISOR = 0 << 2, /* TODO: what? */
-} PAGING_FLAGS;
 
 extern uint32_t boot_page_dir; /* this address is virtual */
 extern uint32_t __kernel_virtual_end, __kernel_physical_end; 
@@ -23,23 +19,6 @@ static pageframe_t pre_frames[20];
 static uint32_t *PDIR_PHYS; /* see mmu_init */
 static uint32_t START_FRAME = (uint32_t)&__kernel_physical_end;
 static uint32_t FRAME_START = 0xf0000000;
-static uint32_t HEAP_START  = 0xd0000000;
-
-typedef struct meta {
-	size_t size;
-	unsigned flags;
-	struct meta *next;
-	struct meta *prev;
-} __attribute__((packed)) meta_t;
-
-/* TODO: switch from linked list to avl tree */
-static meta_t *base = NULL;;
-
-#define META_SIZE sizeof(meta_t)
-#define IS_FREE(x)     (x->flags & 0x1)
-#define MARK_FREE(x)   (x->flags |= 0x1)
-#define UNMARK_FREE(x) (x->flags &= ~0x1)
-#define GET_BASE(x)    ((meta_t*)x - 1)
 
 static pageframe_t kalloc_frame_int(void)
 {
@@ -173,133 +152,8 @@ void mmu_init(void)
 	/* initialize recursive page directory */
 	PDIR_PHYS = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000);
 	PDIR_PHYS[1023] = (uint32_t)PDIR_PHYS | P_PRESENT | P_READWRITE;
-	PDIR_PHYS[0] = 0;
-
-	asm volatile ("mov %cr3, %ecx \n \
-				   mov %ecx, %cr3");
-
-	/* initialize recursive page directory and invalidate the first PTE */
-	PDIR_PHYS = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000);
-	PDIR_PHYS[1023] = (uint32_t)PDIR_PHYS | P_PRESENT | P_READWRITE;
 	kprint("recursive page directory enabled!\n");
 
 	/* init kernel heap */
-	map_page((void*)kalloc_frame(), (void*)HEAP_START, P_PRESENT | P_READWRITE);
-	kprint("kernel heap initialized! Start addres: 0x%08x\n", HEAP_START);
-	memset((void*)HEAP_START, 0, 0x1000);
-
-	base = (meta_t*)HEAP_START;
-	base->size = 0x1000 - META_SIZE;
-	base->next = base->prev = NULL;
-	MARK_FREE(base);
-}
-
-static meta_t *morecore(size_t size)
-{
-
-}
-
-static meta_t *split_block(meta_t *b, size_t split)
-{
-	if (b->size <= split || b->size - split - META_SIZE <= 0)
-		return NULL;
-
-	meta_t *tmp = (meta_t*)((uint8_t*)b + split + META_SIZE);
-	tmp->size = b->size - split - META_SIZE;
-	b->size = split;
-	MARK_FREE(tmp);
-
-	return tmp;
-}
-
-static meta_t *find_free_block(size_t size)
-{
-	meta_t *b = base, *tmp = NULL;
-
-	while (b && !(IS_FREE(b) && b->size >= size)) {
-		b = b->next;
-	}
-
-	if (b != NULL) {
-		UNMARK_FREE(b);
-
-		if ((tmp = split_block(b, size)) != NULL) {
-			tmp->next = b->next;
-			if (b->next)
-				b->next->prev = tmp;
-			tmp->prev = b;
-			b->next = tmp;
-		}
-	}
-	return b;
-}
-
-void *kmalloc(size_t size)
-{
-	meta_t *b;
-
-	if ((b = find_free_block(size)) == NULL) {
-		kprint("SOS! find_free_block returned NULL!\n\n\n");
-		return NULL;
-	}
-	/* TODO: else allocate more pages */
-
-	return b + 1;
-}
-
-void *kcalloc(size_t nmemb, size_t size)
-{
-	meta_t *b;
-
-	if ((b = kmalloc(nmemb * size)) == NULL)
-		return NULL;
-
-	memset(b + 1, 0, nmemb * size);
-	return b + 1;
-}
-
-/* TODO:  */
-void *krealloc(void *ptr, size_t size)
-{
-	return NULL;
-}
-
-/* mark the current block as free and 
- * merge adjacent free blocks if possible 
- *
- * hell break loose if ptr doesn't point to the beginning of memory block */
-void kfree(void *ptr)
-{
-	meta_t *b = GET_BASE(ptr), *tmp;
-	MARK_FREE(b);
-
-	if (b->prev != NULL && IS_FREE(b->prev)) {
-		tmp = b->prev;
-		tmp->size += b->size;
-		tmp->next = b->next;
-		if (b->next)
-			b->next->prev = tmp;
-		b = tmp;
-	}
-
-	if (b->next != NULL && IS_FREE(b->next)) {
-		tmp = b->next;
-		b->size += tmp->size;
-		b->next = tmp->next;
-		if (tmp->next)
-			tmp->next->prev = b;
-	}
-}
-
-void traverse()
-{
-	meta_t *b = base;
-
-	kprint("-------------------------------------\n");
-	while (b) {
-		kprint("b->size %u is free %u b->next 0x%08x b->prev 0x%08x\n",
-				b->size, IS_FREE(b), b->next, b->prev);
-		b = b->next;
-	}
-	kprint("-------------------------------------\n");
+	kheap_init();
 }
