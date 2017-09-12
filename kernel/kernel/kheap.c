@@ -152,7 +152,7 @@ void kfree(void *ptr)
 
 	if (b->prev != NULL && IS_FREE(b->prev)) {
 		tmp = b->prev;
-		tmp->size += b->size;
+		tmp->size += b->size + META_SIZE; /* header is part of the block size too */
 		tmp->next = b->next;
 		if (b->next)
 			b->next->prev = tmp;
@@ -161,7 +161,7 @@ void kfree(void *ptr)
 
 	if (b->next != NULL && IS_FREE(b->next)) {
 		tmp = b->next;
-		b->size += tmp->size;
+		b->size += tmp->size + META_SIZE; /* header is part of the block size too */
 		b->next = tmp->next;
 		if (tmp->next)
 			tmp->next->prev = b;
