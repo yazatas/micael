@@ -25,8 +25,9 @@ Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
   * global descriptor table
   * interrupts (ISRs and IRQs)
   * paging (demand paging)
+  * kernel heap
 
-### What is not ready
+### What is not ready aka TODO
 * libc:
   * errno.h
   * stdio.h
@@ -37,6 +38,8 @@ Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
   * virtual memory
   * kernel multitasking
   * process management
+  * file system
+  * vga driver
   * everything else
 
 # Compiling and running
