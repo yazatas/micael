@@ -1,9 +1,9 @@
 #include <string.h>
 
-void *memset(void *bufptr, int value, size_t size)
+void *memset(void *buf, int c, size_t size)
 {
-	uint8_t *buf = bufptr;
-	for (size_t i = 0; i < size; i++)
-		buf[i] = (uint8_t)value;
-	return bufptr;
+	uint8_t *ptr = buf;
+	while  (size--)
+		*ptr++ = c;
+	return buf;
 }
