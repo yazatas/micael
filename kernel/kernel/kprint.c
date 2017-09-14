@@ -9,19 +9,21 @@
 static void print_integer(uint32_t value, int width, int sign, bool zp)
 {
 	char c[64] = {0};
-	int i = 0;
+	int i = 0, nlen;
 
 	do { 
 		c[i++] = (value % 10) + '0';
 		value /= 10;
 	} while (value != 0);
+	nlen = i;
 
 	while (i < width && width != 0) {
 		c[i++] = zp ? '0' : ' ';
 	}
 
-	if (sign == -1)
-		c[i-1] = '-';
+	if (sign == -1) {
+		c[zp ? i - 1 : nlen] = '-';
+	}
 
 	while (--i >= 0) {
 		term_putc(c[i]);
