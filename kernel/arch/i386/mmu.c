@@ -115,9 +115,7 @@ void pf_handler(uint32_t error)
 		pt[pti] = kalloc_frame() | P_PRESENT | P_READWRITE;
 	}
 
-	/* flush TLB */
-	asm volatile ("mov %cr3, %ecx \n \
-				  mov %ecx, %cr3");
+	flush_tlb();
 }
 
 /* return 0 on success and -1 on error */
@@ -135,10 +133,6 @@ void map_page(void *physaddr, void *virtaddr, uint32_t flags)
 	if (!(pt[pti] & P_PRESENT)) {
 		pt[pti] = (uint32_t)physaddr | flags;
 	}
-
-	/* flush TLB */
-	asm volatile ("mov %cr3, %ecx \n \
-			       mov %ecx, %cr3");
 }
 
 void mmu_init(void)
@@ -157,4 +151,12 @@ void mmu_init(void)
 
 	/* init kernel heap */
 	kheap_init();
+	flush_tlb();
 }
+
+inline void flush_tlb(void)
+{
+	asm volatile ("mov %cr3, %ecx \n \
+			       mov %ecx, %cr3");
+}
+
