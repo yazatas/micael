@@ -85,8 +85,6 @@ static meta_t *find_free_block(size_t size)
 	return b;
 }
 
-/* TODO: morecore doesn't return block large enough 
- * if requested size is between 4083 and 4096 */
 void *kmalloc(size_t size)
 {
 	meta_t *b;
