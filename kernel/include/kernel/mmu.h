@@ -12,12 +12,14 @@
 enum {
 	P_PRESENT    = 1,
 	P_READWRITE  = 1 << 1,
+	P_PRIV_USER  = 1 << 2,
 } PAGING_FLAGS;
 
 typedef uint32_t pageframe_t;
 
 /* general stuff */
 void mmu_init(void);
+void flush_tlb(void);
 void pf_handler(uint32_t error);
 void *get_physaddr(void *virtaddr);
 void map_page(void *physaddr, void *virtaddr, uint32_t flags);
@@ -25,11 +27,5 @@ void map_page(void *physaddr, void *virtaddr, uint32_t flags);
 /* allocation/deallocation  */
 pageframe_t kalloc_frame(void);
 void kfree_frame(pageframe_t frame);
-
-/* void *kmalloc(size_t size); */
-/* void *kcalloc(size_t nmemb, size_t size); */
-/* void *krealloc(void *ptr, size_t size); */
-/* void kfree(void *ptr); */
-/* void traverse(); */
 
 #endif /* end of include guard: __MMU_H__ */
