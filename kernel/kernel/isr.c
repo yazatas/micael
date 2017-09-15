@@ -1,6 +1,7 @@
 #include <kernel/tty.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/mmu.h>
 
 #include <stdint.h>
 #include <stdio.h>
