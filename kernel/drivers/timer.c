@@ -1,5 +1,6 @@
 #include <kernel/io.h>
 #include <kernel/irq.h>
+#include <kernel/drivers/timer.h>
 
 #include <stddef.h>
 #include <stdio.h>
