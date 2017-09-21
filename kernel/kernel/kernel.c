@@ -7,12 +7,13 @@
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
 #include <kernel/irq.h>
-#include <kernel/timer.h>
-#include <kernel/keyboard.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/mmu.h>
 #include <kernel/kheap.h>
+
+#include <kernel/drivers/timer.h>
+#include <kernel/drivers/keyboard.h>
 
 extern uint32_t __kernel_virtual_start,  __kernel_virtual_end;
 extern uint32_t __kernel_physical_start, __kernel_physical_end;
