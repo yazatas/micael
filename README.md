@@ -4,6 +4,8 @@ micael is a 32-bit monolithic kernel written in C and x86 assembly.
 
 Currently I'm in the process of implementing virtual memory. I decided to give libc a rest as it's not going to be needed for a while. 
 
+After I have a working file system I'll ditch grub and write my own boot loader because of dkmFS's special needs.
+
 You'll need QEMU and a [cross-compiler](http://wiki.osdev.org/GCC_Cross-Compiler) to compile and run micael
 
 # Kernel memory layout
@@ -24,8 +26,9 @@ Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
 * kernel
   * global descriptor table
   * interrupts (ISRs and IRQs)
-  * paging (demand paging)
-  * kernel heap
+  * mmu
+    * paging (demand paging)
+    * kernel heap
 
 ### What is not ready aka TODO
 * libc:
@@ -35,12 +38,17 @@ Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
   * time.h
   * signal.h
 * kernel:
-  * virtual memory
-  * kernel multitasking
-  * process management
-  * file system
   * vga driver
-  * everything else
+  * process management and scheduling
+    * kernel multitasking
+  * file system
+    * paging to disk (what's the proper term?)
+    * boot loader
+  * mmu
+    * switch from linked lists to red-black tree
+    * merge kheap.c with mmu.c
+  * tcp/ip stack
+
 
 # Compiling and running
 
