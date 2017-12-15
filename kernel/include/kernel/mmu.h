@@ -24,8 +24,8 @@ void pf_handler(uint32_t error);
 void *get_physaddr(void *virtaddr);
 void map_page(void *physaddr, void *virtaddr, uint32_t flags);
 
-/* allocation/deallocation  */
-pageframe_t kalloc_frame(void);
-void kfree_frame(pageframe_t frame);
+/* physical page allocation/deallocation  */
+uint32_t kalloc_frame(void);
+void kfree_frame(uint32_t frame);
 
 #endif /* end of include guard: __MMU_H__ */
