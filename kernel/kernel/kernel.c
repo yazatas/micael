@@ -32,25 +32,29 @@ void kmain(void)
 	irq_init(); timer_install();
 	kb_install();
 	asm ("sti"); /* enable interrupts */
-
 	mmu_init();
-	traverse();
 
-	void *tmp = kmalloc(100);
-	void *ptr = kmalloc(10);
+	kprint("\n\n");
 
-	char *str = "test123";
-	memcpy(ptr, str, strlen(str));;
+	uint32_t test;
 
-	kprint("'%s'\n", ptr);
-	traverse();
+	test = kalloc_frame();
+	kprint("alloc 1 address 0x%0x\n\n", test);
 
-	kfree(tmp);
-	traverse();
-	ptr = krealloc(ptr, 8000);
+	test = kalloc_frame();
+	kprint("alloc 2 address 0x%0x\n\n", test);
 
-	kprint("'%s'\n", ptr);
+	kfree_frame(test);
 
-	traverse();
+	test = kalloc_frame();
+	kprint("alloc 3 address 0x%0x\n\n", test);
+
+	test = kalloc_frame();
+	kprint("alloc 4 address 0x%0x\n\n", test);
+
+	test = kalloc_frame();
+	kprint("alloc 5 address 0x%0x\n\n", test);
+
+
 	for (;;);
 }
