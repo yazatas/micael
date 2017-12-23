@@ -2,6 +2,7 @@ ROOTDIR?=$(shell pwd)/..
 include $(ROOTDIR)/Makefile.config
 include $(ARCHDIR)/make.config
 include $(DRIVERDIR)/make.config
+include $(ALGODIR)/make.config
 
 DESTDIR=$(realpath $(shell pwd)/../sysroot)
 
@@ -12,11 +13,11 @@ LDFLAGS:=$(LDFLAGS) -nostdlib -lk -lgcc $(KERNEL_ARCH_LDFLAGS)
 KERNEL_OBJS=\
 $(KERNEL_ARCH_OBJS) \
 $(KERNEL_DRIVER_OBJS) \
+$(KERNEL_ALGO_OBJS) \
 kernel/kernel.o \
 kernel/isr.o \
 kernel/kprint.o \
 kernel/kpanic.o \
-kernel/kheap.o  \
 
 OBJS=$(KERNEL_OBJS)
 LINK_LIST=$(KERNEL_OBJS) $(LDFLAGS)
