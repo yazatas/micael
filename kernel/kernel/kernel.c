@@ -10,7 +10,6 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/mmu.h>
-#include <kernel/kheap.h>
 
 #include <kernel/drivers/timer.h>
 #include <kernel/drivers/keyboard.h>
