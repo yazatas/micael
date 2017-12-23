@@ -27,7 +27,7 @@ Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
   * global descriptor table
   * interrupts (ISRs and IRQs)
   * mmu
-    * paging (demand paging)
+    * (demand) paging
     * kernel heap
 
 ### What is not ready aka TODO
@@ -46,7 +46,6 @@ Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
     * boot loader
   * mmu
     * switch from linked lists to red-black tree
-    * merge kheap.c with mmu.c
   * tcp/ip stack
 
 
