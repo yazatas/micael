@@ -1,7 +1,6 @@
 #include <kernel/mmu.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
-#include <kernel/kheap.h>
 
 #include <stddef.h>
 #include <stdbool.h>
