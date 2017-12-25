@@ -27,8 +27,8 @@ Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
   * global descriptor table
   * interrupts (ISRs and IRQs)
   * mmu
-    * (demand) paging
-    * kernel heap
+      * (demand) paging
+      * kernel heap
 
 ### What is not ready aka TODO
 * libc:
@@ -40,12 +40,11 @@ Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
 * kernel:
   * vga driver
   * process management and scheduling
-    * kernel multitasking
   * file system
-    * paging to disk (what's the proper term?)
-    * boot loader
+      * paging to disk (what's the proper term?)
+      * boot loader
   * mmu
-    * switch from linked lists to red-black tree
+      * switch from linked lists to red-black tree
   * tcp/ip stack
 
 
@@ -56,7 +55,7 @@ Run following commands to compile and run micael:
 `make all run`
 
 Using make to run an application is unconventional but I think it's better than a script.
-All on all, make is better approach than sh build scripts.
+All on all, make is better approach than sh build scripts IMO.
 
 # Copying
 micael is free software. It's licensed under the MIT license.
