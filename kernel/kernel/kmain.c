@@ -34,27 +34,6 @@ void kmain(void)
 	asm ("sti"); /* enable interrupts */
 	mmu_init();
 
-	kprint("\n\n");
-
-	uint32_t test;
-
-	test = kalloc_frame();
-	kprint("alloc 1 address 0x%0x\n\n", test);
-
-	test = kalloc_frame();
-	kprint("alloc 2 address 0x%0x\n\n", test);
-
-	kfree_frame(test);
-
-	test = kalloc_frame();
-	kprint("alloc 3 address 0x%0x\n\n", test);
-
-	test = kalloc_frame();
-	kprint("alloc 4 address 0x%0x\n\n", test);
-
-	test = kalloc_frame();
-	kprint("alloc 5 address 0x%0x\n\n", test);
-
 
 	for (;;);
 }

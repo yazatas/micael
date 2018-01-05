@@ -14,7 +14,7 @@ KERNEL_OBJS=\
 $(KERNEL_ARCH_OBJS) \
 $(KERNEL_DRIVER_OBJS) \
 $(KERNEL_ALGO_OBJS) \
-kernel/kernel.o \
+kernel/kmain.o \
 kernel/isr.o \
 kernel/kprint.o \
 kernel/kpanic.o \
