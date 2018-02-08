@@ -55,7 +55,7 @@ Run following commands to compile and run micael:
 `make all run`
 
 Using make to run an application is unconventional but I think it's better than a script.
-All on all, make is better approach than sh build scripts IMO.
+All and all, make is better approach than sh build scripts IMO.
 
 # Copying
 micael is free software. It's licensed under the MIT license.
