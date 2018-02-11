@@ -78,7 +78,7 @@ void irq_init(void)
 	idt_set_gate((uint32_t)irq14, 0x08, 0x8e, &IDT[46]);
 	idt_set_gate((uint32_t)irq15, 0x08, 0x8e, &IDT[47]);
 
-	kprint("IRQs enabled!\n");
+	kprint("[irq_init] IRQs enabled!\n");
 }
 
 

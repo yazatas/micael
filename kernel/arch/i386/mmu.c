@@ -134,13 +134,13 @@ void mmu_init(void)
 	if (START_FRAME % PAGE_SIZE != 0) {
 		START_FRAME = (START_FRAME + PAGE_SIZE) & ~(PAGE_SIZE - 1);
 	}
-	kprint("START_FRAME aligned to 4k boundary: 0x%08x\n", START_FRAME);
+	kprint("[mmu_init] START_FRAME aligned to 4k boundary: 0x%08x\n", START_FRAME);
 
 	/* initialize recursive page directory */
 	PDIR_PHYS = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000);
 	PDIR_PHYS[1023] = (uint32_t)PDIR_PHYS | P_PRESENT | P_READWRITE;
 	PDIR_PHYS[0] &= ~P_PRESENT;
-	kprint("[mmu] recursive page directory enabled!\n");
+	kprint("[mmu_init] recursive page directory enabled!\n");
 
 	/* init kernel heap */
 	kheap_init();
@@ -306,7 +306,7 @@ void kfree(void *ptr)
 void kheap_init()
 {
 	map_page((void*)kalloc_frame(), HEAP_START, P_PRESENT | P_READWRITE);
-	kprint("kernel heap initialized! Start addres: 0x%08x\n", HEAP_START);
+	kprint("[kheap_init] kernel heap initialized! Start addres: 0x%08x\n", HEAP_START);
 	memset(HEAP_START, 0, 0x1000);
 
 	kernel_base = (meta_t*)HEAP_START;
