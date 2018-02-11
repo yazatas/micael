@@ -22,11 +22,11 @@ void kmain(void)
 {
     tty_init_default();
 
-	kprint("kvirtual kphysical start: 0x%08x 0x%08x\n"
-		   "kvirtual kphysical end:   0x%08x 0x%08x\n",
+	kprint("[kmain] kvirtual kphysical start: 0x%08x 0x%08x\n"
+		   "[kmain] kvirtual kphysical end:   0x%08x 0x%08x\n",
 		   &__kernel_virtual_start, &__kernel_physical_start,
 		   &__kernel_virtual_end,   &__kernel_physical_end);
-	kprint("kpage dir start addr:     0x%08x\n", &boot_page_dir);
+	kprint("[kmain] kpage dir start addr:     0x%08x\n", &boot_page_dir);
 
 	gdt_init(); idt_init();
 	irq_init(); timer_install();
