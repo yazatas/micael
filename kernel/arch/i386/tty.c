@@ -54,6 +54,12 @@ void term_putc(char c)
 			term_col--;
 			break;
 
+		case '\t': {
+			for (int i = 0; i < 4; ++i)
+				tty_entry(' ', term_color, term_col++, term_row);
+			break;
+		}
+
 		default: {
 			tty_entry(c, term_color, term_col, term_row);
 			term_col++;
