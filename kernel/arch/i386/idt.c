@@ -68,5 +68,5 @@ void idt_init(void)
 
 	asm volatile ("lidtl (idt_ptr)");
 
-	kprint("[idt_init] IDT initialized! Start address 0x%x\n", &IDT);
+	kdebug("IDT initialized! Start address 0x%x\n", &IDT);
 }

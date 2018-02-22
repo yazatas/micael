@@ -80,7 +80,9 @@ void pf_handler(uint32_t error)
 		case 7: strerr = "page write, protection fault (user)";       break;
 		default: strerr = "vou";
 	}
-	kprint("\n\n%s\n", strerr);
+	kdebug("\n\n%s\n", strerr);
+
+	while (1) {}
 
 	uint32_t fault_addr = 0;
 	asm volatile ("mov %%cr2, %%eax \n \
@@ -90,21 +92,24 @@ void pf_handler(uint32_t error)
 	uint32_t pti    = (fault_addr >> 12) & 0x3ff;
 	uint32_t offset = fault_addr & 0xfff;
 
-	kprint("[mmu] faulting address: 0x%x\n", fault_addr);
-	kprint("[mmu] page directory index: %4u 0x%03x\n"
+	kdebug("faulting address: 0x%x\n", fault_addr);
+	kdebug("page directory index: %4u 0x%03x\n"
 		   "page table index:     %4u 0x%03x\n"
 		   "page frame offset:    %4u 0x%03x\n",
 		   pdi, pdi, pti, pti, offset, offset);
 
+	while (1) {}
+	__builtin_unreachable();
+
 	uint32_t *pd = (uint32_t*)0xffffff000;
 	if (!(pd[pdi] & P_PRESENT)) {
-		kprint("[mmu] pde %u is NOT present\n", pdi);
+		kdebug("[mmu] pde %u is NOT present\n", pdi);
 		pd[pdi] = kalloc_frame() | P_PRESENT | P_READWRITE;
 	}
 
 	uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
 	if (!(pt[pti] & P_PRESENT)) {
-		kprint("[mmu] pte %u is NOT present\n", pti);
+		kdebug("[mmu] pte %u is NOT present\n", pti);
 		pt[pti] = kalloc_frame() | P_PRESENT | P_READWRITE;
 	}
 
@@ -134,13 +139,13 @@ void mmu_init(void)
 	if (START_FRAME % PAGE_SIZE != 0) {
 		START_FRAME = (START_FRAME + PAGE_SIZE) & ~(PAGE_SIZE - 1);
 	}
-	kprint("[mmu_init] START_FRAME aligned to 4k boundary: 0x%08x\n", START_FRAME);
+	kdebug("START_FRAME aligned to 4k boundary: 0x%08x\n", START_FRAME);
 
 	/* initialize recursive page directory */
 	PDIR_PHYS = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000);
 	PDIR_PHYS[1023] = (uint32_t)PDIR_PHYS | P_PRESENT | P_READWRITE;
 	PDIR_PHYS[0] &= ~P_PRESENT;
-	kprint("[mmu_init] recursive page directory enabled!\n");
+	kdebug("recursive page directory enabled!\n");
 
 	/* init kernel heap */
 	kheap_init();
@@ -306,7 +311,7 @@ void kfree(void *ptr)
 void kheap_init()
 {
 	map_page((void*)kalloc_frame(), HEAP_START, P_PRESENT | P_READWRITE);
-	kprint("[kheap_init] kernel heap initialized! Start addres: 0x%08x\n", HEAP_START);
+	kdebug("kernel heap initialized! Start addres: 0x%08x\n", HEAP_START);
 	memset(HEAP_START, 0, 0x1000);
 
 	kernel_base = (meta_t*)HEAP_START;
