@@ -23,7 +23,7 @@ iso:
 	@grub-mkrescue -o micael.iso isodir
 
 run:
-	qemu-system-i386 -cdrom micael.iso $(QEMUFLAGS)
+	qemu-system-i386 -cdrom micael.iso $(QEMUFLAGS) &> /dev/null
 
 clean:
 	$(MAKE) --directory=kernel clean
