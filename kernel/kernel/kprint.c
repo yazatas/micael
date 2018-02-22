@@ -87,6 +87,7 @@ static void va_kprint(const char *fmt, va_list args)
 				break;
 			}
 
+			/* TODO: printing hex won't work if number is 0 */
 			case 'x': {
 				const uint8_t sym[16] = {'0', '1', '2', '3',
 										 '4', '5', '6', '7',
