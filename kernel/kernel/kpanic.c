@@ -23,15 +23,16 @@ void kpanic(const char *error)
                    mov %%cr3, %%eax\n\
                    mov %%eax, %6"
                    : "=r"(eax), "=r"(ebx), "=r"(ecx), "=r"(edx), 
-                   "=r"(edi), "=g"(cr2), "=g"(cr3));
+                     "=r"(edi), "=g"(cr2), "=g"(cr3));
 
     kprint("register contents:\n");
-    kprint("\teax: 0x%7x %7u\n\tebx: 0x%7x %7u\n\tecx: 0x%7x %7u\n"
-           "\tedx: 0x%7x %7u\n\tedi: 0x%7x %7u\n\tcr2: 0x%7x %7u\n",
-           "\tcr3: 0x%7x %7u\n", REG(eax), REG(ebx), REG(ecx), 
+    kprint("\teax: 0x%08x %8u\n\tebx: 0x%08x %8u\n\tecx: 0x%08x %8u\n"
+           "\tedx: 0x%08x %8u\n\tedi: 0x%08x %8u\n\tcr2: 0x%08x %8u\n"
+           "\tcr3: 0x%08x %8u\n", REG(eax), REG(ebx), REG(ecx), 
 		   REG(edx), REG(edi), REG(cr2), REG(cr3));
 
 	/* TODO: print backtrace (is it even possible?) */
+	kprint("\n\n0x%x\n", 0);
     
     while (1) { }
     __builtin_unreachable();

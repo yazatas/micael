@@ -94,8 +94,8 @@ static void va_kprint(const char *fmt, va_list args)
 										 '8', '9', 'a', 'b',
 										 'c', 'd', 'e', 'f'};
 				uint32_t tmp = va_arg(args, uint32_t);
-				char c[64];
-				int i = 0;
+				static char c[64];
+				int i = tmp ? 0 : 1;
 
 				while (tmp != 0) {
 					c[i++] = sym[tmp & 0xf];
