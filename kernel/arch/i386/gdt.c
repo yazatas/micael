@@ -33,5 +33,5 @@ void gdt_init(void)
 	asm volatile ("lgdtl (gdt_ptr)");
 	gdt_flush((uint32_t)&gdt_ptr);
 
-	kprint("[gdt_init] GDT initialized! Start address 0x%x\n", &GDT);
+	kdebug("GDT initialized! Start address 0x%x\n", &GDT);
 }
