@@ -80,9 +80,8 @@ void pf_handler(uint32_t error)
 		case 7: strerr = "page write, protection fault (user)";       break;
 		default: strerr = "vou";
 	}
-	kdebug("\n\n%s\n", strerr);
-
-	while (1) {}
+	kprint("\n\n");
+	kdebug("%s\n", strerr);
 
 	uint32_t fault_addr = 0;
 	asm volatile ("mov %%cr2, %%eax \n \
@@ -92,14 +91,11 @@ void pf_handler(uint32_t error)
 	uint32_t pti    = (fault_addr >> 12) & 0x3ff;
 	uint32_t offset = fault_addr & 0xfff;
 
-	kdebug("faulting address: 0x%x\n", fault_addr);
-	kdebug("page directory index: %4u 0x%03x\n"
+	kprint("faulting address: 0x%x\n", fault_addr);
+	kprint("page directory index: %4u 0x%03x\n"
 		   "page table index:     %4u 0x%03x\n"
 		   "page frame offset:    %4u 0x%03x\n",
 		   pdi, pdi, pti, pti, offset, offset);
-
-	while (1) {}
-	__builtin_unreachable();
 
 	uint32_t *pd = (uint32_t*)0xffffff000;
 	if (!(pd[pdi] & P_PRESENT)) {
