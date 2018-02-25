@@ -2,13 +2,18 @@
 
 micael is a 32-bit monolithic kernel written in C and x86 assembly.
 
-Currently I'm in the process of implementing virtual memory. I decided to give libc a rest as it's not going to be needed for a while. 
+* todo add short overview
+* todo move all development discussion to doc
+* todo move all subsystem related stuff to doc
+* todo add more info about mmu
+
+I've started to implement kernel multitasking and right now a very basic cooperative multitasking model is provided but you can't do much with it yet. I've started to implement scheduling and mutual exclusions but they may take a while.
 
 After I have a working file system I'll ditch grub and write my own boot loader because of dkmFS's special needs.
 
-You'll need QEMU and a [cross-compiler](http://wiki.osdev.org/GCC_Cross-Compiler) to compile and run micael
-
 # Kernel memory layout
+
+todo move all this to doc
 
 Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
 
@@ -18,37 +23,47 @@ Kernel is loaded to physical address 0x00100000 and virtual address 0xc0100000.
 | 0xd0000000    | kernel heap |
 | 0xe0000000    | free page frames for miscellaneous use |
 
-
 ### What is ready:
 * libc
   * string.h (needs testing)
   * ctype.h
 * kernel
-  * global descriptor table
-  * interrupts (ISRs and IRQs)
-  * mmu
-      * (demand) paging
+   * Memory Management
+      * paging
       * kernel heap
+   * Multitasking
+      * cooperative multitasking
+   * Miscellaneous
+      * global descriptor table
+      * interrupts (ISRs and IRQs)
 
 ### What is not ready aka TODO
 * libc:
   * errno.h
   * stdio.h
   * stdlib.h
-  * time.h
-  * signal.h
+  * time.h   (needs kernel(?))
+  * signal.h (needs kernel)
 * kernel:
-  * vga driver
-  * process management and scheduling
-  * file system
+   * Multitasking
+      * preemptive multitasking
+      * mutual exclusion using spinlocks
+   * Memory Management
+      * switch from linked lists to red-black tree
+   * File System
+      * working fs
       * paging to disk (what's the proper term?)
       * boot loader
-  * mmu
-      * switch from linked lists to red-black tree
-  * tcp/ip stack
+   * Miscellaneous
+      * proper vga driver
+      * tcp/ip stack
 
 
 # Compiling and running
+
+todo move all this doc
+
+You'll need QEMU and a [cross-compiler](http://wiki.osdev.org/GCC_Cross-Compiler) to compile and run micael
 
 Run following commands to compile and run micael:
 
