@@ -81,7 +81,7 @@ void pf_handler(uint32_t error)
 		default: strerr = "vou";
 	}
 	kprint("\n\n");
-	kdebug("%s\n", strerr);
+	kdebug("%s", strerr);
 
 	uint32_t fault_addr = 0;
 	asm volatile ("mov %%cr2, %%eax \n \
@@ -99,13 +99,13 @@ void pf_handler(uint32_t error)
 
 	uint32_t *pd = (uint32_t*)0xffffff000;
 	if (!(pd[pdi] & P_PRESENT)) {
-		kdebug("[mmu] pde %u is NOT present\n", pdi);
+		kdebug("[mmu] pde %u is NOT present", pdi);
 		pd[pdi] = kalloc_frame() | P_PRESENT | P_READWRITE;
 	}
 
 	uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
 	if (!(pt[pti] & P_PRESENT)) {
-		kdebug("[mmu] pte %u is NOT present\n", pti);
+		kdebug("[mmu] pte %u is NOT present", pti);
 		pt[pti] = kalloc_frame() | P_PRESENT | P_READWRITE;
 	}
 
@@ -135,13 +135,13 @@ void mmu_init(void)
 	if (START_FRAME % PAGE_SIZE != 0) {
 		START_FRAME = (START_FRAME + PAGE_SIZE) & ~(PAGE_SIZE - 1);
 	}
-	kdebug("START_FRAME aligned to 4k boundary: 0x%08x\n", START_FRAME);
+	kdebug("START_FRAME aligned to 4k boundary: 0x%08x", START_FRAME);
 
 	/* initialize recursive page directory */
 	PDIR_PHYS = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000);
 	PDIR_PHYS[1023] = (uint32_t)PDIR_PHYS | P_PRESENT | P_READWRITE;
 	PDIR_PHYS[0] &= ~P_PRESENT;
-	kdebug("recursive page directory enabled!\n");
+	kdebug("recursive page directory enabled!");
 
 	/* init kernel heap */
 	kheap_init();
@@ -307,7 +307,7 @@ void kfree(void *ptr)
 void kheap_init()
 {
 	map_page((void*)kalloc_frame(), HEAP_START, P_PRESENT | P_READWRITE);
-	kdebug("kernel heap initialized! Start addres: 0x%08x\n", HEAP_START);
+	kdebug("kernel heap initialized! Start addres: 0x%08x", HEAP_START);
 	memset(HEAP_START, 0, 0x1000);
 
 	kernel_base = (meta_t*)HEAP_START;
