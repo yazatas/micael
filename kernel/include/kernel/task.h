@@ -14,7 +14,7 @@ typedef struct task {
 } task_t;
 
 void yield(void);
-void init_tasking();
+void init_tasking(void);
 void create_task(task_t *task, void(*func)(), uint32_t eflags, uint32_t pagedir);
 
 /* defined in kernel/arch/i386/switch.s */

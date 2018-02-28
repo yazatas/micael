@@ -6,6 +6,8 @@ micael is a 32-bit monolithic kernel written in C and x86 assembly.
 * todo move all development discussion to doc
 * todo move all subsystem related stuff to doc
 * todo add more info about mmu
+* todo create helpers.s assembly file
+* move all code containing assembly to kernel/arch/i386
 
 I've started to implement kernel multitasking and right now a very basic cooperative multitasking model is provided but you can't do much with it yet. I've started to implement scheduling and mutual exclusions but they may take a while.
 

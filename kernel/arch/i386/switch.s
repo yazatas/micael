@@ -1,49 +1,60 @@
 .section .text
 .global switch_task
+
+# @param1: ptr to struct of registers (current task)
+# @param2: ptr to struct of registers (next task)
+#
+# 1) save state of current task to reg struct
+# 2) read state of next task from reg struct to registers
+
 switch_task:
-	pushal
-    pushfl
-    movl %cr3, %eax #Push CR3
-    pushl %eax
-    movl 44(%esp), %eax #The first argument, where to save
-    movl %ebx, 4(%eax)
-    movl %ecx, 8(%eax)
-    movl %edx, 12(%eax)
-    movl %esi, 16(%eax)
-    movl %edi, 20(%eax)
-    movl 36(%esp), %ebx #EAX
-    movl 40(%esp), %ecx #IP
-    movl 20(%esp), %edx #ESP
-    addl $4, %edx #Remove the return value 
-    movl 16(%esp), %esi #EBP
-    movl 4(%esp), %edi #EFLAGS
-    movl %ebx, (%eax)
-    movl %edx, 24(%eax)
-    movl %esi, 28(%eax)
-    movl %ecx, 32(%eax)
-    movl %edi, 36(%eax)
-    popl %ebx #CR3
-    movl %ebx, 40(%eax)
-    pushl %ebx #Goodbye again 
-    movl 48(%esp), %eax #Now it is the new object
-    movl 4(%eax), %ebx #EBX
-    movl 8(%eax), %ecx #ECX
-    movl 12(%eax), %edx #EDX
-    movl 16(%eax), %esi #ESI
-    movl 20(%eax), %edi #EDI
-    movl 28(%eax), %ebp #EBP
-    pushl %eax
-    movl 36(%eax), %eax #EFLAGS
-    pushl %eax
-    popfl
-    popl %eax
-    movl 24(%eax), %esp #ESP
-    pushl %eax
-    movl 40(%eax), %eax #CR3
-    movl %eax, %cr3
-    popl %eax
-    pushl %eax
-    movl 32(%eax), %eax #EIP # TODO: lue devlog, tämä kohta on ainakin oikein!!!
-    xchgl (%esp), %eax #We do not have any more registers to use as tmp storage
-    movl (%eax), %eax #EAX
-    ret #This ends all!
+	pusha
+    pushf
+    mov %cr3, %eax #Push CR3
+    push %eax
+
+	# save data of old task to param1
+    mov 44(%esp), %eax
+    mov %ebx, 4(%eax)
+    mov %ecx, 8(%eax)
+    mov %edx, 12(%eax)
+    mov %esi, 16(%eax)
+    mov %edi, 20(%eax)
+    mov 36(%esp), %ebx
+    mov 40(%esp), %ecx
+    mov 20(%esp), %edx
+    add $4, %edx
+    mov 16(%esp), %esi
+    mov 4(%esp), %edi
+    mov %ebx, (%eax)
+    mov %edx, 24(%eax)
+    mov %esi, 28(%eax)
+    mov %ecx, 32(%eax)
+    mov %edi, 36(%eax)
+    pop %ebx
+    mov %ebx, 40(%eax)
+    push %ebx
+
+	# load data from param2 to registers
+    mov 48(%esp), %eax
+    mov 4(%eax), %ebx
+    mov 8(%eax), %ecx
+    mov 12(%eax), %edx
+    mov 16(%eax), %esi
+    mov 20(%eax), %edi
+    mov 28(%eax), %ebp
+    push %eax
+    mov 36(%eax), %eax
+    push %eax
+    popf
+    pop %eax
+    mov 24(%eax), %esp
+    push %eax
+    mov 40(%eax), %eax
+    mov %eax, %cr3
+    pop %eax
+    push %eax
+    mov 32(%eax), %eax
+    xchg (%esp), %eax # eip
+    mov (%eax), %eax
+    ret
