@@ -3,7 +3,8 @@
 
 #include <stdarg.h>
 
-#define kdebug(fmt, ...) kprint("[%s] "fmt, __func__, ##__VA_ARGS__)
+/* not pretty if more than one line is printed */
+#define kdebug(fmt, ...) kprint("[%s] "fmt"\n", __func__, ##__VA_ARGS__)
 
 void kprint(const char *fmt, ...);
 
