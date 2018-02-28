@@ -10,22 +10,35 @@ static task_t other_task;
 
 static void other_main(void)
 {
-    kdebug("hello multitasking world!\n");
-	kdebug("calculating first 10 fibonacci numbers...\n");
+    kdebug("hello multitasking world!");
+	kdebug("calculating first 10 fibonacci numbers...");
 
 	int n = 0, k = 1, i = 0;
 
 	for (; i < 10; ++i) {
-		kdebug("%d\n", n + k);
+		kprint("%d ", n + k);
 		int tmp = n;
 		n = n + k;
 		k = tmp;
 	}
+	kprint("\n");
 
+	kdebug("yielding cpu...");
     yield();
+
+	kdebug("im back! calculating the factorial of 5");
+
+	n = 1;
+	for (int i = 1; i <= 5; ++i) {
+		n *= i;
+	}
+
+	kdebug("factorial of 5 is %d", n);
+	kdebug("this function has reached its end");
+	yield();
 }
 
-void init_tasking()
+void init_tasking(void)
 {
     asm volatile("movl %%cr3, %%eax \n \
                   movl %%eax, %0 " : "=r" (main_task.regs.cr3));
@@ -50,10 +63,12 @@ void create_task(task_t *task, void(*func)(), uint32_t flags, uint32_t page_dir)
     task->regs.eflags = flags;
     task->regs.eip    = (uint32_t)func;
     task->regs.cr3    = (uint32_t)page_dir;
-    task->regs.esp    = (uint32_t)kalloc_frame() + 0x1000;
+    task->regs.esp    = (uint32_t)0xe0000000 + 0x900; /* TODO: use kheap */
 
-	kdebug("creating task... eip (0x%x) cr3 (0x%x) esp (0x%x)\n",
+	kdebug("creating task... eip (0x%x) cr3 (0x%x) esp (0x%x)",
 			task->regs.eip, task->regs.cr3, task->regs.esp);
+
+	map_page((void*)kalloc_frame(), (void*)0xe0000000, P_PRESENT | P_READWRITE);
 }
 
 void yield(void)
@@ -61,19 +76,6 @@ void yield(void)
     task_t *last = running_task;
     running_task = running_task->next;
 
-	while (1) {}
-
-	kdebug("switching tasks...\n");
-    switch_task(&last->regs, &running_task->regs);
-
-	/* kdebug("eax 0x%x ebx 0x%x ecx 0x%x edx 0x%x\n" */
-	/*  "        esi 0x%x edi 0x%x eflags 0x%x\n" */
-	/*  "        eip 0x%x cr3 0x%x esp 0x%x\n", */
-	/* last->regs.eax, last->regs.ebx, last->regs.ecx, last->regs.edx, last->regs.esi, last->regs.edi, last->regs.eflags, last->regs.eip, last->regs.cr3, last->regs.esp); */
-
-	/* kdebug("eax 0x%x ebx 0x%x ecx 0x%x edx 0x%x\n" */
-	/*  "        esi 0x%x edi 0x%x eflags 0x%x\n" */
-	/*  "        eip 0x%x cr3 0x%x esp 0x%x\n", */
-	/* running_task->regs.eax, running_task->regs.ebx, running_task->regs.ecx, running_task->regs.edx, running_task->regs.esi, running_task->regs.edi, running_task->regs.eflags, running_task->regs.eip, running_task->regs.cr3, running_task->regs.esp); */
-
+	kdebug("switching tasks...");
+	switch_task(&last->regs, &running_task->regs);
 }

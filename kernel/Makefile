@@ -18,6 +18,7 @@ kernel/kmain.o \
 kernel/isr.o \
 kernel/kprint.o \
 kernel/kpanic.o \
+kernel/task.o \
 
 OBJS=$(KERNEL_OBJS)
 LINK_LIST=$(KERNEL_OBJS) $(LDFLAGS)
@@ -49,6 +50,6 @@ micael.kernel: $(OBJS) $(ARCHDIR)/linker.ld
 	$(CC) -MD -c $< -o $@ $(CFLAGS)
 
 clean:
-	rm -f micael.kernel
+	rm -f micael.kernel kernel.map
 	rm -f $(OBJS) *.o */*.o */*/*.o
 	rm -f $(OBJS:.o=.d) *.d */*.d */*/*.d

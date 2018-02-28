@@ -7,9 +7,10 @@
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
 #include <kernel/irq.h>
+#include <kernel/mmu.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
-#include <kernel/mmu.h>
+#include <kernel/task.h>
 
 #include <drivers/timer.h>
 #include <drivers/keyboard.h>
@@ -34,6 +35,18 @@ void kmain(void)
 	asm ("sti"); /* enable interrupts */
 	mmu_init();
 
+	kprint("\n");
+	init_tasking();
+	kdebug("yielding cpu...");
+	yield();
+	kdebug("im back! printing odd numbers from 1 to 10...");
+	for (unsigned i = 1; i < 10; i+=2)
+		kprint("%u ", i);
+	kprint("\n");
+	kdebug("yielding the cpu again...");
+	yield();
+
+	kdebug("finally back here, out of yields");
 
 	for (;;);
 }
