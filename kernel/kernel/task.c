@@ -63,12 +63,10 @@ void create_task(task_t *task, void(*func)(), uint32_t flags, uint32_t page_dir)
     task->regs.eflags = flags;
     task->regs.eip    = (uint32_t)func;
     task->regs.cr3    = (uint32_t)page_dir;
-    task->regs.esp    = (uint32_t)0xe0000000 + 0x900; /* TODO: use kheap */
+    task->regs.esp    = (uint32_t)kmalloc(0x1000) + 0x1000 - 1;
 
 	kdebug("creating task... eip (0x%x) cr3 (0x%x) esp (0x%x)",
 			task->regs.eip, task->regs.cr3, task->regs.esp);
-
-	map_page((void*)kalloc_frame(), (void*)0xe0000000, P_PRESENT | P_READWRITE);
 }
 
 void yield(void)
