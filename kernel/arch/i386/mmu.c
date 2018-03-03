@@ -109,7 +109,7 @@ void pf_handler(uint32_t error)
 		pt[pti] = kalloc_frame() | P_PRESENT | P_READWRITE;
 	}
 
-	flush_tlb();
+	flush_TLB();
 }
 
 /* return 0 on success and -1 on error */
@@ -145,10 +145,10 @@ void mmu_init(void)
 
 	/* init kernel heap */
 	kheap_init();
-	flush_tlb();
+	flush_TLB();
 }
 
-inline void flush_tlb(void)
+inline void flush_TLB(void)
 {
 	asm volatile ("mov %cr3, %ecx \n \
 			       mov %ecx, %cr3");
@@ -166,7 +166,7 @@ static meta_t *morecore(size_t size)
 		map_page((void*)kalloc_frame(), HEAP_BREAK, P_PRESENT | P_READWRITE);
 		HEAP_BREAK = (uint32_t*)((uint8_t*)HEAP_BREAK + 0x1000);
 	}
-	flush_tlb();
+	flush_TLB();
 
 	/* place the new block at the beginning of block list */
 	tmp->size = pgcount * 0x1000 - META_SIZE;
