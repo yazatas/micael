@@ -21,7 +21,7 @@ typedef uint32_t pageframe_t;
 void mmu_init(void);
 void kheap_init();
 
-void flush_tlb(void);
+void flush_TLB(void);
 void map_page(void *physaddr, void *virtaddr, uint32_t flags);
 
 void pf_handler(uint32_t error);
