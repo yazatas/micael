@@ -237,13 +237,10 @@ void *kmalloc(size_t size)
 
 void *kcalloc(size_t nmemb, size_t size)
 {
-	meta_t *b;
+	void *b = kmalloc(nmemb * size);
 
-	if ((b = kmalloc(nmemb * size)) == NULL)
-		return NULL;
-
-	memset(b + 1, 0, nmemb * size);
-	return b + 1;
+	memset(b, 0, nmemb * size);
+	return b;
 }
 
 void *krealloc(void *ptr, size_t size)
