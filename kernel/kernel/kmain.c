@@ -42,9 +42,11 @@ void kmain(void)
 	create_task(func_3, 256, "func_3");
 	create_task(func_2, 256, "func_2");
 	create_task(func_1, 256, "func_1");
-
 	start_tasking();
-	__builtin_unreachable(); /* wew */
+
+	/* NOTE: execution should never get here
+	 * if even one of the tasks has an infinite loop */
+	kdebug("After start_tasking");
 
 	for (;;);
 }
@@ -55,7 +57,7 @@ void func_1(void)
 
 	while (1) {
 		kprint("in function 1\n");
-		for (volatile int i = 0; i < 60000000 * 2; ++i) {};
+		for (volatile int i = 0; i < 60000000; ++i) {};
 		yield();
 	}
 }
@@ -64,11 +66,13 @@ void func_2(void)
 {
 	kdebug("started func_2");
 
-	while (1) {
+	for (int i = 0; i < 3; ++i) {
 		kprint("in function 2\n");
-		for (volatile int i = 0; i < 60000000 * 2; ++i) {};
+		for (volatile int i = 0; i < 60000000; ++i) {};
 		yield();
 	}
+
+	delete_task();
 }
 
 void func_3(void)
@@ -77,7 +81,7 @@ void func_3(void)
 
 	while (1) {
 		kprint("in function 3\n");
-		for (volatile int i = 0; i < 60000000 * 2; ++i) {};
+		for (volatile int i = 0; i < 60000000; ++i) {};
 		yield();
 	}
 }
