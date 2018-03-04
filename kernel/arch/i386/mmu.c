@@ -283,11 +283,13 @@ void *krealloc(void *ptr, size_t size)
 /* mark the current block as free and 
  * merge adjacent free blocks if possible 
  *
- * hell break loose if ptr doesn't point to the beginning of memory block */
+ * hell breaks loose if ptr doesn't point to the beginning of memory block */
 void kfree(void *ptr)
 {
 	meta_t *b = GET_BASE(ptr), *tmp;
 	MARK_FREE(b);
+
+	kdebug("freeing memory block of size %u", b->size);
 
 	if (b->prev != NULL && IS_FREE(b->prev)) {
 		merge_blocks(b->prev, b);

@@ -39,9 +39,9 @@ void kmain(void)
 	asm ("sti"); /* enable interrupts */
 	mmu_init();
 
-	create_task(func_3, 256, "func_3");
-	create_task(func_2, 256, "func_2");
-	create_task(func_1, 256, "func_1");
+	create_task(func_3, 0x500, "func_3");
+	create_task(func_2, 0x500, "func_2");
+	create_task(func_1, 0x500, "func_1");
 	start_tasking();
 
 	/* NOTE: execution should never get here
