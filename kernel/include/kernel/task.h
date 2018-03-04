@@ -11,11 +11,12 @@ typedef struct {
 typedef struct task {
 	registers_t regs;
 	struct task *next;
+	const char *name;
 } task_t;
 
 void yield(void);
-void init_tasking(void);
-void create_task(task_t *task, void(*func)(), uint32_t eflags, uint32_t pagedir);
+void start_tasking(void) __attribute__((noreturn));
+void create_task(void(*func)(), uint32_t stack_size, const char *name);
 
 /* defined in kernel/arch/i386/switch.s */
 extern void switch_task(registers_t *reg_old, registers_t *reg_new);
