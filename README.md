@@ -31,7 +31,10 @@ After I have a working file system I'll ditch grub and write my own boot loader 
 * kernel:
    * Multitasking
       * preemptive multitasking
-      * mutual exclusion using spinlocks
+      * mutual exclusions
+      * semaphores
+      * spinlocks (multi-core support when?)
+      * how to detect if task has eneded?
    * Memory Management
       * switch from linked lists to red-black tree
    * File System
