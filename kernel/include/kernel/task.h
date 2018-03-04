@@ -16,6 +16,7 @@ typedef struct task {
 
 void yield(void);
 void start_tasking(void);
+void delete_task(void) __attribute__((noreturn));
 void create_task(void(*func)(), uint32_t stack_size, const char *name);
 
 /* defined in kernel/arch/i386/switch.s */
