@@ -10,13 +10,12 @@ void start_tasking(void)
 {
 	running = head;
 
-
 	task_t *tmp = head;
 	while (tmp->next)
 		tmp = tmp->next;
 	tmp->next = head;
 
-	yield(); /* switch from kmain to next task */
+	((void (*)())head->regs.eip)();
 }
 
 void create_task(void(*func)(), uint32_t stack_size, const char *name)
@@ -26,7 +25,7 @@ void create_task(void(*func)(), uint32_t stack_size, const char *name)
 	task_t *tmp = kcalloc(1, sizeof(task_t));
 
 	tmp->regs.eip = (uint32_t)func;
-	tmp->regs.esp = (uint32_t)kmalloc(0x1000) + 0x1000 - 1; /* TODO: use stack_size */
+	tmp->regs.esp = (uint32_t)kmalloc(stack_size) + stack_size - 1;
 	tmp->name = name;
 
 	/* FIXME: all kernel tasks have the same page directory, is this necessary */
@@ -42,15 +41,26 @@ void create_task(void(*func)(), uint32_t stack_size, const char *name)
 	head = tmp;
 }
 
+/* running task has reached its ended (ie. returned),
+ * remove the task from task list  */
+void delete_task(void)
+{
+	kdebug("deleting task %s", running->name);
+
+	task_t *prev = running;
+	while (prev->next != running)
+		prev = prev->next;
+
+	prev->next = running->next;
+	running = prev->next;
+
+	yield();
+}
+
 void yield(void)
 {
 	task_t *prev = running;
 	running = running->next;
-
-	if (running == NULL) {
-		kdebug("starting from top again");
-		running = head;
-	}
 
 	kdebug("switching from %s to %s", prev->name, running->name);
 	switch_task(&prev->regs, &running->regs);
