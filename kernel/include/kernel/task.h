@@ -12,6 +12,7 @@ typedef struct task {
 	registers_t regs;
 	struct task *next;
 	const char *name;
+	uint32_t *stack_start;
 } task_t;
 
 void yield(void);
