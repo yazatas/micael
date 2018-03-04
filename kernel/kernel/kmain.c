@@ -19,6 +19,10 @@ extern uint32_t __kernel_virtual_start,  __kernel_virtual_end;
 extern uint32_t __kernel_physical_start, __kernel_physical_end;
 extern uint32_t boot_page_dir; 
 
+void func_1(void);
+void func_2(void);
+void func_3(void);
+
 void kmain(void)
 {
     tty_init_default();
@@ -35,18 +39,45 @@ void kmain(void)
 	asm ("sti"); /* enable interrupts */
 	mmu_init();
 
-	kprint("\n");
-	init_tasking();
-	kdebug("yielding cpu...");
-	yield();
-	kdebug("im back! printing odd numbers from 1 to 10...");
-	for (unsigned i = 1; i < 10; i+=2)
-		kprint("%u ", i);
-	kprint("\n");
-	kdebug("yielding the cpu again...");
-	yield();
+	create_task(func_3, 256, "func_3");
+	create_task(func_2, 256, "func_2");
+	create_task(func_1, 256, "func_1");
 
-	kdebug("finally back here, out of yields");
+	start_tasking();
+	__builtin_unreachable(); /* wew */
 
 	for (;;);
+}
+
+void func_1(void)
+{
+	kdebug("started func_1");
+
+	while (1) {
+		kprint("in function 1\n");
+		for (volatile int i = 0; i < 60000000 * 2; ++i) {};
+		yield();
+	}
+}
+
+void func_2(void)
+{
+	kdebug("started func_2");
+
+	while (1) {
+		kprint("in function 2\n");
+		for (volatile int i = 0; i < 60000000 * 2; ++i) {};
+		yield();
+	}
+}
+
+void func_3(void)
+{
+	kdebug("started func_3");
+
+	while (1) {
+		kprint("in function 3\n");
+		for (volatile int i = 0; i < 60000000 * 2; ++i) {};
+		yield();
+	}
 }
