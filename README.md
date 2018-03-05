@@ -33,8 +33,8 @@ After I have a working file system I'll ditch grub and write my own boot loader 
       * preemptive multitasking
       * mutual exclusions
       * semaphores
-      * spinlocks (multi-core support when?)
-      * how to detect if task has eneded?
+      * spinlocks
+      * switch from linked list to priority-based queue
    * Memory Management
       * switch from linked lists to red-black tree
    * File System
@@ -45,6 +45,8 @@ After I have a working file system I'll ditch grub and write my own boot loader 
       * move all code containing assembly to kernel/arch/i386
       * proper vga driver
       * tcp/ip stack
+      * support for AMR architecture
+      * multicore support
 
 
 # Copying
