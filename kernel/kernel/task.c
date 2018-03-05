@@ -3,14 +3,14 @@
 #include <kernel/mmu.h>
 #include <kernel/kpanic.h>
 
-static task_t *head = NULL;
-static task_t *running = NULL;
+static tcb_t *head = NULL;
+static tcb_t *running = NULL;
 
 void start_tasking(void)
 {
 	running = head;
 
-	task_t *tmp = head;
+	tcb_t *tmp = head;
 	while (tmp->next)
 		tmp = tmp->next;
 	tmp->next = head;
@@ -22,7 +22,7 @@ void create_task(void(*func)(), uint32_t stack_size, const char *name)
 {
 	kdebug("initializing task %s", name);
 
-	task_t *tmp = kcalloc(1, sizeof(task_t));
+	tcb_t *tmp = kcalloc(1, sizeof(tcb_t));
 
 	tmp->name        = name;
 	tmp->stack_start = kmalloc(stack_size);
@@ -30,6 +30,7 @@ void create_task(void(*func)(), uint32_t stack_size, const char *name)
 	tmp->regs.esp    = (uint32_t)tmp->stack_start + stack_size - 1;
 
 	/* FIXME: all kernel tasks have the same page directory, is this necessary */
+	/* FIXME: it is not */
 	asm volatile("movl %%cr3, %%eax \n \
                   movl %%eax, %0 " : "=r" (tmp->regs.cr3));
 
@@ -48,7 +49,7 @@ void delete_task(void)
 {
 	kdebug("deleting task %s", running->name);
 
-	task_t *prev, *tmp;
+	tcb_t *prev, *tmp;
 	prev = tmp = running;
 	while (prev->next != running)
 		prev = prev->next;
@@ -64,7 +65,7 @@ void delete_task(void)
 
 void yield(void)
 {
-	task_t *prev = running;
+	tcb_t *prev = running;
 	running = running->next;
 
 	kdebug("switching from %s to %s", prev->name, running->name);

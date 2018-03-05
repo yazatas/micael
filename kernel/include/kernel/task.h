@@ -8,12 +8,12 @@ typedef struct {
 	uint32_t esp, ebp, eip, eflags, cr3;
 } registers_t;
 
-typedef struct task {
+typedef struct tcb {
 	registers_t regs;
-	struct task *next;
+	struct tcb *next;
 	const char *name;
 	uint32_t *stack_start;
-} task_t;
+} tcb_t;
 
 void yield(void);
 void start_tasking(void);
