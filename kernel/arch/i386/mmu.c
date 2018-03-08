@@ -80,7 +80,7 @@ void pf_handler(uint32_t error)
 		case 7: strerr = "page write, protection fault (user)";       break;
 		default: strerr = "vou";
 	}
-	kprint("\n\n");
+	/* kprint("\n\n"); */
 	kdebug("%s", strerr);
 
 	uint32_t fault_addr = 0;
@@ -96,6 +96,8 @@ void pf_handler(uint32_t error)
 		   "page table index:     %4u 0x%03x\n"
 		   "page frame offset:    %4u 0x%03x\n",
 		   pdi, pdi, pti, pti, offset, offset);
+
+	while (1);
 
 	uint32_t *pd = (uint32_t*)0xffffff000;
 	if (!(pd[pdi] & P_PRESENT)) {
