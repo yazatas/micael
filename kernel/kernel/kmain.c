@@ -39,10 +39,10 @@ void kmain(void)
 	asm ("sti"); /* enable interrupts */
 	mmu_init();
 
-	create_task(func_3, 0x500, "func_3");
-	create_task(func_2, 0x500, "func_2");
-	create_task(func_1, 0x500, "func_1");
-	start_tasking();
+	kthread_create(func_3, 0x500, "func_3");
+	kthread_create(func_2, 0x500, "func_2");
+	kthread_create(func_1, 0x500, "func_1");
+	kthread_start();
 
 	/* NOTE: execution should never get here
 	 * if even one of the tasks has an infinite loop */
@@ -58,7 +58,7 @@ void func_1(void)
 	while (1) {
 		kprint("in function 1\n");
 		for (volatile int i = 0; i < 60000000; ++i) {};
-		yield();
+		kthread_yield();
 	}
 }
 
@@ -69,10 +69,10 @@ void func_2(void)
 	for (int i = 0; i < 3; ++i) {
 		kprint("in function 2\n");
 		for (volatile int i = 0; i < 60000000; ++i) {};
-		yield();
+		kthread_yield();
 	}
 
-	delete_task();
+	kthread_delete();
 }
 
 void func_3(void)
@@ -82,6 +82,6 @@ void func_3(void)
 	while (1) {
 		kprint("in function 3\n");
 		for (volatile int i = 0; i < 60000000; ++i) {};
-		yield();
+		kthread_yield();
 	}
 }

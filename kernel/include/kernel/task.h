@@ -15,10 +15,10 @@ typedef struct tcb {
 	uint32_t *stack_start;
 } tcb_t;
 
-void yield(void);
-void start_tasking(void);
-void delete_task(void) __attribute__((noreturn));
-void create_task(void(*func)(), uint32_t stack_size, const char *name);
+void kthread_yield(void);
+void kthread_start(void);
+void kthread_delete(void) __attribute__((noreturn));
+void kthread_create(void(*func)(), uint32_t stack_size, const char *name);
 
 /* defined in kernel/arch/i386/switch.s */
 extern void switch_task(registers_t *reg_old, registers_t *reg_new);
