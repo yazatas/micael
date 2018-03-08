@@ -6,7 +6,27 @@
 static tcb_t *head = NULL;
 static tcb_t *running = NULL;
 
-void start_tasking(void)
+#define REG(reg) reg, reg
+
+/* defined in arch/i386/boot.s */
+/* virtual address!! */
+extern uint32_t boot_page_dir; 
+
+static void kthread_dump_info(tcb_t *t)
+{
+	kdebug("%s (0x%x) %s:", t->name, (uint32_t)t->stack_start,  t->next->name);
+	/* kprint("stack start 0x%08x */
+	/* kprint("%s's registers:\n", t->name); */
+	kprint("\teax: 0x%08x %8u\n\tebx: 0x%08x %8u\n\tecx: 0x%08x %8u\n"
+           "\tedx: 0x%08x %8u\n\tedi: 0x%08x %8u\n"
+           "\tesp: 0x%08x %8u\n\tebp: 0x%08x %8u\n"
+           "\teip: 0x%08x %8u\n\tflg: 0x%08x %8u\n",
+		   REG(t->regs.eax), REG(t->regs.ebx), REG(t->regs.ecx), 
+		   REG(t->regs.edx), REG(t->regs.edi), REG(t->regs.esp),
+		   REG(t->regs.ebp), REG(t->regs.eip), REG(t->regs.eflags));
+}
+
+void kthread_start(void)
 {
 	running = head;
 
@@ -18,7 +38,7 @@ void start_tasking(void)
 	((void (*)())head->regs.eip)();
 }
 
-void create_task(void(*func)(), uint32_t stack_size, const char *name)
+void kthread_create(void(*func)(), uint32_t stack_size, const char *name)
 {
 	kdebug("initializing task %s", name);
 
@@ -28,6 +48,7 @@ void create_task(void(*func)(), uint32_t stack_size, const char *name)
 	tmp->stack_start = kmalloc(stack_size);
 	tmp->regs.eip    = (uint32_t)func;
 	tmp->regs.esp    = (uint32_t)tmp->stack_start + stack_size - 1;
+	/* tmp->regs.cr3    = boot_page_dir - 0xc0000000; */
 
 	/* FIXME: all kernel tasks have the same page directory, is this necessary */
 	/* FIXME: it is not */
@@ -45,7 +66,8 @@ void create_task(void(*func)(), uint32_t stack_size, const char *name)
 
 /* running task has reached its ended (ie. returned),
  * remove the task from task list  */
-void delete_task(void)
+/* FIXME: this is probably a wrong solution to the problem */
+void kthread_delete(void)
 {
 	kdebug("deleting task %s", running->name);
 
@@ -60,10 +82,10 @@ void delete_task(void)
 	kfree(tmp->stack_start);
 	kfree(tmp);
 
-	yield();
+	kthread_yield();
 }
 
-void yield(void)
+void kthread_yield(void)
 {
 	tcb_t *prev = running;
 	running = running->next;
