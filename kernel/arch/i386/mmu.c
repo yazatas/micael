@@ -25,7 +25,7 @@ typedef struct meta {
 extern uint32_t boot_page_dir; /* this address is virtual */
 extern uint32_t __kernel_virtual_end, __kernel_physical_end; 
 
-static uint32_t *PDIR_PHYS; /* see mmu_init */
+static uint32_t *PDIR_PHYS; /* see vmm_init */
 static uint32_t START_FRAME = (uint32_t)&__kernel_physical_end;
 static uint32_t FRAME_START = 0xf0000000;
 
@@ -39,7 +39,8 @@ static uint32_t pg_dir_ptr = 0;
 
 
 /* notice that this function returns a physical address, not a virtual! */
-uint32_t kalloc_frame(void)
+/* FIXME: this needs a rewrite */
+uint32_t vmm_kalloc_frame(void)
 {
 	uint32_t i, tmp;
 
@@ -59,14 +60,14 @@ uint32_t kalloc_frame(void)
 }
 
 /* address must point to the beginning of the physical address */
-void kfree_frame(uint32_t frame)
+void vmm_kfree_frame(uint32_t frame)
 {
 	uint32_t index = (frame - START_FRAME) / PAGE_SIZE;
 	PAGE_DIR[index] = PAGE_FREE;
 }
 
 /* TODO: what is and how to handle protection fault (especially supervisor) */
-void pf_handler(uint32_t error)
+void vmm_pf_handler(uint32_t error)
 {
 	const char *strerr = "";
 	switch (error) {
@@ -78,9 +79,9 @@ void pf_handler(uint32_t error)
 		case 5: strerr = "page read, protection fault (user)";        break;
 		case 6: strerr = "page write, not present (user)";            break;
 		case 7: strerr = "page write, protection fault (user)";       break;
-		default: strerr = "vou";
+		default: kpanic("undocumented error code"); __builtin_unreachable();
 	}
-	/* kprint("\n\n"); */
+	kprint("\n\n");
 	kdebug("%s", strerr);
 
 	uint32_t fault_addr = 0;
@@ -91,48 +92,50 @@ void pf_handler(uint32_t error)
 	uint32_t pti    = (fault_addr >> 12) & 0x3ff;
 	uint32_t offset = fault_addr & 0xfff;
 
-	kprint("faulting address: 0x%x\n", fault_addr);
-	kprint("page directory index: %4u 0x%03x\n"
-		   "page table index:     %4u 0x%03x\n"
-		   "page frame offset:    %4u 0x%03x\n",
+	kprint("\tfaulting address: 0x%x\n", fault_addr);
+	kprint("\tpage directory index: %4u 0x%03x\n"
+		   "\tpage table index:     %4u 0x%03x\n"
+		   "\tpage frame offset:    %4u 0x%03x\n",
 		   pdi, pdi, pti, pti, offset, offset);
 
-	while (1);
-
-	uint32_t *pd = (uint32_t*)0xffffff000;
-	if (!(pd[pdi] & P_PRESENT)) {
-		kdebug("[mmu] pde %u is NOT present", pdi);
-		pd[pdi] = kalloc_frame() | P_PRESENT | P_READWRITE;
-	}
-
-	uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
-	if (!(pt[pti] & P_PRESENT)) {
-		kdebug("[mmu] pte %u is NOT present", pti);
-		pt[pti] = kalloc_frame() | P_PRESENT | P_READWRITE;
-	}
-
-	flush_TLB();
+	vmm_map_page((void*)vmm_kalloc_frame(), (void*)fault_addr, P_PRESENT | P_READWRITE);
+	vmm_flush_TLB();
 }
 
-/* return 0 on success and -1 on error */
-void map_page(void *physaddr, void *virtaddr, uint32_t flags)
+void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
 {
 	uint32_t pdi = ((uint32_t)virtaddr) >> 22;
 	uint32_t pti = ((uint32_t)virtaddr) >> 12 & 0x3ff; 
 
 	uint32_t *pd = (uint32_t*)0xfffff000;
 	if (!(pd[pdi] & P_PRESENT)) {
-		pd[pdi] = kalloc_frame() | flags;
+		kdebug("Page Directory Entry %u is NOT present", pdi);
+		pd[pdi] = vmm_kalloc_frame() | flags;
 	}
 
 	uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
 	if (!(pt[pti] & P_PRESENT)) {
+		kdebug("Page Table Entry %u is NOT present", pti);
 		pt[pti] = (uint32_t)physaddr | flags;
 	}
 }
 
-void mmu_init(void)
+void *vmm_mkpdir(void *virtaddr, uint32_t flags)
 {
+	kdebug("allocating new page directory...");
+
+	pageframe_t physaddr = vmm_kalloc_frame();
+	vmm_map_page((void*)physaddr, virtaddr, flags);
+
+	return (void*)physaddr;
+}
+
+
+void vmm_init(void)
+{
+	/* TODO: read multiboot info and 
+	 * calculate the amount of available pages */
+
 	/* 4k align START_FRAME */
 	if (START_FRAME % PAGE_SIZE != 0) {
 		START_FRAME = (START_FRAME + PAGE_SIZE) & ~(PAGE_SIZE - 1);
@@ -146,29 +149,54 @@ void mmu_init(void)
 	kdebug("recursive page directory enabled!");
 
 	/* init kernel heap */
-	kheap_init();
-	flush_TLB();
+	vmm_heap_init();
+	vmm_flush_TLB();
 }
 
-inline void flush_TLB(void)
+/* convert virtual address to physical 
+ * return NULL if the address hasn't been mapped */
+void *vmm_v_to_p(void *virtaddr)
+{
+	uint32_t pdi = ((uint32_t)virtaddr) >> 22;
+	uint32_t pti = ((uint32_t)virtaddr) >> 12 & 0x3ff; 
+	uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
+
+	return (void*)((pt[pti] & ~0xfff) + ((pageframe_t)virtaddr & 0xfff));
+}
+
+inline void vmm_map_kernel(void *pdir)
+{
+	((uint32_t*)pdir)[768] = (pageframe_t)PDIR_PHYS;
+}
+
+
+inline void vmm_flush_TLB(void)
 {
 	asm volatile ("mov %cr3, %ecx \n \
 			       mov %ecx, %cr3");
 }
 
+inline void vmm_change_pdir(void *cr3)
+{
+	asm volatile ("push %%eax \n\
+				   mov %0, %%eax \n\
+				   mov %%eax, %%cr3 \n\
+				   pop %%eax" 
+				   :: "r" ((uint32_t)cr3));
+}
+
 /**************************** kernel heap ****************************/
 
-/* TODO: this never returns NULL, map_page status code when??? */
 static meta_t *morecore(size_t size)
 {
 	size_t pgcount = size / 0x1000 + 1;
 	meta_t *tmp = (meta_t*)HEAP_BREAK;
 
 	for (size_t i = 0; i < pgcount; ++i) {
-		map_page((void*)kalloc_frame(), HEAP_BREAK, P_PRESENT | P_READWRITE);
+		vmm_map_page((void*)vmm_kalloc_frame(), HEAP_BREAK, P_PRESENT | P_READWRITE);
 		HEAP_BREAK = (uint32_t*)((uint8_t*)HEAP_BREAK + 0x1000);
 	}
-	flush_TLB();
+	vmm_flush_TLB();
 
 	/* place the new block at the beginning of block list */
 	tmp->size = pgcount * 0x1000 - META_SIZE;
@@ -227,8 +255,10 @@ void *kmalloc(size_t size)
 	meta_t *b;
 
 	if ((b = find_free_block(size)) == NULL) {
-		if ((b = morecore(size + META_SIZE)) == NULL)
-			kpanic("kernel heap exhausted"); /* kpanic doesn't return  */
+		if ((b = morecore(size + META_SIZE)) == NULL) {
+			kpanic("kernel heap exhausted");
+			__builtin_unreachable();
+		}
 
 		split_block(b, size);
 		UNMARK_FREE(b);
@@ -301,14 +331,13 @@ void kfree(void *ptr)
 	if (b->next != NULL && IS_FREE(b->next))
 		merge_blocks(b, b->next);
 
-	/* TODO: call kfree_frame */
+	/* TODO: call vmm_kfree_frame */
 }
 
 /* allocate one page (4KiB) of initial memory for kheap */
-void kheap_init()
+void vmm_heap_init()
 {
-	map_page((void*)kalloc_frame(), HEAP_START, P_PRESENT | P_READWRITE);
-	kdebug("kernel heap initialized! Start addres: 0x%08x", HEAP_START);
+	vmm_map_page((void*)vmm_kalloc_frame(), HEAP_START, P_PRESENT | P_READWRITE);
 	memset(HEAP_START, 0, 0x1000);
 
 	kernel_base = (meta_t*)HEAP_START;
@@ -316,4 +345,6 @@ void kheap_init()
 	kernel_base->next = kernel_base->prev = NULL;
 	MARK_FREE(kernel_base);
 	HEAP_BREAK = (uint32_t*)0xd0001000;
+
+	kdebug("kernel heap initialized! Start addres: 0x%08x", HEAP_START);
 }

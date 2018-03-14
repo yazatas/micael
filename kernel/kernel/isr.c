@@ -40,7 +40,7 @@ const char *interrupts[] = {
 extern void interrupt_handler(struct regs_t *cpu_state)
 {
 	if (cpu_state->isr_num == 0xe) {
-		pf_handler(cpu_state->err_num);
+		vmm_pf_handler(cpu_state->err_num);
 		return;
 	}
 

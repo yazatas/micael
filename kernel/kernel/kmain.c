@@ -33,20 +33,15 @@ void kmain(void)
 		   &__kernel_virtual_end,   &__kernel_physical_end);
 	kdebug("kpage dir start addr:     0x%08x", &boot_page_dir);
 
-	gdt_init(); idt_init();
-	irq_init(); timer_install();
-	kb_install();
+	gdt_init(); idt_init(); irq_init(); 
+	timer_install(); kb_install();
 	asm ("sti"); /* enable interrupts */
-	mmu_init();
+	vmm_init();
 
-	kthread_create(func_3, 0x500, "func_3");
-	kthread_create(func_2, 0x500, "func_2");
-	kthread_create(func_1, 0x500, "func_1");
-	kthread_start();
-
-	/* NOTE: execution should never get here
-	 * if even one of the tasks has an infinite loop */
-	kdebug("After start_tasking");
+	/* kthread_create(func_3, 0x500, "func_3"); */
+	/* kthread_create(func_2, 0x500, "func_2"); */
+	/* kthread_create(func_1, 0x500, "func_1"); */
+	/* kthread_start(); */
 
 	for (;;);
 }
