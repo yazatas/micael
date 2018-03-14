@@ -15,8 +15,6 @@ extern uint32_t boot_page_dir;
 static void kthread_dump_info(tcb_t *t)
 {
 	kdebug("%s (0x%x) %s:", t->name, (uint32_t)t->stack_start,  t->next->name);
-	/* kprint("stack start 0x%08x */
-	/* kprint("%s's registers:\n", t->name); */
 	kprint("\teax: 0x%08x %8u\n\tebx: 0x%08x %8u\n\tecx: 0x%08x %8u\n"
            "\tedx: 0x%08x %8u\n\tedi: 0x%08x %8u\n"
            "\tesp: 0x%08x %8u\n\tebp: 0x%08x %8u\n"
