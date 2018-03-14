@@ -98,6 +98,8 @@ void vmm_pf_handler(uint32_t error)
 		   "\tpage frame offset:    %4u 0x%03x\n",
 		   pdi, pdi, pti, pti, offset, offset);
 
+	while (1);
+
 	vmm_map_page((void*)vmm_kalloc_frame(), (void*)fault_addr, P_PRESENT | P_READWRITE);
 	vmm_flush_TLB();
 }
