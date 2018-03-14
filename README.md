@@ -17,6 +17,7 @@ After I have a working file system I'll ditch grub and write my own boot loader 
       * kernel heap
    * Multitasking
       * cooperative multitasking
+      * mutual exclusions
    * Miscellaneous
       * global descriptor table
       * interrupts (ISRs and IRQs)
@@ -30,13 +31,14 @@ After I have a working file system I'll ditch grub and write my own boot loader 
   * signal.h (needs kernel)
 * kernel:
    * Multitasking
-      * preemptive multitasking
-      * mutual exclusions
+      * preemptive multitasking (aka scheduling)
       * semaphores
-      * spinlocks
       * switch from linked list to priority-based queue
+      * protect all critical parts with mutexes
    * Memory Management
       * switch from linked lists to red-black tree
+      * calculate available pages
+      * rewrite vmm_kalloc_frame()
    * File System
       * working fs
       * paging to disk (what's the proper term?)
@@ -45,8 +47,9 @@ After I have a working file system I'll ditch grub and write my own boot loader 
       * move all code containing assembly to kernel/arch/i386
       * proper vga driver
       * tcp/ip stack
-      * support for AMR architecture
+      * support for ARM architecture
       * multicore support
+         * spinlocks
 
 
 # Copying

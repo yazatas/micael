@@ -3,14 +3,13 @@
 #include <kernel/mmu.h>
 #include <kernel/kpanic.h>
 
+/* defined in boot.s */
+extern uint32_t boot_page_dir;
+
 static tcb_t *head = NULL;
 static tcb_t *running = NULL;
 
 #define REG(reg) reg, reg
-
-/* defined in arch/i386/boot.s */
-/* virtual address!! */
-extern uint32_t boot_page_dir; 
 
 static void kthread_dump_info(tcb_t *t)
 {
@@ -46,12 +45,7 @@ void kthread_create(void(*func)(), uint32_t stack_size, const char *name)
 	tmp->stack_start = kmalloc(stack_size);
 	tmp->regs.eip    = (uint32_t)func;
 	tmp->regs.esp    = (uint32_t)tmp->stack_start + stack_size - 1;
-	/* tmp->regs.cr3    = boot_page_dir - 0xc0000000; */
-
-	/* FIXME: all kernel tasks have the same page directory, is this necessary */
-	/* FIXME: it is not */
-	asm volatile("movl %%cr3, %%eax \n \
-                  movl %%eax, %0 " : "=r" (tmp->regs.cr3));
+	tmp->regs.cr3    = ((uint32_t)&boot_page_dir - 0xc0000000);
 
     asm volatile("pushfl \n \
                   movl (%%esp), %%eax \n \
