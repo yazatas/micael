@@ -20,13 +20,15 @@ static uint32_t *KPDIR_P;
 static uint32_t *KPDIR_V;
 static uint32_t START_FRAME = (uint32_t)&__kernel_physical_end;
 static uint32_t FRAME_START = 0xf0000000;
+static page_t  *TMP_PAGE    = (page_t*)0xe0000000;
 
 /* TODO: copy bitvector from file system and use it here */
 static uint32_t PAGE_DIR[1024] = {PAGE_FREE}; /* FIXME: 1024 is not the correct value */
 static uint32_t pg_dir_ptr = 0;
 
-static uint32_t kpdir[1024]  __attribute__((aligned(4096)));
-static uint32_t kpgtab[1024] __attribute__((aligned(4096)));
+static uint32_t kpdir[1024]   __attribute__((aligned(4096)));
+static uint32_t kpgtab[1024]  __attribute__((aligned(4096)));
+static uint32_t kheaptb[1024] __attribute__((aligned(4096)));
 
 /* notice that this function returns a physical address, not a virtual! */
 /* FIXME: this needs a rewrite */
@@ -82,13 +84,13 @@ void vmm_pf_handler(uint32_t error)
     uint32_t pti    = (fault_addr >> 12) & 0x3ff;
     uint32_t offset = fault_addr & 0xfff;
 
-    kprint("\tfaulting address: 0x%x\n", fault_addr);
+    kprint("\tfaulting address: 0x%08x\n", fault_addr);
     kprint("\tpage directory index: %4u 0x%03x\n"
            "\tpage table index:     %4u 0x%03x\n"
            "\tpage frame offset:    %4u 0x%03x\n",
            pdi, pdi, pti, pti, offset, offset);
 
-    /* while (1); */
+    while (1);
 
     vmm_map_page((void*)vmm_kalloc_frame(), (void*)fault_addr, P_PRESENT | P_READWRITE);
     vmm_flush_TLB();
@@ -136,28 +138,89 @@ void vmm_init(void)
     KPDIR_V = (uint32_t*)((uint32_t)&boot_page_dir);
     KPDIR_V[1023] = ((uint32_t)KPDIR_P) | P_PRESENT | P_READONLY;
 
+    /* initialize kernel page tables */
     for (size_t i = 0; i < 1024; ++i)
         kpgtab[i] = (i * PAGE_SIZE) | P_PRESENT | P_READWRITE;
 
-    for (size_t i = KSTART_HEAP; i <= KEND_HEAP; ++i)
-        kpdir[i] = vmm_kalloc_frame() | P_PRESENT | P_READWRITE;
+	/* initialize 4MB of initial space for kernel heap */
+    for (size_t i = 0; i < 1024; ++i)
+        kheaptb[i] = ((uint32_t)vmm_kalloc_frame()) | P_PRESENT | P_READWRITE;
 
-    kpdir[KSTART] = ((uint32_t)vmm_v_to_p(&kpgtab)) | P_PRESENT | P_READWRITE;
-    kpdir[1023]   = ((uint32_t)vmm_v_to_p(&kpdir)) | P_PRESENT;
+    kpdir[0]           = vmm_kalloc_frame() | P_PRESENT | P_READWRITE;
+    kpdir[KSTART_HEAP] = ((uint32_t)vmm_v_to_p(&kheaptb)) | P_PRESENT | P_READWRITE;
+    kpdir[KSTART]      = ((uint32_t)vmm_v_to_p(&kpgtab))  | P_PRESENT | P_READWRITE;
+    kpdir[1023]        = ((uint32_t)vmm_v_to_p(&kpdir))   | P_PRESENT;
 
     kdebug("changing to pdir located at address: 0x%x...", vmm_v_to_p(&kpdir));
     vmm_change_pdir(vmm_v_to_p(&kpdir));
 
-    /* kheap_initialize((uint32_t*)(KSTART_HEAP << 22)); */
+    /* initialize heap meta data etc. */
+    kheap_initialize((uint32_t*)(KSTART_HEAP << 22));
 }
 
-/* convert virtual address to physical 
- * return NULL if the address hasn't been mapped */
+/* convert virtual address to physical */
 void *vmm_v_to_p(void *virtaddr)
 {
     uint32_t pdi = ((uint32_t)virtaddr) >> 22;
     uint32_t pti = ((uint32_t)virtaddr) >> 12 & 0x3ff; 
     uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
 
-    return (void*)((pt[pti] & ~0xfff) + ((pageframe_t)virtaddr & 0xfff));
+    return (void*)((pt[pti] & ~0xfff) + ((page_t)virtaddr & 0xfff));
+}
+
+/* list PDEs (page tables) */
+void vmm_list_pde(void)
+{
+    kdebug("mapped PDEs:");
+
+    uint32_t prev  = ENTRY_NOT_PRESENT,
+             first = ENTRY_NOT_PRESENT,
+             *v    = (uint32_t*)0xfffff000;
+
+    for (size_t i = 0; i < 1024; ++i) {
+        if (v[i] & P_PRESENT) {
+            if (first == ENTRY_NOT_PRESENT)
+                first = i;
+            prev = i;
+
+        /* current entry not present in page directory */
+        } else if (prev != ENTRY_NOT_PRESENT) {
+            if (first == prev)
+                kprint("\tPDE %u present\n", prev);
+            else
+                kprint("\tPDEs %u - %u present\n", first, prev);
+            prev = first = ENTRY_NOT_PRESENT;
+        }
+    }
+
+    if (prev != ENTRY_NOT_PRESENT) {
+        if (first == prev)
+            kprint("\tPDE %u present\n", prev);
+        else
+            kprint("\tPDEs %u - %u present\n", first, prev);
+        prev = first = ENTRY_NOT_PRESENT;
+    }
+}
+
+/* list PTEs (physical pages)
+ * print also how many bytes the table maps */
+void vmm_list_pte(uint32_t pdi)
+{
+    if (!(((uint32_t*)0xfffff000)[pdi] & P_PRESENT)) {
+        kdebug("Page Directory Entry %u NOT present", pdi);
+        return;
+    }
+
+    uint32_t nbytes = 0;
+    uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
+
+    for (size_t i = 0; i < 1024; ++i) {
+        if (pt[i] & P_PRESENT) {
+            nbytes += 0x1000;
+        }
+    }
+
+    kdebug("Page Table %u:", pdi);
+    kprint("\tmapped bytes: %uB %uMB\n",   nbytes, nbytes / 1000);
+    kprint("\tmapped table entries: %u\n", nbytes / 0x1000);
 }

@@ -61,4 +61,7 @@ void *vmm_copy_pdir(void *physaddr);
 pageframe_t vmm_kalloc_frame(void);
 void        vmm_kfree_frame(pageframe_t frame);
 
+void vmm_list_pde(void);
+void vmm_list_pte(uint32_t pdi);
+
 #endif /* end of include guard: __VMM_H__ */
