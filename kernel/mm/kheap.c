@@ -1,7 +1,7 @@
+#include <kernel/kprint.h>
+#include <kernel/kpanic.h>
 #include <mm/vmm.h>
 #include <mm/kheap.h>
-#include <kernel/mmu.h>
-#include <kernel/kprint.h>
 
 #include <string.h>
 
@@ -22,6 +22,15 @@ static meta_t   *kernel_base;
 static uint32_t *HEAP_START;
 static uint32_t *HEAP_BREAK;
 
+/* TODO: this needs a rewrite!!! 
+ *
+ * kernel page directory structures and the whole vmm 
+ * has changes a lot since this was written so update
+ * it to make compatible with today's vmm */
+
+/* 4MB of initial memory is allocated on system startup, if that memory has run out
+ * we must allocate new page table. I think this kind of abstraction should be vmm's
+ * job to provide so don't write PT allocation here. Instead call vmm_alloc_pt */
 static meta_t *morecore(size_t size)
 {
     size_t pgcount = size / 0x1000 + 1;
@@ -90,10 +99,10 @@ void *kmalloc(size_t size)
     meta_t *b;
 
     if ((b = find_free_block(size)) == NULL) {
-        if ((b = morecore(size + META_SIZE)) == NULL) {
-            kpanic("kernel heap exhausted");
-            __builtin_unreachable();
-        }
+		kpanic("kernel heap exhausted");
+		__builtin_unreachable();
+        /* if ((b = morecore(size + META_SIZE)) == NULL) { */
+        /* } */
 
         split_block(b, size);
         UNMARK_FREE(b);
@@ -169,14 +178,15 @@ void kfree(void *ptr)
     /* TODO: call vmm_kfree_frame */
 }
 
-void kheap_initialize(uint32_t *heap_start)
+void kheap_initialize(uint32_t *heap_start_v)
 {
-	HEAP_START = heap_start;
+	kdebug("initializing kernel heap...");
 
-	memset(HEAP_START, 0, 0x1000);
+	HEAP_START = heap_start_v;
+
     kernel_base = (meta_t*)HEAP_START;
     kernel_base->size = 0x1000 - META_SIZE;
     kernel_base->next = kernel_base->prev = NULL;
     MARK_FREE(kernel_base);
-	HEAP_BREAK = (uint32_t*)((uint32_t)heap_start + 0x1000);
+	HEAP_BREAK = (uint32_t*)((uint32_t)HEAP_START + 0x1000);
 }
