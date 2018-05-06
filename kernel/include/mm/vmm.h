@@ -1,5 +1,5 @@
-#ifndef __MMU_H__
-#define __MMU_H__
+#ifndef __VMM_H__
+#define __VMM_H__
 
 #include <stdint.h>
 #include <stddef.h>
@@ -10,6 +10,7 @@
 #define KALLOC_NO_MEM_ERROR 0xffffffff
 #define KSTART              768
 #define KSTART_HEAP         832
+#define KEND_HEAP           895
 
 /* TODO: add more consistency ie. rewrite */
 enum {
@@ -51,7 +52,6 @@ static inline void vmm_change_pdir(void *cr3)
 
 /* initialization */
 void vmm_init(void);
-void vmm_heap_init(void);
 void *vmm_mkpdir(void *virtaddr, uint32_t flags);
 void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags);
 void vmm_pf_handler(uint32_t error);
@@ -61,14 +61,4 @@ void *vmm_copy_pdir(void *physaddr);
 pageframe_t vmm_kalloc_frame(void);
 void        vmm_kfree_frame(pageframe_t frame);
 
-/* debugging */
-void vmm_list_pde(void);
-void vmm_list_pte(uint32_t pdi);
-
-/* kernel heap API */
-void *kmalloc(size_t size);
-void *kcalloc(size_t nmemb, size_t size);
-void *krealloc(void *ptr, size_t size);
-void  kfree(void *ptr);
-
-#endif /* end of include guard: __MMU_H__ */
+#endif /* end of include guard: __VMM_H__ */
