@@ -6,3 +6,4 @@ development_log
 kernel.map
 kernel.sym
 .gitignore
+.gdbinit

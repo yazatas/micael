@@ -66,7 +66,7 @@ void idt_init(void)
 	idt_set_gate((uint32_t)isr19, 0x08, 0x8e, &IDT[19]);
 	idt_set_gate((uint32_t)isr20, 0x08, 0x8e, &IDT[20]);
 
-	asm volatile ("lidtl (idt_ptr)");
+	asm volatile ("lidt (%0)" :: "r"(&idt_ptr));
 
 	kdebug("IDT initialized! Start address 0x%x", &IDT);
 }

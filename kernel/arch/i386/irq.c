@@ -88,8 +88,11 @@ void irq_handler(struct regs_t *cpu_state)
 {
 	void (*handler)(struct regs_t *cpu_state);
 
-	if ((handler = irq_routines[cpu_state->isr_num - 32]))
-		handler(cpu_state);
+	/* if ((handler = irq_routines[cpu_state->isr_num - 32])) { */
+	/* 	kdebug("no handler for this interrupt request: %d", cpu_state->isr_num); */
+	/* 	for (;;); */
+	/* 	/1* handler(cpu_state); *1/ */
+	/* } */
 
 	if (cpu_state->isr_num >= 40)
 		outb(PIC_SLAVE_CMD_PORT, PIC_ACK);
