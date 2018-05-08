@@ -1,7 +1,10 @@
-#include <kernel/task.h>
 #include <kernel/kprint.h>
-#include <kernel/mmu.h>
 #include <kernel/kpanic.h>
+
+#include <sched/kthread.h>
+
+#include <mm/vmm.h>
+#include <mm/kheap.h>
 
 /* defined in boot.s */
 extern uint32_t boot_page_dir;

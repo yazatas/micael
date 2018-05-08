@@ -24,8 +24,6 @@ kernel/kmain.o \
 kernel/isr.o \
 kernel/kprint.o \
 kernel/kpanic.o \
-kernel/task.o \
-kernel/mutex.o \
 
 OBJS=$(KERNEL_OBJS)
 LINK_LIST=$(KERNEL_OBJS) $(LDFLAGS)
