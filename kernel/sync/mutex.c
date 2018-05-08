@@ -1,6 +1,6 @@
-#include <kernel/mutex.h>
-#include <kernel/task.h>
+#include <sync/mutex.h>
 #include <kernel/kprint.h>
+#include <sched/kthread.h>
 
 int mutex_trylock(mutex_t *m)
 {

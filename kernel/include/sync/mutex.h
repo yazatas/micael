@@ -5,6 +5,8 @@
 
 typedef volatile int8_t mutex_t;
 
+/* TODO: add mutex trylock with timeout!!!! */
+
 /* return 0 if locking the mutex succeeded
  * and -1 if it's already locked 
  *
