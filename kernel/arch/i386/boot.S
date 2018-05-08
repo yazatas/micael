@@ -15,16 +15,18 @@
 .section .data
 .global boot_page_dir
 .align 0x1000
-boot_page_dir:
-	.long 0x83 # map first 4M
-	.rept 768 - 1 # skip 3GB
-	.long 0
-	.endr
-	.long 0x83 # map first 4M of kernel space
-	.rept 256 - 1 # skip the rest
-	.long 0
-	.endr
+boot_page_table:
+.set addr, 0
+.rept 1024
+.long addr | 1
+.set addr, addr + 0x1000
+.endr
 
+.align 0x1000
+boot_page_dir:
+.rept 1024
+.long (boot_page_table - 0xC0000000) + 1
+.endr
 
 # Reserve a stack for the initial thread.
 .section .bss
@@ -39,41 +41,64 @@ stack_top:
 .global _start
 
 _start:
-	cli
+    cli
 
-	mov $(boot_page_dir - 0xc0000000), %ecx
-	mov %ecx, %cr3
+    mov $(boot_page_dir - 0xc0000000), %ecx
+    mov %ecx, %cr3
 
-	mov %cr4, %ecx
-	or $0x10, %ecx
-	mov %ecx, %cr4
+    mov %cr4, %ecx
+    or $0x10, %ecx
+    mov %ecx, %cr4
 
-	mov %cr0, %ecx
-	or $0x80000000, %ecx
-	mov %ecx, %cr0
+    mov %cr0, %ecx
+    or $0x80000000, %ecx
+    mov %ecx, %cr0
 
-	lea higher_half_kernel, %ecx
-	jmp *%ecx # long jump to update instruction pointer
+    lea higher_half_kernel, %ecx
+    jmp *%ecx # long jump to update instruction pointer
 
 higher_half_kernel:
-	movl $stack_top, %esp
+    movl $stack_top, %esp
 
-	# Transfer control to the main kernel.
-	call kmain
+    # Transfer control to the main kernel.
+    call kmain
 
-	# Hang if kernel_main unexpectedly returns.
-	cli
-	hlt
+    # Hang if kernel_main unexpectedly returns.
+    cli
+    hlt
+
+.global enter_usermode
+enter_usermode:
+    movw $0x23, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
+
+    push $0x23 # SS
+    push %esp  # ESP
+    pushf      # EFLAGS
+    push $0x1b  # CS
+    push $0x0   # EIP
+
+    iret
+
+.global tss_flush
+tss_flush:
+    movw $0x28, %ax
+    ltr %ax
+    ret
 
 .global gdt_flush
 gdt_flush:
-	movw $0x10, %ax
-	movw %ax, %ds
-	movw %ax, %es
-	movw %ax, %fs
-	movw %ax, %gs
+    lgdtl 4(%esp)
+    movw $0x10, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    movw %ax, %fs
+    movw %ax, %gs
 
-	ljmp $0x08, $.flush
+    ljmp $0x08, $.flush
 .flush:
-	ret
+    ret
 .size _start, . - _start
