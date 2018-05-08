@@ -10,7 +10,6 @@
 #define KALLOC_NO_MEM_ERROR 0xffffffff
 #define KSTART              768
 #define KSTART_HEAP         832
-#define KEND_HEAP           895
 
 /* TODO: add more consistency ie. rewrite */
 enum {
@@ -25,7 +24,9 @@ enum {
     P_SIZE_4MB   = 1 << 6
 } PAGING_FLAGS;
 
-typedef uint32_t pageframe_t;
+typedef uint32_t page_t;
+typedef uint32_t ptbl_t;
+typedef uint32_t pdir_t;
 
 static inline void *vmm_get_kheap_pdir(void)
 {
@@ -58,9 +59,11 @@ void vmm_pf_handler(uint32_t error);
 void *vmm_v_to_p(void *virtaddr);
 void *vmm_copy_pdir(void *physaddr);
 
-pageframe_t vmm_kalloc_frame(void);
-void        vmm_kfree_frame(pageframe_t frame);
+ptbl_t vmm_kalloc_ptbl(page_t nmemb, uint32_t flags);
+page_t vmm_kalloc_frame(void);
+void   vmm_kfree_frame(page_t frame);
 
+/* debugging */
 void vmm_list_pde(void);
 void vmm_list_pte(uint32_t pdi);
 

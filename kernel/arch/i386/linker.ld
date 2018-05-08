@@ -10,7 +10,9 @@ SECTIONS
 	.text ALIGN(0x1000) : AT(ADDR(.text) - 0xc0000000)
 	{
 		*(.multiboot)
+		__code_segment_start = . - 0xc0000000;
 		*(.text)
+		__code_segment_end = . - 0xc0000000;
 	}
 
 	/* Read-only data. */
@@ -22,7 +24,9 @@ SECTIONS
 	/* Read-write data (initialized) */
 	.data ALIGN(0x1000) : AT(ADDR(.data) - 0xc0000000)
 	{
+		__data_segment_start = . - 0xc0000000;
 		*(.data)
+		__data_segment_end = . - 0xc0000000;
 	}
 
 	/* Read-write data (uninitialized) and stack */
