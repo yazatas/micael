@@ -10,12 +10,12 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 
-#include <kernel/task.h>
-#include <kernel/mutex.h>
+#include <sync/mutex.h>
 
 #include <mm/vmm.h>
 #include <mm/kheap.h>
 
+#include <sched/kthread.h>
 #include <sched/proc.h>
 
 #include <drivers/timer.h>
