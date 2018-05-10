@@ -2,21 +2,28 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 
-#define MAX_SYSCALLS 1
+#define MAX_SYSCALLS 2
 #define SYSCALL_NAME(name) sys_##name
 #define DEFINE_SYSCALL(name) uint32_t SYSCALL_NAME(name)(isr_regs_t *cpu)
 
 typedef uint32_t (*syscall_t)(isr_regs_t *cpu);
 
-DEFINE_SYSCALL(print_to_screen)
+DEFINE_SYSCALL(read)
 {
-	char ptr = *(char*)cpu->ebx;
-	kprint("%c ", ptr);
+	int fd = cpu->ecx;
+}
+
+DEFINE_SYSCALL(write)
+{
+	char *ptr = (char*)cpu->ebx;
+	for (size_t i = 0; i < cpu->ecx; ++i)
+		kprint("%c", ptr[i]);
 	return 0;
 }
 
 static syscall_t syscalls[MAX_SYSCALLS] = {
-	[0] = SYSCALL_NAME(print_to_screen),
+	[0] = SYSCALL_NAME(read),
+	[1] = SYSCALL_NAME(write),
 };
 
 void syscall_handler(isr_regs_t *cpu)
