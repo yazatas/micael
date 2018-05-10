@@ -6,6 +6,7 @@ include $(ALGODIR)/make.config
 include $(SCHEDDIR)/make.config
 include $(DIR_SYNC)/make.config
 include $(DIR_MM)/make.config
+include $(DIR_FS)/make.config
 
 DESTDIR=$(realpath $(shell pwd)/../sysroot)
 
@@ -20,6 +21,7 @@ $(KERNEL_ALGO_OBJS) \
 $(KERNEL_SCHED_OBJS) \
 $(KERNEL_SYNC_OBJS) \
 $(KERNEL_MM_OBJS) \
+$(KERNEL_FS_OBJS) \
 kernel/kmain.o \
 kernel/isr.o \
 kernel/kprint.o \
