@@ -4,77 +4,120 @@
 #include <stdio.h>
 #include <string.h>
 
-static bool print(const char* data, size_t length) {
-	const unsigned char* bytes = (const unsigned char*) data;
-	for (size_t i = 0; i < length; i++)
-		if (putchar(bytes[i]) == EOF)
-			return false;
-	return true;
-}
+static void print_integer(uint32_t value, int width, int sign, bool zp)
+{
+	char c[64] = {0};
+	int i = 0, nlen;
 
-int printf(const char* restrict format, ...) {
-	va_list parameters;
-	va_start(parameters, format);
+	do { 
+		c[i++] = (value % 10) + '0';
+		value /= 10;
+	} while (value != 0);
+	nlen = i;
 
-	int written = 0;
-
-	while (*format != '\0') {
-		size_t maxrem = INT_MAX - written;
-
-		if (format[0] != '%' || format[1] == '%') {
-			if (format[0] == '%')
-				format++;
-			size_t amount = 1;
-			while (format[amount] && format[amount] != '%')
-				amount++;
-			if (maxrem < amount) {
-				// TODO: Set errno to EOVERFLOW.
-				return -1;
-			}
-			if (!print(format, amount))
-				return -1;
-			format += amount;
-			written += amount;
-			continue;
-		}
-
-		const char* format_begun_at = format++;
-
-		if (*format == 'c') {
-			format++;
-			char c = (char) va_arg(parameters, int /* char promotes to int */);
-			if (!maxrem) {
-				// TODO: Set errno to EOVERFLOW.
-				return -1;
-			}
-			if (!print(&c, sizeof(c)))
-				return -1;
-			written++;
-		} else if (*format == 's') {
-			format++;
-			const char* str = va_arg(parameters, const char*);
-			size_t len = strlen(str);
-			if (maxrem < len) {
-				// TODO: Set errno to EOVERFLOW.
-				return -1;
-			}
-			if (!print(str, len))
-				return -1;
-			written += len;
-		} else {
-			format = format_begun_at;
-			size_t len = strlen(format);
-			if (maxrem < len) {
-				// TODO: Set errno to EOVERFLOW.
-				return -1;
-			}
-			if (!print(format, len))
-				return -1;
-			written += len;
-			format += len;
-		}
+	while (i < width && width != 0) {
+		c[i++] = zp ? '0' : ' ';
 	}
 
-	va_end(parameters);
-	return written;
+	if (sign == -1) {
+		c[zp ? i - 1 : nlen] = '-';
+	}
+
+	while (--i >= 0) {
+		putchar(c[i]);
+	}
+}
+
+int printf(const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+
+	int width = 0, zero_padding = 0;
+
+	while (*fmt) {
+
+		if (*fmt != '%') {
+			putchar(*fmt);
+			fmt++;
+			continue;
+		}
+		
+		fmt++;
+		switch (*fmt) {
+			case '%':
+				putchar('%');
+				fmt++;
+				continue;
+
+			case 'c':
+				putchar(va_arg(args, int));
+				fmt++;
+				continue;
+
+			case 's': {
+				char *tmp = va_arg(args, char*);
+				puts(tmp);
+				fmt++;
+				continue;
+			}
+
+		}
+
+		if (*fmt == '0') {
+			zero_padding = 1;
+			fmt++;
+		}
+
+		/* get padding width */
+		while ((*fmt >= '0') && (*fmt <= '9')) {
+			width = width * 10 + (*fmt - '0');
+			fmt++;
+		}
+
+		switch (*fmt) {
+			case 'd': {
+				int32_t tmp = va_arg(args, int32_t);
+				print_integer((tmp < 0) ? -tmp : tmp, width, -(tmp < 0), zero_padding);
+				break;
+			}
+
+			case 'u': {
+				uint32_t tmp = va_arg(args, uint32_t);
+				print_integer(tmp, width, 0, zero_padding);
+				break;
+			}
+
+			case 'x': {
+				const uint8_t sym[16] = {'0', '1', '2', '3',
+										 '4', '5', '6', '7',
+										 '8', '9', 'a', 'b',
+										 'c', 'd', 'e', 'f'};
+				uint32_t tmp = va_arg(args, uint32_t);
+				static char c[64];
+				int i = tmp ? 0 : 1;
+
+				while (tmp != 0) {
+					c[i++] = sym[tmp & 0xf];
+					tmp >>= 4;
+				}
+
+				while (i < width && width != 0) {
+					c[i++] = zero_padding ? '0' : ' ';
+				}
+
+				while (--i >= 0) {
+					putchar(c[i]);
+				}
+
+				break;
+			}
+		}
+
+		width = zero_padding = 0;
+		fmt++;
+	}
+
+	va_end(args);
+	return 0; /* FIXME:  */
 }
