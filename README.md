@@ -2,9 +2,9 @@
 
 micael is a 32-bit monolithic kernel written in C and x86 assembly.
 
-If you're missing a cross-compiler or the correct emulator, check the tools directory. It has scripts for automatic installation of needed software.
+See doc/OVERVIEW.md for more details
 
-### What is ready:
+# What is ready:
 * libc
   * string.h (needs testing)
   * ctype.h
@@ -20,6 +20,22 @@ If you're missing a cross-compiler or the correct emulator, check the tools dire
    * Miscellaneous
       * global descriptor table with TSS
       * interrupts (ISRs and IRQs)
+
+### Working on
+* libc
+   * stdio.h
+   * syscall support
+* kernel
+   * Multitasking
+	  * preemptive multitasking
+   * Memory Management
+      * refactor vmm_init
+      * create functions for page table/directory allocation
+   * File System
+	  * VFS
+   * Miscellaneous
+      * core utils
+	  * POSIX compliance
 
 ### What is not ready aka TODO
 * libc:
@@ -54,13 +70,14 @@ If you're missing a cross-compiler or the correct emulator, check the tools dire
       * support for ARM architecture
       * core utils
       * VGA driver
+	  * POSIX compliance
       * multicore support
          * spinlocks
       * add submodules
          * core utils
          * shell
          * file system
-
+      * create installation scripts for qemu and cross-compiler
 
 # Copying
 micael is free software. It's licensed under the MIT license.
