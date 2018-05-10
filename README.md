@@ -2,10 +2,7 @@
 
 micael is a 32-bit monolithic kernel written in C and x86 assembly.
 
-I've started to implement kernel multitasking and right now a very basic cooperative multitasking model is provided but you can't do much with it yet. I've started to implement scheduling and mutual exclusions but they may take a while.
-
-After I have a working file system I'll ditch grub and write my own boot loader because of dkmFS's special needs.
-
+If you're missing a cross-compiler or the correct emulator, check the tools directory. It has scripts for automatic installation of needed software.
 
 ### What is ready:
 * libc
@@ -16,10 +13,12 @@ After I have a working file system I'll ditch grub and write my own boot loader 
       * paging
       * kernel heap
    * Multitasking
-      * cooperative multitasking
+      * cooperative multitasking (legacy)
       * mutual exclusions
+      * User mode processes
+	  * System calls
    * Miscellaneous
-      * global descriptor table
+      * global descriptor table with TSS
       * interrupts (ISRs and IRQs)
 
 ### What is not ready aka TODO
@@ -27,11 +26,11 @@ After I have a working file system I'll ditch grub and write my own boot loader 
   * errno.h
   * stdio.h
   * stdlib.h
-  * time.h   (needs kernel(?))
+  * time.h   (needs kernel)
   * signal.h (needs kernel)
 * kernel:
    * Multitasking
-      * preemptive multitasking (aka scheduling)
+	  * preemptive multitasking
       * semaphores
       * switch from linked list to priority-based queue
       * protect all critical parts with mutexes
@@ -39,17 +38,28 @@ After I have a working file system I'll ditch grub and write my own boot loader 
       * switch from linked lists to red-black tree
       * calculate available pages
       * rewrite vmm_kalloc_frame()
+      * relocate kernel stack to upper 3GB area (??)
+      * remove arch-specific code from vmm.c
+      * refactor vmm_init
+      * create functions for page table/directory allocation
+	  * address space layout randomization
    * File System
-      * working fs
-      * paging to disk (what's the proper term?)
+	  * VFS
+      * Working file system
       * boot loader
+      * paging to disk (what's the proper term?)
    * Miscellaneous
       * move all code containing assembly to kernel/arch/i386
-      * proper vga driver
       * tcp/ip stack
       * support for ARM architecture
+      * core utils
+      * VGA driver
       * multicore support
          * spinlocks
+      * add submodules
+         * core utils
+         * shell
+         * file system
 
 
 # Copying
