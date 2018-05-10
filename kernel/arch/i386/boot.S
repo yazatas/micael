@@ -75,11 +75,11 @@ enter_usermode:
     movw %ax, %fs
     movw %ax, %gs
 
-    push $0x23 # SS
-    push %esp  # ESP
-    pushf      # EFLAGS
-    push $0x1b  # CS
-    push $0x0   # EIP
+    push $0x23       # SS
+    push $0xbfffffff # ESP
+    pushf            # EFLAGS
+    push $0x1b       # CS
+    push $0x0        # EIP
 
     iret
 

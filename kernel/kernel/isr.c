@@ -1,54 +1,46 @@
-#include <kernel/tty.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/common.h>
 #include <mm/vmm.h>
+#include <sched/syscall.h>
 
 #include <stdint.h>
 #include <stdio.h>
 
-struct regs_t {
-	uint16_t gs, fs, es, ds;
-	uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; /* pusha */
-	uint32_t isr_num, err_num;
-	uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
-};
+#define ISR_SYSCALL    0x80
+#define ISR_PAGE_FAULT 0x0e
 
 const char *interrupts[] = {
-	"division by zero", 
-	"debug exception",
-	"non-maskable interrupt",
-	"breakpoint",
-	"into detected overflow",
-	"out of bounds",
-	"invalid opcode",
-	"no coprocessor",
-	"double fault",
-	"coprocessor segment overrun",
-	"bad tss",
-	"segment not present",
-	"stack fault",
-	"general protection fault",
-	"page fault",
-	"unknown interrupt",
-	"coprocessor fault",
-	"alignment check",
-	"machine check",
-	"simd floating point",
-	"virtualization",
+    "division by zero",            "debug exception",          "non-maskable interrupt",
+    "breakpoint",                  "into detected overflow",   "out of bounds",
+    "invalid opcode",              "no coprocessor",           "double fault",
+    "coprocessor segment overrun", "bad tss",                  "segment not present",
+    "stack fault",                 "general protection fault", "page fault",
+    "unknown interrupt",           "coprocessor fault",        "alignment check",
+    "machine check",               "simd floating point",      "virtualization",
 };
 
-extern void interrupt_handler(struct regs_t *cpu_state)
+extern void interrupt_handler(isr_regs_t *cpu_state)
 {
-	if (cpu_state->isr_num == 0xe) {
-		vmm_pf_handler(cpu_state->err_num);
-		return;
-	}
+    switch (cpu_state->isr_num) {
+        case 0x00: case 0x01: case 0x02: case 0x03: 
+        case 0x04: case 0x05: case 0x06: case 0x07: 
+        case 0x08: case 0x09: case 0x0a: case 0x0b:
+        case 0x0c: case 0x0d: case 0x0f: case 0x10: 
+        case 0x11: case 0x12: case 0x14:
+            kpanic(interrupts[cpu_state->isr_num]);
+            break;
 
-	const char *err = "gpf";
+        case ISR_PAGE_FAULT:
+            vmm_pf_handler(cpu_state->err_num);
+            break;
 
-	if (cpu_state->isr_num <= 20) {
-		err = interrupts[cpu_state->isr_num];
-	} 
+        case ISR_SYSCALL:
+            syscall_handler(cpu_state);
+            break;
 
-	kpanic(err);
+        default:
+            kpanic("unsupported interrut!");
+            break;
+    }
 }

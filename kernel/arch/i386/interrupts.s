@@ -23,6 +23,7 @@
 .global isr18 # machine check exception
 .global isr19 # simd floating point exception
 .global isr20 # virtualization exception
+.global isr128 # system call
 
 # how everything works:
 # 1. clear interrupt flag
@@ -164,6 +165,12 @@ isr20:
 	cli
 	pushl $0
 	pushl $20
+	jmp isr_common
+
+isr128:
+	cli
+	pushl $0
+	pushl $0x80
 	jmp isr_common
 
 # save cpu state, call interrupt handler 
