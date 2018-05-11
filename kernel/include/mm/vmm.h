@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <fs/multiboot.h>
 
 #define PF_SIZE             0x1000
 #define PAGE_SIZE           0x1000
@@ -52,7 +53,7 @@ static inline void vmm_change_pdir(void *cr3)
 }
 
 /* initialization */
-void vmm_init(void);
+void vmm_init(multiboot_info_t *mbinfo);
 void *vmm_mkpdir(void *virtaddr, uint32_t flags);
 void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags);
 void vmm_pf_handler(uint32_t error);

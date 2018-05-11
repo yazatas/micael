@@ -60,6 +60,9 @@ _start:
 higher_half_kernel:
     movl $stack_top, %esp
 
+    # push multiboot info
+    pushl %ebx
+
     # Transfer control to the main kernel.
     call kmain
 
