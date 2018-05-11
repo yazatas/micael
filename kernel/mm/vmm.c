@@ -1,9 +1,8 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
-
 #include <mm/vmm.h>
 #include <mm/kheap.h>
-
+#include <fs/multiboot.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <string.h>
@@ -125,8 +124,10 @@ void *vmm_mkpdir(void *virtaddr, uint32_t flags)
     return (void*)physaddr;
 }
 
-void vmm_init(void)
+void vmm_init(multiboot_info_t *mbinfo)
 {
+	vfs_multiboot_read(mbinfo);
+
     /* 4k align START_FRAME */
     if (START_FRAME % PAGE_SIZE != 0) {
         START_FRAME = (START_FRAME + PAGE_SIZE) & ~(PAGE_SIZE - 1);

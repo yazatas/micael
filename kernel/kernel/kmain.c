@@ -15,6 +15,8 @@
 #include <mm/vmm.h>
 #include <mm/kheap.h>
 
+#include <fs/multiboot.h>
+
 #include <sched/kthread.h>
 #include <sched/proc.h>
 
@@ -27,7 +29,7 @@ extern uint32_t __code_segment_start, __code_segment_end;
 extern uint32_t __data_segment_start, __data_segment_end;
 extern uint32_t boot_page_dir; 
 
-void kmain(void)
+void kmain(multiboot_info_t *mbinfo)
 {
     tty_init_default();
 
@@ -46,9 +48,7 @@ void kmain(void)
 	irq_init(); 
 	timer_install(); kb_install();
 	asm ("sti"); /* enable interrupts */
-	vmm_init();
-
-	vmm_list_pde();
+	vmm_init(mbinfo);
 
 	pcb_t *p;
 	if ((p = process_create("haloust")) != NULL) {
