@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 typedef struct isr_regs {
 	uint16_t gs, fs, es, ds;
