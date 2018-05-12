@@ -24,6 +24,7 @@ void kpanic(const char *error)
 
 	kdebug("error number: %d %x", tmp->err_num, tmp->err_num);
 	kdebug("'%s'", error);
+	kdebug("%u free pages", vmm_free_pages());
 
     uint32_t eax, ebx, ecx, edx, edi, eip, cr3, cr2;
 

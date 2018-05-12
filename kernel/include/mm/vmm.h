@@ -65,7 +65,8 @@ page_t vmm_kalloc_frame(void);
 void   vmm_kfree_frame(page_t frame);
 
 /* debugging */
-void vmm_list_pde(void);
-void vmm_list_pte(uint32_t pdi);
+void   vmm_list_pde(void);
+void   vmm_list_pte(uint32_t pdi);
+size_t vmm_free_pages(void);
 
 #endif /* end of include guard: __VMM_H__ */

@@ -1,8 +1,10 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/compiler.h>
 #include <mm/vmm.h>
 #include <mm/kheap.h>
 #include <fs/multiboot.h>
+#include <lib/bitmap.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <string.h>
@@ -15,46 +17,100 @@ extern uint32_t boot_page_dir; /* this address is virtual */
 extern uint32_t __kernel_virtual_end, __kernel_physical_end; 
 extern uint32_t __kernel_physical_start;
 
-static uint32_t *KPDIR_P;
-static uint32_t *KPDIR_V;
+/* kernel page tables */
+static uint32_t kpdir[1024]   __align_4k;
+static uint32_t kpgtab[1024]  __align_4k;
+static uint32_t kheaptb[1024] __align_4k;
 static uint32_t START_FRAME = (uint32_t)&__kernel_physical_end;
-static uint32_t FRAME_START = 0xf0000000;
-static page_t  *TMP_PAGE    = (page_t*)0xe0000000;
 
-/* TODO: copy bitvector from file system and use it here */
-static uint32_t PAGE_DIR[1024] = {PAGE_FREE}; /* FIXME: 1024 is not the correct value */
-static uint32_t pg_dir_ptr = 0;
+#define MEM_ADDRESS_SPACE_MAX 0xffffffff
+#define MEM_MAX_PAGE_COUNT    (MEM_ADDRESS_SPACE_MAX / PAGE_SIZE)
 
-static uint32_t kpdir[1024]   __attribute__((aligned(4096)));
-static uint32_t kpgtab[1024]  __attribute__((aligned(4096)));
-static uint32_t kheaptb[1024] __attribute__((aligned(4096)));
+static uint32_t PAGE_DIR[MEM_MAX_PAGE_COUNT / 32] = {PAGE_FREE};
 
-/* notice that this function returns a physical address, not a virtual! */
-/* FIXME: this needs a rewrite */
+/* this must be statically allocated
+ * as the heap hasn't been initialized yet
+ *
+ * The initial limit set here is replaced
+ * in vmm_init when the memory map provided
+ * by multiboot is read */
+static bitmap_t mem_pages = {
+    MEM_MAX_PAGE_COUNT,
+    PAGE_DIR
+};
+
+/* vmm_kalloc_frame works as follows:
+ *
+ * first it tries to consume all available memory by allocating one page
+ * after the other in an increasing address order (0x1000, 0x2000, 0x3000...)
+ *
+ * Once mem_pages_ptr is equal to mem_pages.len it tries to allocate
+ * memory from the beginning of physical memory ie. setting the mem_pages_ptr to 0
+ * and scanning the memory from top to bottom again.
+ *
+ * If the function has scanned the whole address space for free memory and found none
+ * available it issues a kernel panic informing the user it's out of physical memory */
 uint32_t vmm_kalloc_frame(void)
 {
-    uint32_t i, tmp;
+    static size_t mem_pages_ptr = 0;
+    size_t mem_pages_ptr_prev   = mem_pages_ptr;
+    int bit;
 
-    for (i = 0; i < pg_dir_ptr; ++i) {
-        if (PAGE_DIR[i] == PAGE_FREE)
+    while (mem_pages_ptr < mem_pages.len) {
+        bit = bm_test_bit(&mem_pages, mem_pages_ptr);
+
+        if (bit == PAGE_FREE) {
+            bm_set_bit(&mem_pages, mem_pages_ptr);
+            mem_pages_ptr++;
             break;
+        } else if (bit == -1) {
+            goto error;
+        }
+        mem_pages_ptr++;
     }
 
-    if (i < pg_dir_ptr) {
-        PAGE_DIR[i] = PAGE_USED;
-    } else {
-        PAGE_DIR[pg_dir_ptr] = PAGE_USED;
-        i = pg_dir_ptr++;
+    if (mem_pages_ptr == mem_pages.len) {
+        mem_pages_ptr_prev = mem_pages_ptr;
+        mem_pages_ptr = 0;
+
+        do {
+            bit = bm_test_bit(&mem_pages, mem_pages_ptr++);
+
+            if (bit == PAGE_FREE) {
+                bm_set_bit(&mem_pages, mem_pages_ptr - 1);
+                break;
+            } else if (bit == PAGE_USED) {
+                goto error;
+            } 
+        } while (mem_pages_ptr < mem_pages_ptr_prev);
+
+        goto error;
     }
 
-    return START_FRAME + (i * PAGE_SIZE);
+    if (bm_test_bit(&mem_pages, mem_pages_ptr) == PAGE_FREE)
+        return START_FRAME + (mem_pages_ptr * PAGE_SIZE);
+
+error:
+    kpanic("physical memory exhausted!");
+    __builtin_unreachable();
+}
+
+size_t vmm_free_pages(void)
+{
+    size_t free_pages = 0;
+
+    for (uint32_t i = 0; i < mem_pages.len; ++i) {
+        if (bm_test_bit(&mem_pages, i) == PAGE_FREE)
+            free_pages++;
+    }
+
+    return free_pages;
 }
 
 /* address must point to the beginning of the physical address */
 void vmm_kfree_frame(uint32_t frame)
 {
-    uint32_t index = (frame - START_FRAME) / PAGE_SIZE;
-    PAGE_DIR[index] = PAGE_FREE;
+    bm_unset_bit(&mem_pages, (frame - START_FRAME) / PAGE_SIZE);
 }
 
 /* TODO: what is and how to handle protection fault (especially supervisor) */
@@ -126,7 +182,9 @@ void *vmm_mkpdir(void *virtaddr, uint32_t flags)
 
 void vmm_init(multiboot_info_t *mbinfo)
 {
-	vfs_multiboot_read(mbinfo);
+    vfs_multiboot_read(mbinfo);
+
+    /* TODO: set bitmap real length here */
 
     /* 4k align START_FRAME */
     if (START_FRAME % PAGE_SIZE != 0) {
@@ -134,20 +192,19 @@ void vmm_init(multiboot_info_t *mbinfo)
     }
     kdebug("START_FRAME aligned to 4k boundary: 0x%x", START_FRAME);
 
-    /* initialize kernel page table */
-    KPDIR_P = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000);
-    KPDIR_V = (uint32_t*)((uint32_t)&boot_page_dir);
-    KPDIR_V[1023] = ((uint32_t)KPDIR_P) | P_PRESENT | P_READONLY;
+    /* enable recursion for temporary page directory 
+     * identity mapping enables us this "direct" access to physical memory */
+    uint32_t *KPDIR_P = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000);
+    KPDIR_P[1023]     = ((uint32_t)KPDIR_P) | P_PRESENT | P_READONLY;
 
     /* initialize kernel page tables */
     for (size_t i = 0; i < 1024; ++i)
         kpgtab[i] = (i * PAGE_SIZE) | P_PRESENT | P_READWRITE;
 
-	/* initialize 4MB of initial space for kernel heap */
-    for (size_t i = 0; i < 1024; ++i)
+    /* initialize 4MB of initial space for kernel heap */
+    for (size_t i = 0; i < 1020; ++i)
         kheaptb[i] = ((uint32_t)vmm_kalloc_frame()) | P_PRESENT | P_READWRITE;
 
-    kpdir[0]           = vmm_kalloc_frame() | P_PRESENT | P_READWRITE;
     kpdir[KSTART_HEAP] = ((uint32_t)vmm_v_to_p(&kheaptb)) | P_PRESENT | P_READWRITE;
     kpdir[KSTART]      = ((uint32_t)vmm_v_to_p(&kpgtab))  | P_PRESENT | P_READWRITE;
     kpdir[1023]        = ((uint32_t)vmm_v_to_p(&kpdir))   | P_PRESENT;
