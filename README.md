@@ -31,6 +31,8 @@ See doc/OVERVIEW.md for more details
    * Memory Management
       * refactor vmm_init
       * create functions for page table/directory allocation
+      * calculate available pages
+      * rewrite vmm_kalloc_frame()
    * File System
 	  * VFS
    * Miscellaneous
@@ -52,12 +54,8 @@ See doc/OVERVIEW.md for more details
       * protect all critical parts with mutexes
    * Memory Management
       * switch from linked lists to red-black tree
-      * calculate available pages
-      * rewrite vmm_kalloc_frame()
       * relocate kernel stack to upper 3GB area (??)
       * remove arch-specific code from vmm.c
-      * refactor vmm_init
-      * create functions for page table/directory allocation
 	  * address space layout randomization
    * File System
 	  * VFS
