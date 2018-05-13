@@ -12,4 +12,7 @@ typedef struct isr_regs {
 	uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
 } isr_regs_t;
 
+#define ROUND_DOWN(addr, boundary) (addr & ~(boundary - 1))
+#define ROUND_UP(addr, bound) ((addr % bound) ? ((addr & ~(bound - 1)) + bound) : (addr))
+
 #endif /* end of include guard: __COMMON_H__ */

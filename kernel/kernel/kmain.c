@@ -43,9 +43,7 @@ void kmain(multiboot_info_t *mbinfo)
 			&__data_segment_start, &__data_segment_end);
 	kdebug("kpage dir start addr:     0x%08x", &boot_page_dir);
 
-	gdt_init(); 
-	idt_init(); 
-	irq_init(); 
+	gdt_init(); idt_init(); irq_init(); 
 	timer_install(); kb_install();
 	asm ("sti"); /* enable interrupts */
 	vmm_init(mbinfo);

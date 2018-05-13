@@ -20,9 +20,6 @@
 #ifndef __MULTIBOOT_H__
 #define __MULTIBOOT_H__
 
-#include <kernel/compiler.h>
-#include <kernel/common.h>
-
 /* How many bytes from the start of the file we search for the header. */
 #define MULTIBOOT_SEARCH                        8192
 #define MULTIBOOT_HEADER_ALIGN                  4
@@ -90,156 +87,171 @@
 #define MULTIBOOT_INFO_VBE_INFO                 0x00000800
 #define MULTIBOOT_INFO_FRAMEBUFFER_INFO         0x00001000
 
-typedef struct multiboot_header {
-	/* Must be MULTIBOOT_MAGIC - see above. */
-	uint32_t magic;
+typedef unsigned char           multiboot_uint8_t;
+typedef unsigned short          multiboot_uint16_t;
+typedef unsigned int            multiboot_uint32_t;
+typedef unsigned long long      multiboot_uint64_t;
 
-	/* Feature flags. */
-	uint32_t flags;
+struct multiboot_header {
+    /* Must be MULTIBOOT_MAGIC - see above. */
+    multiboot_uint32_t magic;
 
-	/* The above fields plus this one must equal 0 mod 2^32. */
-	uint32_t checksum;
+    /* Feature flags. */
+    multiboot_uint32_t flags;
 
-	/* These are only valid if MULTIBOOT_AOUT_KLUDGE is set. */
-	uint32_t header_addr;
-	uint32_t load_addr;
-	uint32_t load_end_addr;
-	uint32_t bss_end_addr;
-	uint32_t entry_addr;
+    /* The above fields plus this one must equal 0 mod 2^32. */
+    multiboot_uint32_t checksum;
 
-	/* These are only valid if MULTIBOOT_VIDEO_MODE is set. */
-	uint32_t mode_type;
-	uint32_t width;
-	uint32_t height;
-	uint32_t depth;
-} multiboot_header_t;
+    /* These are only valid if MULTIBOOT_AOUT_KLUDGE is set. */
+    multiboot_uint32_t header_addr;
+    multiboot_uint32_t load_addr;
+    multiboot_uint32_t load_end_addr;
+    multiboot_uint32_t bss_end_addr;
+    multiboot_uint32_t entry_addr;
+
+    /* These are only valid if MULTIBOOT_VIDEO_MODE is set. */
+    multiboot_uint32_t mode_type;
+    multiboot_uint32_t width;
+    multiboot_uint32_t height;
+    multiboot_uint32_t depth;
+};
 
 /* The symbol table for a.out. */
 typedef struct multiboot_aout_symbol_table {
-	uint32_t tabsize;
-	uint32_t strsize;
-	uint32_t addr;
-	uint32_t reserved;
+    multiboot_uint32_t tabsize;
+    multiboot_uint32_t strsize;
+    multiboot_uint32_t addr;
+    multiboot_uint32_t reserved;
 } multiboot_aout_symbol_table_t;
 
 /* The section header table for ELF. */
 typedef struct multiboot_elf_section_header_table {
-	uint32_t num;
-	uint32_t size;
-	uint32_t addr;
-	uint32_t shndx;
+    multiboot_uint32_t num;
+    multiboot_uint32_t size;
+    multiboot_uint32_t addr;
+    multiboot_uint32_t shndx;
 } multiboot_elf_section_header_table_t;
 
-typedef struct multiboot_info {
-	/* Multiboot info version number */
-	uint32_t flags;
+typedef struct multiboot_info
+{
+    /* Multiboot info version number */
+    multiboot_uint32_t flags;
 
-	/* Available memory from BIOS */
-	uint32_t mem_lower;
-	uint32_t mem_upper;
+    /* Available memory from BIOS */
+    multiboot_uint32_t mem_lower;
+    multiboot_uint32_t mem_upper;
 
-	/* "root" partition */
-	uint32_t boot_device;
+    /* "root" partition */
+    multiboot_uint32_t boot_device;
 
-	/* Kernel command line */
-	uint32_t cmdline;
+    /* Kernel command line */
+    multiboot_uint32_t cmdline;
 
-	/* Boot-Module list */
-	uint32_t mods_count;
-	uint32_t mods_addr;
+    /* Boot-Module list */
+    multiboot_uint32_t mods_count;
+    multiboot_uint32_t mods_addr;
 
-	union {
-		multiboot_aout_symbol_table_t aout_sym;
-		multiboot_elf_section_header_table_t elf_sec;
-	} u;
+    union {
+        multiboot_aout_symbol_table_t aout_sym;
+        multiboot_elf_section_header_table_t elf_sec;
+    } u;
 
-	/* Memory Mapping buffer */
-	uint32_t mmap_length;
-	uint32_t mmap_addr;
+    /* Memory Mapping buffer */
+    multiboot_uint32_t mmap_length;
+    multiboot_uint32_t mmap_addr;
 
-	/* Drive Info buffer */
-	uint32_t drives_length;
-	uint32_t drives_addr;
+    /* Drive Info buffer */
+    multiboot_uint32_t drives_length;
+    multiboot_uint32_t drives_addr;
 
-	/* ROM configuration table */
-	uint32_t config_table;
+    /* ROM configuration table */
+    multiboot_uint32_t config_table;
 
-	/* Boot Loader Name */
-	uint32_t boot_loader_name;
+    /* Boot Loader Name */
+    multiboot_uint32_t boot_loader_name;
 
-	/* APM table */
-	uint32_t apm_table;
+    /* APM table */
+    multiboot_uint32_t apm_table;
 
-	/* Video */
-	uint32_t vbe_control_info;
-	uint32_t vbe_mode_info;
-	uint16_t vbe_mode;
-	uint16_t vbe_interface_seg;
-	uint16_t vbe_interface_off;
-	uint16_t vbe_interface_len;
+    /* Video */
+    multiboot_uint32_t vbe_control_info;
+    multiboot_uint32_t vbe_mode_info;
+    multiboot_uint16_t vbe_mode;
+    multiboot_uint16_t vbe_interface_seg;
+    multiboot_uint16_t vbe_interface_off;
+    multiboot_uint16_t vbe_interface_len;
 
-	uint32_t framebuffer_pitch;
-	uint32_t framebuffer_width;
-	uint32_t framebuffer_height;
-	uint8_t  framebuffer_bpp;
-
+    multiboot_uint64_t framebuffer_addr;
+    multiboot_uint32_t framebuffer_pitch;
+    multiboot_uint32_t framebuffer_width;
+    multiboot_uint32_t framebuffer_height;
+    multiboot_uint8_t framebuffer_bpp;
 #define MULTIBOOT_FRAMEBUFFER_TYPE_INDEXED 0
 #define MULTIBOOT_FRAMEBUFFER_TYPE_RGB     1
 #define MULTIBOOT_FRAMEBUFFER_TYPE_EGA_TEXT     2
-	uint8_t framebuffer_type;
-	union {
-		struct {
-			uint32_t framebuffer_palette_addr;
-			uint16_t framebuffer_palette_num_colors;
-		};
+    multiboot_uint8_t framebuffer_type;
+    union {
+        struct {
+            multiboot_uint32_t framebuffer_palette_addr;
+            multiboot_uint16_t framebuffer_palette_num_colors;
+        };
 
-		struct {
-		   uint8_t framebuffer_red_field_position;
-		   uint8_t framebuffer_red_mask_size;
-		   uint8_t framebuffer_green_field_position;
-		   uint8_t framebuffer_green_mask_size;
-		   uint8_t framebuffer_blue_field_position;
-		   uint8_t framebuffer_blue_mask_size;
-		};
-	};
+        struct {
+            multiboot_uint8_t framebuffer_red_field_position;
+            multiboot_uint8_t framebuffer_red_mask_size;
+            multiboot_uint8_t framebuffer_green_field_position;
+            multiboot_uint8_t framebuffer_green_mask_size;
+            multiboot_uint8_t framebuffer_blue_field_position;
+            multiboot_uint8_t framebuffer_blue_mask_size;
+        };
+    };
 } multiboot_info_t;
 
+struct multiboot_color {
+    multiboot_uint8_t red;
+    multiboot_uint8_t green;
+    multiboot_uint8_t blue;
+};
+
 struct multiboot_mmap_entry {
-	uint32_t size;
+    multiboot_uint32_t size;
+    multiboot_uint64_t addr;
+    multiboot_uint64_t len;
 #define MULTIBOOT_MEMORY_AVAILABLE              1
 #define MULTIBOOT_MEMORY_RESERVED               2
 #define MULTIBOOT_MEMORY_ACPI_RECLAIMABLE       3
 #define MULTIBOOT_MEMORY_NVS                    4
 #define MULTIBOOT_MEMORY_BADRAM                 5
-	uint32_t type;
-} __packed;
+    multiboot_uint32_t type;
+} __attribute__((packed));
 typedef struct multiboot_mmap_entry multiboot_memory_map_t;
 
-typedef struct multiboot_mod_list {
-	/* the memory used goes from bytes 'mod_start' to 'mod_end-1' inclusive */
-	uint32_t mod_start;
-	uint32_t mod_end;
+struct multiboot_mod_list {
+    /* the memory used goes from bytes 'mod_start' to 'mod_end-1' inclusive */
+    multiboot_uint32_t mod_start;
+    multiboot_uint32_t mod_end;
 
-	/* Module command line */
-	uint32_t cmdline;
+    /* Module command line */
+    multiboot_uint32_t cmdline;
 
-	/* padding to take it to 16 bytes (must be zero) */
-	uint32_t pad;
-} multiboot_module_t;;
+    /* padding to take it to 16 bytes (must be zero) */
+    multiboot_uint32_t pad;
+} multiboot_module_t;
 
 /* APM BIOS info. */
 struct multiboot_apm_info {
-	uint16_t version;
-	uint16_t cseg;
-	uint32_t offset;
-	uint16_t cseg_16;
-	uint16_t dseg;
-	uint16_t flags;
-	uint16_t cseg_len;
-	uint16_t cseg_16_len;
-	uint16_t dseg_len;
+    multiboot_uint16_t version;
+    multiboot_uint16_t cseg;
+    multiboot_uint32_t offset;
+    multiboot_uint16_t cseg_16;
+    multiboot_uint16_t dseg;
+    multiboot_uint16_t flags;
+    multiboot_uint16_t cseg_len;
+    multiboot_uint16_t cseg_16_len;
+    multiboot_uint16_t dseg_len;
 };
 
-void vfs_multiboot_read(multiboot_info_t *mbinfo);
+size_t vfs_multiboot_map_memory(multiboot_info_t *mbinfo);
+void vfs_multiboot_header_read(multiboot_info_t *mbinfo);
 
-#endif /* end of include guard: __MULTIBOOT_H__ */ 
+#endif /* end of include guard: __MULTIBOOT_H__ */

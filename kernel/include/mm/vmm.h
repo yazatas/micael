@@ -5,10 +5,7 @@
 #include <stddef.h>
 #include <fs/multiboot.h>
 
-#define PF_SIZE             0x1000
 #define PAGE_SIZE           0x1000
-#define PE_SIZE             0x80000
-#define KALLOC_NO_MEM_ERROR 0xffffffff
 #define KSTART              768
 #define KSTART_HEAP         832
 
@@ -63,10 +60,12 @@ void *vmm_copy_pdir(void *physaddr);
 ptbl_t vmm_kalloc_ptbl(page_t nmemb, uint32_t flags);
 page_t vmm_kalloc_frame(void);
 void   vmm_kfree_frame(page_t frame);
+void   vmm_claim_page(size_t page_idx);
 
 /* debugging */
 void   vmm_list_pde(void);
 void   vmm_list_pte(uint32_t pdi);
 size_t vmm_free_pages(void);
+void vmm_print_memory_map(void);
 
 #endif /* end of include guard: __VMM_H__ */
