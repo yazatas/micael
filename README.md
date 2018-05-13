@@ -29,10 +29,7 @@ See doc/OVERVIEW.md for more details
    * Multitasking
 	  * preemptive multitasking
    * Memory Management
-      * refactor vmm_init
-      * create functions for page table/directory allocation
-      * calculate available pages
-      * rewrite vmm_kalloc_frame()
+      * create function for address space duplication (fork)
    * File System
 	  * VFS
    * Miscellaneous
@@ -54,8 +51,6 @@ See doc/OVERVIEW.md for more details
       * protect all critical parts with mutexes
    * Memory Management
       * switch from linked lists to red-black tree
-      * relocate kernel stack to upper 3GB area (??)
-      * remove arch-specific code from vmm.c
 	  * address space layout randomization
    * File System
 	  * VFS
@@ -63,9 +58,10 @@ See doc/OVERVIEW.md for more details
       * boot loader
       * paging to disk (what's the proper term?)
    * Miscellaneous
-      * move all code containing assembly to kernel/arch/i386
       * tcp/ip stack
       * support for ARM architecture
+         * remove arch-specific code from vmm.c
+         * move all code containing assembly to kernel/arch/i386
       * core utils
       * VGA driver
 	  * POSIX compliance

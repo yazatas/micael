@@ -55,17 +55,16 @@ void *vmm_mkpdir(void *virtaddr, uint32_t flags);
 void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags);
 void vmm_pf_handler(uint32_t error);
 void *vmm_v_to_p(void *virtaddr);
-void *vmm_copy_pdir(void *physaddr);
 
-ptbl_t vmm_kalloc_ptbl(page_t nmemb, uint32_t flags);
 page_t vmm_kalloc_frame(void);
 void   vmm_kfree_frame(page_t frame);
 void   vmm_claim_page(size_t page_idx);
+void  *vmm_kalloc_mapped_page(uint32_t flags);
 
 /* debugging */
 void   vmm_list_pde(void);
 void   vmm_list_pte(uint32_t pdi);
+void   vmm_print_memory_map(void);
 size_t vmm_free_pages(void);
-void vmm_print_memory_map(void);
 
 #endif /* end of include guard: __VMM_H__ */

@@ -2,24 +2,18 @@
 #include <limits.h>
 #include <stdint.h>
 #include <string.h>
-
 #include <kernel/tty.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
 #include <kernel/irq.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
-
 #include <sync/mutex.h>
-
 #include <mm/vmm.h>
 #include <mm/kheap.h>
-
 #include <fs/multiboot.h>
-
 #include <sched/kthread.h>
 #include <sched/proc.h>
-
 #include <drivers/timer.h>
 #include <drivers/keyboard.h>
 

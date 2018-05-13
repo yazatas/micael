@@ -10,8 +10,8 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define PAGE_FREE 0
-#define PAGE_USED 1
+#define PAGE_FREE                0
+#define PAGE_USED                1
 #define ENTRY_NOT_PRESENT        0xffff
 #define MEM_ADDRESS_SPACE_MAX    0xffffffff
 #define MEM_MAX_PAGE_COUNT       (MEM_ADDRESS_SPACE_MAX / PAGE_SIZE)
@@ -19,7 +19,6 @@
 #define INDEX_TO_PHYSADDR(index) (index * PAGE_SIZE)
 
 extern uint32_t boot_page_dir; /* this address is virtual */
-/* extern uint32_t __kernel_virtual_end, __kernel_physical_end; */ 
 
 static uint32_t PAGE_DIR[MEM_MAX_PAGE_COUNT / 32] = {PAGE_FREE};
 
@@ -34,7 +33,6 @@ static bitmap_t mem_pages = {
 static uint32_t kpdir[1024]   __align_4k;
 static uint32_t kpgtab[1024]  __align_4k;
 static uint32_t kheaptb[1024] __align_4k;
-/* static uint32_t START_FRAME = (uint32_t)&__kernel_physical_end; */
 
 /* vmm_kalloc_frame works as follows:
  *
@@ -301,4 +299,15 @@ void vmm_print_memory_map(void)
         }
         prev  = i; prevb = bit;
     }
+}
+
+void *vmm_kalloc_mapped_page(uint32_t flags)
+{
+	static uint32_t TMP_PAGE = 0xf0000000;
+
+	page_t tmp = vmm_kalloc_frame();
+	vmm_map_page((void*)tmp, (void*)TMP_PAGE, flags);
+
+	TMP_PAGE += 0x1000;
+	return (void*)(TMP_PAGE - 0x1000);
 }
