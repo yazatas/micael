@@ -3,13 +3,16 @@
 
 #include <kernel/common.h>
 
+#define BM_OUT_OF_RANGE_ERROR -1
+
 typedef struct bitmap {
-	size_t len;
-	uint32_t *bits;
+    size_t len;
+    uint32_t *bits;
 } bitmap_t;
 
 
-// TODO create (de)allocation api for bitmap
+bitmap_t *bm_alloc_bitmap(size_t nmemb);
+void      bm_dealloc_bitmap(bitmap_t *bm);
 
 int bm_set_bit(bitmap_t *bm, uint32_t n);
 int bm_unset_bit(bitmap_t *bm, uint32_t n);
