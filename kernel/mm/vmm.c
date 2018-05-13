@@ -63,7 +63,7 @@ uint32_t vmm_kalloc_frame(void)
             bm_set_bit(&mem_pages, mem_pages_ptr);
             mem_pages_ptr++;
             break;
-        } else if (bit == -1) {
+        } else if (bit == BM_OUT_OF_RANGE_ERROR) {
             goto error;
         }
         mem_pages_ptr++;
@@ -79,7 +79,7 @@ uint32_t vmm_kalloc_frame(void)
             if (bit == PAGE_FREE) {
                 bm_set_bit(&mem_pages, mem_pages_ptr - 1);
                 break;
-            } else if (bit == PAGE_USED) {
+            } else if (bit == BM_OUT_OF_RANGE_ERROR) {
                 goto error;
             } 
         } while (mem_pages_ptr < mem_pages_ptr_prev);
