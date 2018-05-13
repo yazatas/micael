@@ -1,24 +1,33 @@
+#include <kernel/kprint.h>
+#include <kernel/common.h>
 #include <fs/multiboot.h>
+#include <mm/vmm.h>
 
-/* TODO: should this return a some kind of memory map? */
-
-void vfs_multiboot_read(multiboot_info_t *mbinfo)
+size_t vfs_multiboot_map_memory(multiboot_info_t *mbinfo)
 {
-	multiboot_memory_map_t *mmap;
-     
-   kprint ("mmap_addr = 0x%x, mmap_length = 0x%x\n", (unsigned) mbinfo->mmap_addr, (unsigned) mbinfo->mmap_length);
+    multiboot_memory_map_t *mmap = (multiboot_memory_map_t *)mbinfo->mmap_addr;
+    uint32_t entries = mbinfo->mmap_length / sizeof(multiboot_memory_map_t);
+    uint32_t start, end, cur;
+    size_t numpages = 0;
 
-   for (mmap = (multiboot_memory_map_t *) mbinfo->mmap_addr;
-		mmap < mbinfo->mmap_addr + mbinfo->mmap_length;
-		mmap = (multiboot_memory_map_t *) (mmap + mmap->size + sizeof (mmap->size)))
-   {
-		 kprint (" size = 0x%x, base_addr = 0x%x%08x,"
-				 " length = 0x%x%08x, type = 0x%x\n",
-				 (unsigned) mmap->size,
-				 (unsigned) (mmap->addr >> 32),
-				 (unsigned) (mmap->addr & 0xffffffff),
-				 (unsigned) (mmap->len >> 32),
-				 (unsigned) (mmap->len & 0xffffffff),
-				 (unsigned) mmap->type);
-	}
+    for (size_t i = 0; i < entries; ++i) {
+        if (mmap[i].type == MULTIBOOT_MEMORY_AVAILABLE) {
+            end   = mmap[i].addr + mmap[i].len;
+
+            start = ROUND_UP(mmap[i].addr, PAGE_SIZE);
+            end   = ROUND_DOWN(end, PAGE_SIZE);
+
+            kprint("\tmemory region boundaries:\n");
+            kprint("\t\tstart address: 0x%x\n", start);
+            kprint("\t\tend address:   0x%x\n", end);
+
+            for (cur = start; cur <= end; cur += 0x1000) {
+                vmm_claim_page(cur);
+                numpages++;
+            }
+            kprint("\t\tmaps:          %u pages\n", numpages);
+        }
+    }
+
+    return numpages;
 }

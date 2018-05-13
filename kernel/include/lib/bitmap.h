@@ -3,6 +3,8 @@
 
 #include <kernel/common.h>
 
+#define BM_BIT_SET             1
+#define BM_BIT_NOT_SET         0
 #define BM_OUT_OF_RANGE_ERROR -1
 
 typedef struct bitmap {
