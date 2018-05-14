@@ -251,7 +251,6 @@ struct multiboot_apm_info {
     multiboot_uint16_t dseg_len;
 };
 
-size_t vfs_multiboot_map_memory(multiboot_info_t *mbinfo);
-void vfs_multiboot_header_read(multiboot_info_t *mbinfo);
+size_t multiboot_map_memory(multiboot_info_t *mbinfo);
 
 #endif /* end of include guard: __MULTIBOOT_H__ */

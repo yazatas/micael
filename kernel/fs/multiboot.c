@@ -3,7 +3,7 @@
 #include <fs/multiboot.h>
 #include <mm/vmm.h>
 
-size_t vfs_multiboot_map_memory(multiboot_info_t *mbinfo)
+size_t multiboot_map_memory(multiboot_info_t *mbinfo)
 {
     multiboot_memory_map_t *mmap = (multiboot_memory_map_t *)mbinfo->mmap_addr;
     uint32_t entries = mbinfo->mmap_length / sizeof(multiboot_memory_map_t);

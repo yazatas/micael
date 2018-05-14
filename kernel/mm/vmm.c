@@ -224,7 +224,7 @@ void vmm_init(multiboot_info_t *mbinfo)
 {
     bm_set_range(&mem_pages, 0, mem_pages.len - 1);
     bm_unset_range(&tmp_vpages, 0, tmp_vpages.len - 1);
-    (void)vfs_multiboot_map_memory(mbinfo);
+    (void)multiboot_map_memory(mbinfo);
 
     /* enable recursion for temporary page directory 
      * identity mapping enables us this "direct" access to physical memory */
@@ -332,9 +332,11 @@ void vmm_print_memory_map(void)
             if (first == prev)
                 kdebug("page at address 0x%x is free", INDEX_TO_PHYSADDR(first));
             else if (firstb == BM_BIT_SET)
-                kdebug("%u - %u not free", first, prev);
+                kdebug("range 0x%x - 0x%x not free (%u pages)",
+                        INDEX_TO_PHYSADDR(first), INDEX_TO_PHYSADDR(prev), prev - first);
             else
-                kdebug("%u - %u free", first, prev);
+                kdebug("range 0x%x - 0x%x free (%u pages)",
+                        INDEX_TO_PHYSADDR(first), INDEX_TO_PHYSADDR(prev), prev - first);
 
             first  = i; firstb = bit;
         }
