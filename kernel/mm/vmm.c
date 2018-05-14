@@ -14,16 +14,24 @@
 #define PAGE_USED                1
 #define ENTRY_NOT_PRESENT        0xffff
 #define MEM_ADDRESS_SPACE_MAX    0xffffffff
+#define MEM_TMP_VPAGES_BASE      0xffe1f000
+#define MEM_MAX_TMP_VPAGE_COUNT  (32 * 15) // 480 temporary pages
 #define MEM_MAX_PAGE_COUNT       (MEM_ADDRESS_SPACE_MAX / PAGE_SIZE)
 #define PHYSADDR_TO_INDEX(addr)  (addr / PAGE_SIZE)
 #define INDEX_TO_PHYSADDR(index) (index * PAGE_SIZE)
 
 extern uint32_t boot_page_dir; /* this address is virtual */
 
-static uint32_t PAGE_DIR[MEM_MAX_PAGE_COUNT / 32] = {PAGE_FREE};
+static uint32_t PAGE_DIR[MEM_MAX_PAGE_COUNT        / 32] = {PAGE_FREE};
+static uint32_t VTMP_PAGES[MEM_MAX_TMP_VPAGE_COUNT / 32] = {PAGE_FREE};
 
-/* this must be statically allocated
- * as the heap hasn't been initialized yet */
+/* bitmap of temporary virtual pages */
+static bitmap_t tmp_vpages = {
+    MEM_MAX_TMP_VPAGE_COUNT,
+    VTMP_PAGES
+};
+
+/* bitmap of physical pages */
 static bitmap_t mem_pages = {
     MEM_MAX_PAGE_COUNT,
     PAGE_DIR
@@ -33,6 +41,32 @@ static bitmap_t mem_pages = {
 static uint32_t kpdir[1024]   __align_4k;
 static uint32_t kpgtab[1024]  __align_4k;
 static uint32_t kheaptb[1024] __align_4k;
+
+static uint32_t *vmm_kalloc_tmp_vpage(void)
+{
+    static size_t vpage_ptr   = 0;
+    size_t vpage_ptr_ptr_prev = vpage_ptr;
+    int bit;
+
+    bit = bm_find_first_unset(&tmp_vpages, vpage_ptr, tmp_vpages.len - 1);
+
+    if (bit == BM_NOT_FOUND_ERROR) {
+        bit = bm_find_first_unset(&tmp_vpages, 0, vpage_ptr_ptr_prev);
+
+        if (bit == BM_NOT_FOUND_ERROR)
+            goto error;
+    }
+
+    bm_set_bit(&tmp_vpages, bit);
+    vpage_ptr = bit;
+
+    kdebug("allocated tmp vpage 0x%x", MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
+    return (uint32_t*)(MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
+
+error:
+    kpanic("out of temporary virtual pages!");
+    __builtin_unreachable();
+}
 
 /* vmm_kalloc_frame works as follows:
  *
@@ -183,6 +217,7 @@ void *vmm_mkpdir(void *virtaddr, uint32_t flags)
 void vmm_init(multiboot_info_t *mbinfo)
 {
     bm_set_range(&mem_pages, 0, mem_pages.len - 1);
+    bm_unset_range(&tmp_vpages, 0, tmp_vpages.len - 1);
     (void)vfs_multiboot_map_memory(mbinfo);
 
     /* enable recursion for temporary page directory 
@@ -303,11 +338,11 @@ void vmm_print_memory_map(void)
 
 void *vmm_kalloc_mapped_page(uint32_t flags)
 {
-	static uint32_t TMP_PAGE = 0xf0000000;
+    uint32_t *TMP_PAGE = vmm_kalloc_tmp_vpage();
 
-	page_t tmp = vmm_kalloc_frame();
-	vmm_map_page((void*)tmp, (void*)TMP_PAGE, flags);
+    page_t tmp = vmm_kalloc_frame();
+    vmm_map_page((void*)tmp, (void*)TMP_PAGE, flags);
 
-	TMP_PAGE += 0x1000;
-	return (void*)(TMP_PAGE - 0x1000);
+    TMP_PAGE += 0x1000;
+    return (void*)(TMP_PAGE - 0x1000);
 }

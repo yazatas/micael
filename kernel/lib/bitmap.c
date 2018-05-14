@@ -88,3 +88,19 @@ int bm_test_bit(bitmap_t *bm, uint32_t n)
     }
     return (bm->bits[n / 32] & (1 << (n % 32))) >> (n % 32);
 }
+
+int bm_find_first_unset(bitmap_t *bm, uint32_t n, uint32_t k)
+{
+    if (n >= bm->len || k >= bm->len) {
+        kdebug("argument n(%u) or k(%u) is over range(%u)!", n, k, bm->len);
+        return -1;
+    }
+
+    while (n <= k) {
+        if ((bm->bits[n / 32] & (1 << (n % 32))) == 0)
+            return n;
+        n++;
+    }
+
+    return BM_NOT_FOUND_ERROR;
+}
