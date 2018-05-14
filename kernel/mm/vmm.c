@@ -42,7 +42,7 @@ static uint32_t kpdir[1024]   __align_4k;
 static uint32_t kpgtab[1024]  __align_4k;
 static uint32_t kheaptb[1024] __align_4k;
 
-static uint32_t *vmm_kalloc_tmp_vpage(void)
+void *vmm_kalloc_tmp_vpage(void)
 {
     static size_t vpage_ptr   = 0;
     size_t vpage_ptr_ptr_prev = vpage_ptr;
@@ -61,11 +61,17 @@ static uint32_t *vmm_kalloc_tmp_vpage(void)
     vpage_ptr = bit;
 
     kdebug("allocated tmp vpage 0x%x", MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
-    return (uint32_t*)(MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
+    return (void *)(MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
 
 error:
     kpanic("out of temporary virtual pages!");
     __builtin_unreachable();
+}
+
+void vmm_free_tmp_vpage(void *vpage)
+{
+    kdebug("freeing temporary virtual page at address 0x%x", (uint32_t*)vpage);
+    bm_unset_bit(&tmp_vpages, (((uint32_t)vpage) - MEM_TMP_VPAGES_BASE) / PAGE_SIZE);
 }
 
 /* vmm_kalloc_frame works as follows:
