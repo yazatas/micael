@@ -60,6 +60,8 @@ page_t vmm_kalloc_frame(void);
 void   vmm_kfree_frame(page_t frame);
 void   vmm_claim_page(size_t page_idx);
 void  *vmm_kalloc_mapped_page(uint32_t flags);
+void  *vmm_kalloc_tmp_vpage(void);
+void   vmm_free_tmp_vpage(void *vpage);
 
 /* debugging */
 void   vmm_list_pde(void);

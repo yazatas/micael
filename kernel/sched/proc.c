@@ -59,6 +59,11 @@ pcb_t *process_create(const char *file)
 
     p->page_dir = vmm_v_to_p(PDIR_V);
 
+    vmm_free_tmp_vpage(PDIR_V);
+    vmm_free_tmp_vpage(stack_pt_virt);
+    vmm_free_tmp_vpage(code_pt_virt);
+    vmm_free_tmp_vpage(code_pte_virt);
+
     kdebug("switching page directories...");
     vmm_change_pdir(p->page_dir);
 
