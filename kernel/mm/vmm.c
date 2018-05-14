@@ -32,7 +32,7 @@ static bitmap_t tmp_vpages = {
 };
 
 /* bitmap of physical pages */
-static bitmap_t mem_pages = {
+static bitmap_t phys_pages = {
     MEM_MAX_PAGE_COUNT,
     PAGE_DIR
 };
@@ -45,13 +45,10 @@ static uint32_t kheaptb[1024] __align_4k;
 void *vmm_kalloc_tmp_vpage(void)
 {
     static size_t vpage_ptr   = 0;
-    size_t vpage_ptr_ptr_prev = vpage_ptr;
-    int bit;
-
-    bit = bm_find_first_unset(&tmp_vpages, vpage_ptr, tmp_vpages.len - 1);
+    int bit = bm_find_first_unset(&tmp_vpages, vpage_ptr, tmp_vpages.len - 1);
 
     if (bit == BM_NOT_FOUND_ERROR) {
-        bit = bm_find_first_unset(&tmp_vpages, 0, vpage_ptr_ptr_prev);
+        bit = bm_find_first_unset(&tmp_vpages, 0, vpage_ptr);
 
         if (bit == BM_NOT_FOUND_ERROR)
             goto error;
@@ -74,81 +71,59 @@ void vmm_free_tmp_vpage(void *vpage)
     bm_unset_bit(&tmp_vpages, (((uint32_t)vpage) - MEM_TMP_VPAGES_BASE) / PAGE_SIZE);
 }
 
-/* vmm_kalloc_frame works as follows:
+/* try to find free page from range mem_pages_ptr -> phys_pages.len
+ * if no free page is found, try to find free page from 
+ * 0 -> mem_pages_ptr. If free page is still missing, issue a kernel panic
  *
- * first it tries to consume all available memory by allocating one page
- * after the other in an increasing address order (0x1000, 0x2000, 0x3000...)
- *
- * Once mem_pages_ptr is equal to mem_pages.len it tries to allocate
- * memory from the beginning of physical memory ie. setting the mem_pages_ptr to 0
- * and scanning the memory from top to bottom again.
- *
- * If the function has scanned the whole address space for free memory and found none
- * available it issues a kernel panic informing the user it's out of physical memory */
+ * return the address of physical page */
 uint32_t vmm_kalloc_frame(void)
 {
-    static size_t mem_pages_ptr = 0;
-    size_t mem_pages_ptr_prev   = mem_pages_ptr;
-    int bit;
+    static size_t ppage_ptr = 0;
+    int bit = bm_find_first_unset(&phys_pages, ppage_ptr, phys_pages.len - 1);
 
-    while (mem_pages_ptr < mem_pages.len) {
-        bit = bm_test_bit(&mem_pages, mem_pages_ptr);
+    if (bit == BM_NOT_FOUND_ERROR) {
+        bit = bm_find_first_unset(&phys_pages, 0, ppage_ptr);
 
-        if (bit == PAGE_FREE) {
-            break;
-        } else if (bit == BM_OUT_OF_RANGE_ERROR) {
+        if (bit == BM_NOT_FOUND_ERROR)
             goto error;
-        }
-        mem_pages_ptr++;
     }
 
-    if (mem_pages_ptr == mem_pages.len) {
-        mem_pages_ptr_prev = mem_pages_ptr;
-        mem_pages_ptr = 0;
+    bm_set_bit(&phys_pages, bit);
+    ppage_ptr = bit;
 
-        do {
-            bit = bm_test_bit(&mem_pages, mem_pages_ptr);
-
-            if (bit == PAGE_FREE) {
-                break;
-            } else if (bit == BM_OUT_OF_RANGE_ERROR) {
-                goto error;
-            } 
-        } while (mem_pages_ptr++ < mem_pages_ptr_prev);
-    }
-
-    if (bm_test_bit(&mem_pages, mem_pages_ptr) == PAGE_FREE) {
-        bm_set_bit(&mem_pages, mem_pages_ptr++);
-        return INDEX_TO_PHYSADDR(mem_pages_ptr);
-    }
+    return INDEX_TO_PHYSADDR(ppage_ptr);
 
 error:
     kpanic("physical memory exhausted!");
     __builtin_unreachable();
 }
 
-size_t vmm_free_pages(void)
+/* if the address isn't page-aligned it's round down 
+ * and the resulting address pointing to start of the
+ * physical page is used to calculate the index 
+ * which is in turn used to free the page */
+void vmm_kfree_frame(uint32_t physaddr)
+{
+    uint32_t frame = ROUND_DOWN(physaddr, PAGE_SIZE);
+    bm_unset_bit(&phys_pages, PHYSADDR_TO_INDEX(frame));
+}
+
+size_t vmm_count_free_pages(void)
 {
     size_t free_pages = 0;
 
-    for (uint32_t i = 0; i < mem_pages.len; ++i) {
-        if (bm_test_bit(&mem_pages, i) == PAGE_FREE)
+    for (uint32_t i = 0; i < phys_pages.len; ++i) {
+        if (bm_test_bit(&phys_pages, i) == PAGE_FREE)
             free_pages++;
     }
 
     return free_pages;
 }
 
-/* address must point to the beginning of the physical address */
-void vmm_kfree_frame(uint32_t frame)
-{
-    bm_unset_bit(&mem_pages, PHYSADDR_TO_INDEX(frame));
-}
-
 void vmm_claim_page(uint32_t physaddr)
 {
     uint32_t index = PHYSADDR_TO_INDEX(physaddr);
-    if (bm_unset_bit(&mem_pages, index) == BM_OUT_OF_RANGE_ERROR) {
+    if (bm_unset_bit(&phys_pages, index) == BM_OUT_OF_RANGE_ERROR) {
         kpanic("bitmap range error in vmm_claim_page()!");
         __builtin_unreachable();
     }
@@ -222,7 +197,7 @@ void *vmm_mkpdir(void *virtaddr, uint32_t flags)
 
 void vmm_init(multiboot_info_t *mbinfo)
 {
-    bm_set_range(&mem_pages, 0, mem_pages.len - 1);
+    bm_set_range(&phys_pages, 0, phys_pages.len - 1);
     bm_unset_range(&tmp_vpages, 0, tmp_vpages.len - 1);
     (void)multiboot_map_memory(mbinfo);
 
@@ -233,7 +208,7 @@ void vmm_init(multiboot_info_t *mbinfo)
 
     /* initialize kernel page tables */
     for (size_t i = 0; i < 1024; ++i) {
-        bm_set_bit(&mem_pages, i);
+        bm_set_bit(&phys_pages, i);
         kpgtab[i] = (i * PAGE_SIZE) | P_PRESENT | P_READWRITE;
     }
 
@@ -321,12 +296,12 @@ void vmm_list_pte(uint32_t pdi)
 
 void vmm_print_memory_map(void)
 {
-    int bit    = bm_test_bit(&mem_pages, 0);
+    int bit    = bm_test_bit(&phys_pages, 0);
     int firstb = bit, prevb = bit;
     int first = 0, prev = 0;
 
-    for (size_t i = 1; i < mem_pages.len; ++i) {
-        bit = bm_test_bit(&mem_pages, i);
+    for (size_t i = 1; i < phys_pages.len; ++i) {
+        bit = bm_test_bit(&phys_pages, i);
 
         if (bit != prevb) {
             if (first == prev)

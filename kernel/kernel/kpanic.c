@@ -44,7 +44,7 @@ void kpanic(const char *error)
            "\tcr3: 0x%08x %8u\n\n\n", REG(eax), REG(ebx), REG(ecx), 
 		   REG(edx), REG(edi),    REG(cr2), REG(cr3));
 
-	kdebug("%u free pages", vmm_free_pages());
+	kdebug("%u free pages", vmm_count_free_pages());
 	vmm_list_pde();
 
     while (1) { }

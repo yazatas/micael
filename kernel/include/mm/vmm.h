@@ -67,6 +67,6 @@ void   vmm_free_tmp_vpage(void *vpage);
 void   vmm_list_pde(void);
 void   vmm_list_pte(uint32_t pdi);
 void   vmm_print_memory_map(void);
-size_t vmm_free_pages(void);
+size_t vmm_count_free_pages(void);
 
 #endif /* end of include guard: __VMM_H__ */
