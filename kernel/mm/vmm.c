@@ -14,7 +14,7 @@
 #define PAGE_USED                1
 #define ENTRY_NOT_PRESENT        0xffff
 #define MEM_ADDRESS_SPACE_MAX    0xffffffff
-#define MEM_TMP_VPAGES_BASE      0xffe1f000
+#define MEM_TMP_VPAGES_BASE      0xff800000
 #define MEM_MAX_TMP_VPAGE_COUNT  (32 * 15) // 480 temporary pages
 #define MEM_MAX_PAGE_COUNT       (MEM_ADDRESS_SPACE_MAX / PAGE_SIZE)
 #define PHYSADDR_TO_INDEX(addr)  (addr / PAGE_SIZE)
@@ -57,7 +57,7 @@ void *vmm_kalloc_tmp_vpage(void)
     bm_set_bit(&tmp_vpages, bit);
     vpage_ptr = bit;
 
-    kdebug("allocated tmp vpage 0x%x", MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
+    /* kdebug("allocated tmp vpage 0x%x", MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE); */
     return (void *)(MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
 
 error:
@@ -165,6 +165,13 @@ void vmm_pf_handler(uint32_t error)
     vmm_map_page((void*)vmm_kalloc_frame(), (void*)fault_addr, P_PRESENT | P_READWRITE);
     vmm_flush_TLB();
 }
+
+/* TODO: update this to take NULL as parameter
+ *
+ * if physaddr == NULL -> allocate just some random Page
+ * if virtaddr == NULL -> allocate "temporary" virtual address 
+ *
+ * virtual address being null doesn't make sense, right?? */
 void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
 {
     uint32_t pdi = ((uint32_t)virtaddr) >> 22;
@@ -172,27 +179,15 @@ void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
 
     uint32_t *pd = (uint32_t*)0xfffff000;
     if (!(pd[pdi] & P_PRESENT)) {
-        kdebug("Page Directory Entry %u is NOT present", pdi);
+        /* kdebug("Page Directory Entry %u is NOT present", pdi); */
         pd[pdi] = vmm_kalloc_frame() | flags;
     }
 
     uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
     if (!(pt[pti] & P_PRESENT)) {
-        kdebug("Page Table Entry %u is NOT present", pti);
+        /* kdebug("Page Table Entry %u is NOT present", pti); */
         pt[pti] = (uint32_t)physaddr | flags;
     }
-}
-
-/* returns physical address of new page directory */
-void *vmm_mkpdir(void *virtaddr, uint32_t flags)
-{
-    uint32_t physaddr = vmm_kalloc_frame();
-    vmm_map_page((void*)physaddr, virtaddr, flags);
-    memset(virtaddr, 0, 0x1000);
-
-    kdebug("new page directory allocated: 0x%08x", physaddr);
-
-    return (void*)physaddr;
 }
 
 void vmm_init(multiboot_info_t *mbinfo)
@@ -289,7 +284,7 @@ void vmm_list_pte(uint32_t pdi)
         }
     }
 
-    kdebug("Page Table %u:", pdi);
+    kprint("Page Table %u:\n", pdi);
     kprint("\tmapped bytes: %uB %uMB\n",   nbytes, nbytes / 1000);
     kprint("\tmapped table entries: %u\n", nbytes / 0x1000);
 }
@@ -326,6 +321,38 @@ void *vmm_kalloc_mapped_page(uint32_t flags)
     page_t tmp = vmm_kalloc_frame();
     vmm_map_page((void*)tmp, (void*)TMP_PAGE, flags);
 
-    TMP_PAGE += 0x1000;
-    return (void*)(TMP_PAGE - 0x1000);
+    return (void *)TMP_PAGE;
+}
+
+/* temporarily map the page directory to kernel's address space,
+ * traverse through it and copy address of each physical page to new pdir
+ * return the virtual address of new page directory
+ *
+ * @pdir: physaddr of the pdir that needs to be duplicated 
+ *
+ * TODO: needs a refactor, the code is ass ugly */
+void *vmm_duplicate_pdir(void *pdir)
+{
+    pdir_t *pdir_v_org  = vmm_kalloc_tmp_vpage();
+    pdir_t *pdir_v_copy = vmm_kalloc_mapped_page(P_PRESENT | P_READWRITE);
+
+    vmm_map_page(pdir, (void*)pdir_v_org, P_PRESENT | P_READWRITE);
+
+    for (size_t i = 0; i < 1024; ++i) {
+        if (pdir_v_org[i] & P_PRESENT) {
+
+            uint32_t *pt_copy = vmm_kalloc_mapped_page(P_PRESENT | P_READWRITE);
+            pdir_v_copy[i]    = ((uint32_t)vmm_v_to_p(pt_copy))  | P_PRESENT | P_READONLY;
+
+            uint32_t *pt_org = vmm_kalloc_tmp_vpage();
+            vmm_map_page(pdir_v_org[i], pt_org, P_PRESENT | P_READWRITE);
+
+            for (size_t k = 0; k < 1024; ++k) {
+                if (pt_org[k] & P_PRESENT)
+                    pt_copy[k] = pt_org[k];
+            }
+        }
+    }
+
+    return (void*)pdir_v_copy;
 }
