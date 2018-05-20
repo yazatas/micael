@@ -18,14 +18,14 @@
 boot_page_table:
 .set addr, 0
 .rept 1024
-.long addr | 1
+.long addr | 3
 .set addr, addr + 0x1000
 .endr
 
 .align 0x1000
 boot_page_dir:
 .rept 1024
-.long (boot_page_table - 0xC0000000) + 1
+.long (boot_page_table - 0xC0000000) + 3
 .endr
 
 # Reserve a stack for the initial thread.
@@ -51,7 +51,7 @@ _start:
     mov %ecx, %cr4
 
     mov %cr0, %ecx
-    or $0x80000000, %ecx
+    or $0x80010000, %ecx
     mov %ecx, %cr0
 
     lea higher_half_kernel, %ecx
