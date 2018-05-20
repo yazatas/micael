@@ -49,19 +49,20 @@ static inline void vmm_change_pdir(void *cr3)
                                       : "eax", "memory");
 }
 
-/* initialization */
-void vmm_init(multiboot_info_t *mbinfo);
-void *vmm_mkpdir(void *virtaddr, uint32_t flags);
-void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags);
-void vmm_pf_handler(uint32_t error);
+/* miscellaneous */
+void  vmm_init(multiboot_info_t *mbinfo);
+void  vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags);
+void  vmm_pf_handler(uint32_t error);
+void  vmm_claim_page(size_t page_idx);
 void *vmm_v_to_p(void *virtaddr);
 
+/* allocation */
 page_t vmm_kalloc_frame(void);
 void   vmm_kfree_frame(page_t frame);
-void   vmm_claim_page(size_t page_idx);
+void   vmm_free_tmp_vpage(void *vpage);
 void  *vmm_kalloc_mapped_page(uint32_t flags);
 void  *vmm_kalloc_tmp_vpage(void);
-void   vmm_free_tmp_vpage(void *vpage);
+void  *vmm_duplicate_pdir(void *pdir);
 
 /* debugging */
 void   vmm_list_pde(void);
