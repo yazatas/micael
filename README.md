@@ -15,26 +15,11 @@ See doc/OVERVIEW.md for more details
    * Multitasking
       * cooperative multitasking (legacy)
       * mutual exclusions
-      * User mode processes
+      * user mode processes
 	  * System calls
    * Miscellaneous
       * global descriptor table with TSS
       * interrupts (ISRs and IRQs)
-
-### Working on
-* libc
-   * stdio.h
-   * syscall support
-* kernel
-   * Multitasking
-	  * preemptive multitasking
-   * Memory Management
-      * create function for address space duplication (fork)
-   * File System
-	  * VFS
-   * Miscellaneous
-      * core utils
-	  * POSIX compliance
 
 ### What is not ready aka TODO
 * libc:
