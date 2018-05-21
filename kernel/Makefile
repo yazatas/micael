@@ -2,7 +2,7 @@ ROOTDIR?=$(shell pwd)/..
 include $(ROOTDIR)/Makefile.config
 include $(ARCHDIR)/make.config
 include $(DRIVERDIR)/make.config
-include $(SCHEDDIR)/make.config
+include $(DIR_SCHED)/make.config
 include $(DIR_SYNC)/make.config
 include $(DIR_MM)/make.config
 include $(DIR_FS)/make.config
