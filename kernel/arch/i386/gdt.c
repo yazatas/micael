@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdio.h>
 
+extern uint32_t stack_bottom;
+
 static void gdt_set_gate(uint32_t base, uint32_t limit, uint8_t access,
                    uint8_t gran, struct gdt_entry_t *entry)
 {
@@ -34,8 +36,8 @@ void gdt_init(void)
 
 	memset(&tss_ptr, 0, sizeof(struct tss_ptr_t));
 
-	tss_ptr.ss0  = 0x10; /* kernel data segment offset */
-	tss_ptr.esp0 = 0;    /* FIXME: where should this point to? */
+	tss_ptr.ss0  = 0x10;          /* kernel data segment offset */
+	tss_ptr.esp0 = &stack_bottom; /* kernel stack */
 
 	gdt_flush(gdt_ptr);
 	kdebug("GDT and TSS initialized! Start addresses 0x%x 0x%x", &GDT, &tss_ptr);

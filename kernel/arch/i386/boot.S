@@ -30,6 +30,7 @@ boot_page_dir:
 
 # Reserve a stack for the initial thread.
 .section .bss
+.global stack_bottom
 .align 16
 stack_bottom:
 .skip 16384 # 16 KiB
@@ -51,7 +52,7 @@ _start:
     mov %ecx, %cr4
 
     mov %cr0, %ecx
-    or $0x80010000, %ecx
+    or $0x80000000, %ecx
     mov %ecx, %cr0
 
     lea higher_half_kernel, %ecx
