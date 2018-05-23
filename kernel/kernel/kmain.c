@@ -42,27 +42,13 @@ void kmain(multiboot_info_t *mbinfo)
 	asm ("sti"); /* enable interrupts */
 	vmm_init(mbinfo);
 
-	uint32_t cr3;
-	asm volatile ("mov %%cr3, %0" : "=r"(cr3));
-
-	kdebug("old pdir addr: 0x%x", cr3);
-
-	uint32_t *tmp = vmm_duplicate_pdir((void*)cr3);
-	vmm_change_pdir(vmm_v_to_p(tmp));
-
-	/* pcb_t *p; */
-	/* if ((p = process_create("haloust")) != NULL) { */
-	/* 	kdebug("process created successfully"); */
-	/* 	kdebug("pid %u", p->pid); */
-	/* } else { */
-	/* 	kdebug("failed to create process"); */
-	/* } */
-
-	kdebug("copied!");
-
-	asm volatile ("mov %%cr3, %0" : "=r"(cr3));
-
-	kdebug("new pdir addr: 0x%x", cr3);
+	pcb_t *p;
+	if ((p = process_create("haloust")) != NULL) {
+		kdebug("process created successfully");
+		kdebug("pid %u", p->pid);
+	} else {
+		kdebug("failed to create process");
+	}
 
 	for (;;);
 }
