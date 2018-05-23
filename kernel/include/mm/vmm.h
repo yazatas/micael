@@ -5,9 +5,13 @@
 #include <stddef.h>
 #include <fs/multiboot.h>
 
-#define PAGE_SIZE           0x1000
 #define KSTART              768
 #define KSTART_HEAP         832
+#define PAGE_SIZE           0x1000
+
+#define P_SET(value, flag)        (value |= flag)
+#define P_UNSET(value, flag)      (value &= ~flag)
+#define P_TEST_FLAG(value, flag)  (value & flag)
 
 /* TODO: add more consistency ie. rewrite */
 enum {
@@ -15,7 +19,6 @@ enum {
     P_READWRITE  = 1 << 1,
     P_READONLY   = 0 << 1,
     P_USER       = 1 << 2,
-    P_SUPERVISOR = 0 << 2,
     P_WR_THROUGH = 1 << 3,
     P_D_CACHE    = 1 << 4,
     P_ACCESSED   = 1 << 5,
@@ -25,6 +28,12 @@ enum {
 typedef uint32_t page_t;
 typedef uint32_t ptbl_t;
 typedef uint32_t pdir_t;
+
+/* TODO: remove */
+static inline void *vmm_get_temporary(void)
+{
+    return (void*)((uint32_t*)0xfffff000)[960];
+}
 
 static inline void *vmm_get_kheap_pdir(void)
 {

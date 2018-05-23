@@ -160,6 +160,21 @@ void vmm_pf_handler(uint32_t error)
            "\tpage frame offset:    %4u 0x%03x\n",
            pdi, pdi, pti, pti, offset, offset);
 
+
+    while (1);
+
+    /* TODO: determine what kind of error (besides reporting it)
+     *       and call appropriate handler for it
+     *
+     *       One for CoW, one for kernel level page fault */
+
+    /* TODO: check error code, how to distinguis a faulty write to address and CoW? */
+
+    uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
+    if (P_TEST_FLAG(pt[pti], P_READWRITE) == 0) {
+        kdebug("CoW");
+    }
+
     while (1);
 
     vmm_map_page((void*)vmm_kalloc_frame(), (void*)fault_addr, P_PRESENT | P_READWRITE);
@@ -179,13 +194,13 @@ void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
 
     uint32_t *pd = (uint32_t*)0xfffff000;
     if (!(pd[pdi] & P_PRESENT)) {
-        /* kdebug("Page Directory Entry %u is NOT present", pdi); */
+        kdebug("Page Directory Entry %u is NOT present", pdi);
         pd[pdi] = vmm_kalloc_frame() | flags;
-    }
+    } 
 
-    uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
+    uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
     if (!(pt[pti] & P_PRESENT)) {
-        /* kdebug("Page Table Entry %u is NOT present", pti); */
+        kdebug("Page Table Entry %u is NOT present", pti);
         pt[pti] = (uint32_t)physaddr | flags;
     }
 }
@@ -213,7 +228,7 @@ void vmm_init(multiboot_info_t *mbinfo)
 
     kpdir[KSTART_HEAP] = ((uint32_t)vmm_v_to_p(&kheaptb)) | P_PRESENT | P_READWRITE;
     kpdir[KSTART]      = ((uint32_t)vmm_v_to_p(&kpgtab))  | P_PRESENT | P_READWRITE;
-    kpdir[1023]        = ((uint32_t)vmm_v_to_p(&kpdir))   | P_PRESENT;
+    kpdir[1023]        = ((uint32_t)vmm_v_to_p(&kpdir))   | P_PRESENT | P_READWRITE;
 
     kdebug("changing to pdir located at address: 0x%x...", vmm_v_to_p(&kpdir));
     vmm_change_pdir(vmm_v_to_p(&kpdir));
@@ -314,6 +329,7 @@ void vmm_print_memory_map(void)
     }
 }
 
+/* TODO: remove this and implement it as part of vmm_map_page */
 void *vmm_kalloc_mapped_page(uint32_t flags)
 {
     uint32_t *TMP_PAGE = vmm_kalloc_tmp_vpage();
@@ -325,34 +341,52 @@ void *vmm_kalloc_mapped_page(uint32_t flags)
 }
 
 /* temporarily map the page directory to kernel's address space,
- * traverse through it and copy address of each physical page to new pdir
- * return the virtual address of new page directory
+ * traverse through it and copy address of each physical page
+ * below KSTART to new page directory and mark every page as READ ONLY.
+ * Above KSTAR just map the page tables instead if individual pages.
  *
- * @pdir: physaddr of the pdir that needs to be duplicated 
+ * Return the virtual address of new page directory
  *
- * TODO: needs a refactor, the code is ass ugly */
+ * @pdir: virtual address of the pdir that needs to be duplicated */
 void *vmm_duplicate_pdir(void *pdir)
 {
+    kdebug("starting address space duplication..");
+
+    pdir_t *pdir_v_copy = vmm_kalloc_tmp_vpage();
     pdir_t *pdir_v_org  = vmm_kalloc_tmp_vpage();
-    pdir_t *pdir_v_copy = vmm_kalloc_mapped_page(P_PRESENT | P_READWRITE);
+    ptbl_t *pt_v_org, *pt_v_copy;
 
-    vmm_map_page(pdir, (void*)pdir_v_org, P_PRESENT | P_READWRITE);
+    vmm_map_page(pdir,               (void *)pdir_v_org,  P_PRESENT | P_READWRITE);
+    vmm_map_page(vmm_kalloc_frame(), (void *)pdir_v_copy, P_PRESENT | P_READWRITE);
 
-    for (size_t i = 0; i < 1024; ++i) {
-        if (pdir_v_org[i] & P_PRESENT) {
 
-            uint32_t *pt_copy = vmm_kalloc_mapped_page(P_PRESENT | P_READWRITE);
-            pdir_v_copy[i]    = ((uint32_t)vmm_v_to_p(pt_copy))  | P_PRESENT | P_READONLY;
+    for (size_t i = 0; i < KSTART; ++i) {
+        if (P_TEST_FLAG(pdir_v_org[i], P_PRESENT)) {
 
-            uint32_t *pt_org = vmm_kalloc_tmp_vpage();
-            vmm_map_page(pdir_v_org[i], pt_org, P_PRESENT | P_READWRITE);
+            pt_v_copy      = vmm_kalloc_mapped_page(P_READWRITE | P_PRESENT);
+            pdir_v_copy[i] = ((uint32_t)vmm_v_to_p(pt_v_copy))  | P_PRESENT | P_USER;
+
+            pt_v_org = vmm_kalloc_tmp_vpage();
+            vmm_map_page(pdir_v_org[i], pt_v_org, P_PRESENT | P_READWRITE);
 
             for (size_t k = 0; k < 1024; ++k) {
-                if (pt_org[k] & P_PRESENT)
-                    pt_copy[k] = pt_org[k];
+                if (P_TEST_FLAG(pt_v_org[k], P_PRESENT)) {
+                    P_UNSET(pt_v_org[k], P_READWRITE);
+                    pt_v_copy[k] = pt_v_org[k];
+                }
             }
+
+            P_UNSET(pdir_v_org[i],  P_READWRITE);
+            P_UNSET(pdir_v_copy[i], P_READWRITE);
         }
     }
 
-    return (void*)pdir_v_copy;
+    /* map the kernel as is, no need to perform any CoW operations */
+    for (size_t i = KSTART; i < 1024; ++i) {
+        if (pdir_v_org[i] & P_PRESENT) {
+            pdir_v_copy[i] = pdir_v_org[i];
+        }
+    }
+
+    return (void *)pdir_v_copy;
 }
