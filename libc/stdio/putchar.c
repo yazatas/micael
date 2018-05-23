@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #ifdef __is_libc
-#include <syscalls.h>
+#include <unistd.h>
 #else
 #include <kernel/tty.h>
 #endif
