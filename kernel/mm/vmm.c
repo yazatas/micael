@@ -42,6 +42,27 @@ static uint32_t kpdir[1024]   __align_4k;
 static uint32_t kpgtab[1024]  __align_4k;
 static uint32_t kheaptb[1024] __align_4k;
 
+static page_t vmm_do_cow(page_t fault_addr)
+{
+    page_t new_phys_page = vmm_kalloc_frame();
+    page_t *tmp_page_org = vmm_kalloc_tmp_vpage(),
+           *tmp_page_cpy = vmm_kalloc_tmp_vpage();
+
+    vmm_map_page(fault_addr,    tmp_page_org, P_PRESENT | P_READWRITE);
+    vmm_map_page(new_phys_page, tmp_page_cpy, P_PRESENT | P_READWRITE);
+
+    memcpy(tmp_page_cpy, tmp_page_org, 0x1000);
+
+    vmm_free_tmp_vpage(tmp_page_cpy);
+    vmm_free_tmp_vpage(tmp_page_org);
+
+    new_phys_page |= P_PRESENT | P_USER | P_READWRITE;
+
+    kdebug("new page addr: 0x%x", new_phys_page);
+
+    return new_phys_page;
+}
+
 void *vmm_kalloc_tmp_vpage(void)
 {
     static size_t vpage_ptr   = 0;
@@ -160,22 +181,27 @@ void vmm_pf_handler(uint32_t error)
            "\tpage frame offset:    %4u 0x%03x\n",
            pdi, pdi, pti, pti, offset, offset);
 
-
-    while (1);
-
-    /* TODO: determine what kind of error (besides reporting it)
-     *       and call appropriate handler for it
-     *
-     *       One for CoW, one for kernel level page fault */
-
-    /* TODO: check error code, how to distinguis a faulty write to address and CoW? */
-
+    uint32_t *pd = (uint32_t*)0xfffff000;
     uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
-    if (P_TEST_FLAG(pt[pti], P_READWRITE) == 0) {
-        kdebug("CoW");
+    uint32_t cr3;
+
+    kdebug("faulting physaddr: 0x%x", pt[pti]);
+
+    if (P_TEST_FLAG(pt[pti], P_USER))
+        kdebug("user flag set");
+    if (P_TEST_FLAG(pt[pti], P_READWRITE))
+        kdebug("r/w flag set");
+
+    if (P_TEST_FLAG(pt[pti], P_READWRITE) == 0 &&
+        P_TEST_FLAG(pt[pti], P_COW)       != 0)
+    {
+        kdebug("Copy-on-Write");
+
+        pt[pti] = vmm_do_cow(pt[pti]);
+        return;
     }
 
-    while (1);
+    for (;;);
 
     vmm_map_page((void*)vmm_kalloc_frame(), (void*)fault_addr, P_PRESENT | P_READWRITE);
     vmm_flush_TLB();
@@ -194,13 +220,13 @@ void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
 
     uint32_t *pd = (uint32_t*)0xfffff000;
     if (!(pd[pdi] & P_PRESENT)) {
-        kdebug("Page Directory Entry %u is NOT present", pdi);
+        /* kdebug("Page Directory Entry %u is NOT present", pdi); */
         pd[pdi] = vmm_kalloc_frame() | flags;
     } 
 
     uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
     if (!(pt[pti] & P_PRESENT)) {
-        kdebug("Page Table Entry %u is NOT present", pti);
+        /* kdebug("Page Table Entry %u is NOT present", pti); */
         pt[pti] = (uint32_t)physaddr | flags;
     }
 }
@@ -300,7 +326,7 @@ void vmm_list_pte(uint32_t pdi)
     }
 
     kprint("Page Table %u:\n", pdi);
-    kprint("\tmapped bytes: %uB %uMB\n",   nbytes, nbytes / 1000);
+    kprint("\tmapped bytes: %uB %uKB\n",   nbytes, nbytes / 1000);
     kprint("\tmapped table entries: %u\n", nbytes / 0x1000);
 }
 
@@ -356,28 +382,29 @@ void *vmm_duplicate_pdir(void *pdir)
     pdir_t *pdir_v_org  = vmm_kalloc_tmp_vpage();
     ptbl_t *pt_v_org, *pt_v_copy;
 
-    vmm_map_page(pdir,               (void *)pdir_v_org,  P_PRESENT | P_READWRITE);
-    vmm_map_page(vmm_kalloc_frame(), (void *)pdir_v_copy, P_PRESENT | P_READWRITE);
+    uint32_t flags = P_PRESENT | P_USER | P_READWRITE;
+
+    vmm_map_page(pdir,               (void *)pdir_v_org,  flags);
+    vmm_map_page(vmm_kalloc_frame(), (void *)pdir_v_copy, flags);
 
 
     for (size_t i = 0; i < KSTART; ++i) {
         if (P_TEST_FLAG(pdir_v_org[i], P_PRESENT)) {
 
-            pt_v_copy      = vmm_kalloc_mapped_page(P_READWRITE | P_PRESENT);
-            pdir_v_copy[i] = ((uint32_t)vmm_v_to_p(pt_v_copy))  | P_PRESENT | P_USER;
+            pt_v_copy      = vmm_kalloc_mapped_page(flags);
+            pdir_v_copy[i] = ((uint32_t)vmm_v_to_p(pt_v_copy)) | flags; 
 
             pt_v_org = vmm_kalloc_tmp_vpage();
-            vmm_map_page(pdir_v_org[i], pt_v_org, P_PRESENT | P_READWRITE);
+            vmm_map_page(pdir_v_org[i], pt_v_org, flags);
 
             for (size_t k = 0; k < 1024; ++k) {
                 if (P_TEST_FLAG(pt_v_org[k], P_PRESENT)) {
-                    P_UNSET(pt_v_org[k], P_READWRITE);
-                    pt_v_copy[k] = pt_v_org[k];
+                    /* P_UNSET_FLAG(pt_v_org[k], P_READWRITE); */
+                    /* P_SET_FLAG(pt_v_org[k], P_COW); */
+                    /* pt_v_copy[k] = pt_v_org[k]; */
+                    pt_v_copy[k] = vmm_do_cow(pt_v_org[k]);
                 }
             }
-
-            P_UNSET(pdir_v_org[i],  P_READWRITE);
-            P_UNSET(pdir_v_copy[i], P_READWRITE);
         }
     }
 
@@ -388,5 +415,6 @@ void *vmm_duplicate_pdir(void *pdir)
         }
     }
 
+    vmm_flush_TLB();
     return (void *)pdir_v_copy;
 }
