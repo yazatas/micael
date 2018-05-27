@@ -27,30 +27,17 @@ DEFINE_SYSCALL(write)
 
 DEFINE_SYSCALL(fork)
 {
-    kdebug("forking...");
-
+    (void)cpu;
     pcb_t *p = kmalloc(sizeof(pcb_t));
     p->pid   = get_next_pid();
 
-    vmm_list_pde();
-
-    /* FIXME: wew */
     uint32_t cr3;
     asm volatile ("mov %%cr3, %0" : "=r"(cr3));
 
     void *page_dir = vmm_duplicate_pdir((void*)cr3);
     vmm_change_pdir(vmm_v_to_p(page_dir));
 
-    vmm_list_pde();
-
-    kdebug("forked!");
-
-    /* TODO: 1. create new task */
-    /* TODO: 2. getnewpid */
-    /* TODO: create new task (process) */
-    /* TODO: initialize its memory */
-    /* TODO: schedule it */
-    /* TODO: return pid to user */
+    return 0;
 }
 
 static syscall_t syscalls[MAX_SYSCALLS] = {

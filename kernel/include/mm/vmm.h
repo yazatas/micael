@@ -9,8 +9,8 @@
 #define KSTART_HEAP         832
 #define PAGE_SIZE           0x1000
 
-#define P_SET(value, flag)        (value |= flag)
-#define P_UNSET(value, flag)      (value &= ~flag)
+#define P_SET_FLAG(value, flag)        (value |= flag)
+#define P_UNSET_FLAG(value, flag)      (value &= ~flag)
 #define P_TEST_FLAG(value, flag)  (value & flag)
 
 /* TODO: add more consistency ie. rewrite */
@@ -22,7 +22,8 @@ enum {
     P_WR_THROUGH = 1 << 3,
     P_D_CACHE    = 1 << 4,
     P_ACCESSED   = 1 << 5,
-    P_SIZE_4MB   = 1 << 6
+    P_SIZE_4MB   = 1 << 6,
+    P_COW        = 1 << 9,
 } PAGING_FLAGS;
 
 typedef uint32_t page_t;
