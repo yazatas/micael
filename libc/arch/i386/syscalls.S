@@ -3,6 +3,7 @@
 .global read
 .global write
 .global fork
+.global execv
 
 read:
     mov $0, %eax       # syscall number
@@ -22,5 +23,12 @@ write:
 
 fork:
     mov $2, %eax       # syscall number
+    int $0x80
+    ret
+
+execv:
+    mov $3, %eax       # syscall number
+    mov 4(%esp), %ebx  # file path
+    mov 8(%esp), %ecx  # argv
     int $0x80
     ret
