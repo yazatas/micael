@@ -14,9 +14,9 @@ See doc/OVERVIEW.md for more details
       * kernel heap
    * Multitasking
       * cooperative multitasking (legacy)
-      * mutual exclusions
-      * user mode processes
-	  * System calls
+      * user mode
+	  * system calls
+         * write, fork, execv
    * Miscellaneous
       * global descriptor table with TSS
       * interrupts (ISRs and IRQs)
@@ -37,12 +37,14 @@ See doc/OVERVIEW.md for more details
    * Memory Management
       * switch from linked lists to red-black tree
 	  * address space layout randomization
+      * Copy-on-Write forking
    * File System
 	  * VFS
       * Working file system
       * boot loader
-      * paging to disk (what's the proper term?)
+      * page cache
    * Miscellaneous
+	  * buffered i/o
       * tcp/ip stack
       * support for ARM architecture
          * remove arch-specific code from vmm.c
