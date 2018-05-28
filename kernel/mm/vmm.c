@@ -58,7 +58,7 @@ static page_t vmm_do_cow(page_t fault_addr)
 
     new_phys_page |= P_PRESENT | P_USER | P_READWRITE;
 
-    kdebug("new page addr: 0x%x", new_phys_page);
+    /* kdebug("new page addr: 0x%x", new_phys_page); */
 
     return new_phys_page;
 }
@@ -88,7 +88,7 @@ error:
 
 void vmm_free_tmp_vpage(void *vpage)
 {
-    kdebug("freeing temporary virtual page at address 0x%x", (uint32_t*)vpage);
+    /* kdebug("freeing temporary virtual page at address 0x%x", (uint32_t*)vpage); */
     bm_unset_bit(&tmp_vpages, (((uint32_t)vpage) - MEM_TMP_VPAGES_BASE) / PAGE_SIZE);
 }
 
@@ -376,7 +376,7 @@ void *vmm_kalloc_mapped_page(uint32_t flags)
  * @pdir: virtual address of the pdir that needs to be duplicated */
 void *vmm_duplicate_pdir(void *pdir)
 {
-    kdebug("starting address space duplication..");
+    /* kdebug("starting address space duplication.."); */
 
     pdir_t *pdir_v_copy = vmm_kalloc_tmp_vpage();
     pdir_t *pdir_v_org  = vmm_kalloc_tmp_vpage();
@@ -386,7 +386,6 @@ void *vmm_duplicate_pdir(void *pdir)
 
     vmm_map_page(pdir,               (void *)pdir_v_org,  flags);
     vmm_map_page(vmm_kalloc_frame(), (void *)pdir_v_copy, flags);
-
 
     for (size_t i = 0; i < KSTART; ++i) {
         if (P_TEST_FLAG(pdir_v_org[i], P_PRESENT)) {
@@ -399,9 +398,6 @@ void *vmm_duplicate_pdir(void *pdir)
 
             for (size_t k = 0; k < 1024; ++k) {
                 if (P_TEST_FLAG(pt_v_org[k], P_PRESENT)) {
-                    /* P_UNSET_FLAG(pt_v_org[k], P_READWRITE); */
-                    /* P_SET_FLAG(pt_v_org[k], P_COW); */
-                    /* pt_v_copy[k] = pt_v_org[k]; */
                     pt_v_copy[k] = vmm_do_cow(pt_v_org[k]);
                 }
             }
