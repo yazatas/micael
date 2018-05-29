@@ -2,9 +2,8 @@
 #include <kernel/idt.h>
 #include <kernel/irq.h>
 #include <kernel/kprint.h>
-
-#include <stdint.h>
-#include <stdio.h>
+#include <kernel/kpanic.h>
+#include <kernel/common.h>
 
 extern void irq0();
 extern void irq1();
@@ -23,17 +22,15 @@ extern void irq13();
 extern void irq14();
 extern void irq15();
 
-static void *irq_routines[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static void *irq_routines[16] = {0};
 
-struct regs_t {
-	uint16_t gs, fs, es, ds;
-	uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; /* pusha */
-	uint32_t isr_num, err_num;
-	uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
-};
-
-void irq_install_handler(void (*handler)(struct regs_t *cpu), int irq_num)
+void irq_install_handler(void (*handler)(struct isr_regs *cpu), int irq_num)
 {
+    if (irq_num > 15 || irq_num < 0 || handler == NULL) {
+        kdebug("Invalid IRQ handler or IRQ Number");
+        return;
+    }
+
 	irq_routines[irq_num] = handler;
 }
 
@@ -84,15 +81,17 @@ void irq_init(void)
 
 /* irq raised by master -> acknowledge master 
  * irq raised by slave, -> acknowledge both slave AND master */
-void irq_handler(struct regs_t *cpu_state)
+void irq_handler(struct isr_regs *cpu_state)
 {
-	void (*handler)(struct regs_t *cpu_state);
+	void (*handler)(struct isr_regs *cpu_state);
 
-	/* if ((handler = irq_routines[cpu_state->isr_num - 32])) { */
-	/* 	kdebug("no handler for this interrupt request: %d", cpu_state->isr_num); */
-	/* 	for (;;); */
-	/* 	/1* handler(cpu_state); *1/ */
-	/* } */
+    int irq_index = cpu_state->isr_num - 32;
+    if (irq_index >= 16) {
+        kpanic("no handler for this interrupt!");
+    }
+
+	handler = irq_routines[irq_index];
+	handler(cpu_state);
 
 	if (cpu_state->isr_num >= 40)
 		outb(PIC_SLAVE_CMD_PORT, PIC_ACK);
