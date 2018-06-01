@@ -86,5 +86,5 @@ void kthread_yield(void)
 	running = running->next;
 
 	kdebug("switching from %s to %s", prev->name, running->name);
-	switch_task(&prev->regs, &running->regs);
+	context_switch(&prev->regs, &running->regs);
 }
