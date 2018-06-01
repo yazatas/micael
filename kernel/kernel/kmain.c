@@ -42,13 +42,5 @@ void kmain(multiboot_info_t *mbinfo)
 	asm ("sti"); /* enable interrupts */
 	vmm_init(mbinfo);
 
-	pcb_t *p;
-	if ((p = process_create("haloust")) != NULL) {
-		kdebug("process created successfully");
-		kdebug("pid %u", p->pid);
-	} else {
-		kdebug("failed to create process");
-	}
-
 	for (;;);
 }

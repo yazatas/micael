@@ -31,7 +31,7 @@ DEFINE_SYSCALL(fork)
 {
     (void)cpu;
     pcb_t *p = kmalloc(sizeof(pcb_t));
-    p->pid   = get_next_pid();
+    /* p->pid   = get_next_pid(); */
 
     uint32_t cr3;
     asm volatile ("mov %%cr3, %0" : "=r"(cr3));
