@@ -20,6 +20,8 @@
 #ifndef __MULTIBOOT_H__
 #define __MULTIBOOT_H__
 
+#include <kernel/common.h>
+
 /* How many bytes from the start of the file we search for the header. */
 #define MULTIBOOT_SEARCH                        8192
 #define MULTIBOOT_HEADER_ALIGN                  4
@@ -226,7 +228,7 @@ struct multiboot_mmap_entry {
 } __attribute__((packed));
 typedef struct multiboot_mmap_entry multiboot_memory_map_t;
 
-struct multiboot_mod_list {
+typedef struct multiboot_mod_list {
     /* the memory used goes from bytes 'mod_start' to 'mod_end-1' inclusive */
     multiboot_uint32_t mod_start;
     multiboot_uint32_t mod_end;
@@ -252,5 +254,6 @@ struct multiboot_apm_info {
 };
 
 size_t multiboot_map_memory(multiboot_info_t *mbinfo);
+size_t multiboot_load_modules(multiboot_info_t *mbinfo);
 
 #endif /* end of include guard: __MULTIBOOT_H__ */

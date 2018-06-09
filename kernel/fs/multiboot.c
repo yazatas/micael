@@ -31,3 +31,13 @@ size_t multiboot_map_memory(multiboot_info_t *mbinfo)
 
     return numpages;
 }
+
+size_t multiboot_load_modules(multiboot_info_t *mbinfo)
+{
+    multiboot_module_t *mods = (multiboot_module_t *)mbinfo->mods_addr;
+    uint32_t entries = mbinfo->mods_count;
+
+    kdebug("mod entries %u", entries);
+
+    return (size_t)entries;
+}

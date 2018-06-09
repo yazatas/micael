@@ -12,6 +12,7 @@
 #include <mm/vmm.h>
 #include <mm/kheap.h>
 #include <fs/multiboot.h>
+#include <fs/vfs.h>
 #include <sched/kthread.h>
 #include <sched/proc.h>
 #include <drivers/timer.h>
@@ -40,6 +41,10 @@ void kmain(multiboot_info_t *mbinfo)
 	gdt_init(); idt_init(); irq_init(); 
 	timer_install(); kb_install();
 	asm ("sti"); /* enable interrupts */
+
+    /* initialize file system before vmm because 
+     * the whole address space is identity mapped */
+    vfs_init(mbinfo);
 	vmm_init(mbinfo);
 
 	for (;;);
