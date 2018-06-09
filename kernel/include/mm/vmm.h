@@ -9,8 +9,8 @@
 #define KSTART_HEAP         832
 #define PAGE_SIZE           0x1000
 
-#define P_SET_FLAG(value, flag)        (value |= flag)
-#define P_UNSET_FLAG(value, flag)      (value &= ~flag)
+#define P_SET_FLAG(value, flag)   (value |= flag)
+#define P_UNSET_FLAG(value, flag) (value &= ~flag)
 #define P_TEST_FLAG(value, flag)  (value & flag)
 
 /* TODO: add more consistency ie. rewrite */
