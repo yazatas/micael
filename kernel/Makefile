@@ -30,13 +30,13 @@ kernel/kpanic.o \
 OBJS=$(KERNEL_OBJS)
 LINK_LIST=$(KERNEL_OBJS) $(LDFLAGS)
 
-.PHONY: all clean install install-headers install-kernel
+.PHONY: all clean install copy-headers install-kernel
 .SUFFIXES: .o .c .S
 
 all: micael.kernel
-install: install-headers install-kernel
+install: copy-headers install-kernel
 
-install-headers:
+copy-headers:
 	echo $(DESTDIR)
 	mkdir -p $(DESTDIR)$(INCLUDEDIR)
 	cp -R --preserve=timestamps include/. $(DESTDIR)$(INCLUDEDIR)/.

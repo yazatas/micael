@@ -1,14 +1,14 @@
 ROOTDIR?=$(shell pwd)
 include $(ROOTDIR)/Makefile.config
 
-.PHONY: all kernel libc iso clean install-headers
+.PHONY: all kernel libc iso clean copy-headers
 
-all: install-headers libc kernel iso
+all: copy-headers libc kernel iso
 
-install-headers:
+copy-headers:
 	@mkdir -p $(SYSROOT)
-	$(MAKE) --directory=libc install-headers
-	$(MAKE) --directory=kernel install-headers
+	$(MAKE) --directory=libc copy-headers
+	$(MAKE) --directory=kernel copy-headers
 
 kernel:
 	$(MAKE) --directory=kernel install
