@@ -26,7 +26,7 @@ LIBK_OBJS=$(FREEOBJS:.o=.libk.o)
 #BINARIES=libc.a libk.a # Not ready for libc yet.
 BINARIES=libk.a
 
-.PHONY: all clean install install-headers install-libs
+.PHONY: all clean install copy-headers install-libs
 .SUFFIXES: .o .libk.o .c .S
 
 all: $(BINARIES)
@@ -54,9 +54,9 @@ clean:
 	rm -f $(OBJS) $(LIBK_OBJS) *.o */*.o */*/*.o
 	rm -f $(OBJS:.o=.d) $(LIBK_OBJS:.o=.d) *.d */*.d */*/*.d
 
-install: install-headers install-libs
+install: copy-headers install-libs
 
-install-headers:
+copy-headers:
 	mkdir -p $(DESTDIR)$(INCLUDEDIR)
 	cp -R --preserve=timestamps include/. $(DESTDIR)$(INCLUDEDIR)/.
 
