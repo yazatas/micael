@@ -44,7 +44,8 @@ void kmain(multiboot_info_t *mbinfo)
 
     /* initialize file system before vmm because 
      * the whole address space is identity mapped */
-    vfs_init(mbinfo);
+    /* vfs_init(mbinfo); */
+  multiboot_load_modules(mbinfo);
 	vmm_init(mbinfo);
 
 	for (;;);

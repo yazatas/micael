@@ -1,9 +1,10 @@
 #include <fs/vfs.h>
 #include <kernel/kprint.h>
+#include <fs/initrd.h>
 
 void vfs_init(multiboot_info_t *mbinfo)
 {
-    multiboot_load_modules(mbinfo);
+    inird_init(mbinfo);
 }
 
 /* TODO: return error or set fs_errno?? */
@@ -32,7 +33,7 @@ uint32_t vfs_read(file_t *node, uint32_t offset, uint32_t size, uint8_t *buffer)
 
 uint32_t vfs_write(file_t *node, uint32_t offset, uint32_t size, uint8_t *buffer)
 {
-    if (node && node->write) { 
+    if (node && node->write) {
         return node->write(node, offset, size, buffer);
     }
     return VFS_CALLBACK_MISSING;
