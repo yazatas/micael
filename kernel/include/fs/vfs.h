@@ -20,13 +20,31 @@ enum vfs_types {
 #define VFS_IS_FILE(node) ((node->flags & VFS_TYPE_DIRECTORY) != 0)
 #define VFS_IS_DIR(node)  ((node->inode->flags & VFS_TYPE_FILE) != 0)
 
-enum vfs_errors {
+typedef enum vfs_status {
+    VFS_OK = 0,
     VFS_CALLBACK_MISSING = -1,
-};
+    VFS_FS_INIT_FAILED = -2,
+} vfs_status_t;
 
 typedef int32_t off_t;
 
-typedef struct inode {
+typedef struct fs fs_t;
+typedef struct inode inode_t;
+typedef struct file file_t;
+typedef struct dentry dentry_t;
+
+/* TODO:  WHAT IS A MOUNTPOINT */
+
+struct fs {
+    char *name;
+
+    fs_t *(*create)(void);
+    void (*destroy)(fs_t *);
+};
+
+struct inode {
+    fs_t *fs;
+
     uint32_t mask;        /* permissions */
     uint32_t uid;
     uint32_t gid;
@@ -34,42 +52,35 @@ typedef struct inode {
     uint32_t inode;
     uint32_t size;
     uint32_t impl;        /* TODO: ??? */
-} inode_t;
+};
 
-
-typedef struct dentry {
+struct dentry {
     char name[VFS_NAME_MAX_LEN];
 
-    struct dentry *parent;
-    struct dentry *children;
+    dentry_t *parent;
+    dentry_t *children;
     list_head_t *siblings;
+};
 
-    inode_t *inode;
-} dentry_t;
-
-typedef struct file {
-    char name[VFS_NAME_MAX_LEN];
-
+struct file {
     dentry_t *dentry;
-    inode_t *inode;
+    inode_t  *inode;
 
-    uint32_t (*read)(struct file  *, uint32_t, uint32_t, uint8_t *);
-    uint32_t (*write)(struct file *, uint32_t, uint32_t, uint8_t *);
-    void     (*open)(struct file  *, uint8_t,  uint8_t);
-    void     (*close)(struct file *);
-    dentry_t *(*read_dir)(struct file *, uint32_t);
-    struct file *(*find_dir)(struct file *, char *);
+    uint32_t (*read)(file_t *, uint32_t, uint32_t, uint8_t *);
+    uint32_t (*write)(file_t *, uint32_t, uint32_t, uint8_t *);
+    void     (*open)(file_t *, uint8_t,  uint8_t);
+    void     (*close)(file_t *);
+    dentry_t *(*read_dir)(file_t *, uint32_t);
+    file_t *(*find_dir)(file_t *, char *);
+};
 
-    /* list_head_t list; */
-    struct file *ptr; // Used by mountpoints and symlinks.
-} file_t;
-
+/* TODO:  is this needed?? */
 void vfs_init(multiboot_info_t *mbinfo);
 
 void vfs_close(file_t *node);
-void vfs_open(file_t *node, uint8_t read, uint8_t write);
+void vfs_open(file_t  *node, uint8_t read, uint8_t write);
 
-uint32_t vfs_read(file_t *node,  uint32_t offset, uint32_t size, uint8_t *buffer);
+uint32_t vfs_read(file_t  *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 uint32_t vfs_write(file_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
 
 dentry_t *vfs_read_dir(file_t *node, uint32_t index);

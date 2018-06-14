@@ -32,12 +32,24 @@ size_t multiboot_map_memory(multiboot_info_t *mbinfo)
     return numpages;
 }
 
-size_t multiboot_load_modules(multiboot_info_t *mbinfo)
+size_t multiboot_load_modules(multiboot_info_t *mbi)
 {
-    multiboot_module_t *mods = (multiboot_module_t *)mbinfo->mods_addr;
-    uint32_t entries = mbinfo->mods_count;
+    /* multiboot_module_t *mods = (multiboot_module_t *)mbinfo->mods_addr; */
+    /* uint32_t entries = mbinfo->mods_count; */
+    /* kdebug("mod entries %u", entries); */
+    /* return (size_t)entries; */
 
-    kdebug("mod entries %u", entries);
 
-    return (size_t)entries;
+    multiboot_module_t *mod;
+    int i;
+    kdebug("mods_count = %d, mods_addr = 0x%x\n",
+            (int) mbi->mods_count, (int) mbi->mods_addr);
+    for (i = 0, mod = (multiboot_module_t *) mbi->mods_addr;
+         i < mbi->mods_count;
+         i++, mod++)
+        kdebug(" mod_start = 0x%x, mod_end = 0x%x, cmdline = %s\n",
+                (unsigned) mod->mod_start,
+                (unsigned) mod->mod_end,
+                (char *) mod->cmdline);
+
 }
