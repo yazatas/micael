@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 /* how to use this:
  *
@@ -9,8 +10,9 @@
  * This program shall verify that the generated initrd is valid.
  * initrd verification is used only for debugging */
 
-#define HEADER_MAGIC 0x13371338
-#define FILE_MAGIC   0xdeadbeef
+#define HEADER_MAGIC  0x13371338
+#define FILE_MAGIC    0xdeadbeef
+#define FNAME_MAXLEN  64
 
 typedef struct disk_header {
     uint8_t  file_count;
@@ -19,7 +21,7 @@ typedef struct disk_header {
 } disk_header_t;
 
 typedef struct file_header {
-    char *file_name;
+    char file_name[FNAME_MAXLEN];
     uint32_t file_size;
     uint32_t magic;
 } file_header_t;
@@ -70,7 +72,9 @@ int main(int argc, char **argv)
         fprintf(stderr, "file info:\n\
                 \tname:  %s\n\
                 \tsize:  %u\n\
-                \tmagic: 0x%x\n\n", NULL, file_header.file_size, file_header.magic);
+                \tmagic: 0x%x\n\n", file_header.file_name, 
+                                    file_header.file_size, 
+                                    file_header.magic);
 
         FILE *verify_fp  = fopen(argv[i], "r");
         char *initrd_buf = malloc(file_header.file_size);
