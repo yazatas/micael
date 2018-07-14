@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 /* how to use this:
  *
@@ -9,8 +10,9 @@
  * At this moment, directories are not supported so this program will generate 
  * a disk file that contains an initrd header followed by a list of files */
 
-#define HEADER_MAGIC 0x13371338
-#define FILE_MAGIC   0xdeadbeef
+#define HEADER_MAGIC  0x13371338
+#define FILE_MAGIC    0xdeadbeef
+#define FNAME_MAXLEN  64
 
 typedef struct disk_header {
     uint8_t  file_count;
@@ -19,7 +21,7 @@ typedef struct disk_header {
 } disk_header_t;
 
 typedef struct file_header {
-    char *file_name;
+    char file_name[FNAME_MAXLEN];
     uint32_t file_size;
     uint32_t magic;
 } file_header_t;
@@ -46,12 +48,12 @@ int main(int argc, char **argv)
 
     disk_header_t disk_header = {
         .file_count = argc - 1,
-        .disk_size  = sizeof(disk_header_t), /* TODO: tämä aiheuttaa väärät lukemat */
+        .disk_size  = sizeof(disk_header_t),
         .magic      = HEADER_MAGIC
     };
 
     file_header_t file = {
-        .file_name = NULL,
+        .file_name = "",
         .file_size = 0,
         .magic     = FILE_MAGIC
     };
@@ -67,7 +69,7 @@ int main(int argc, char **argv)
         tmp = fopen(argv[i], "r");
         
         file.file_size = get_file_size(tmp);
-        file.file_name = argv[i];
+        strncpy(file.file_name, argv[i], FNAME_MAXLEN);
 
         buffer = malloc(file.file_size);
         printf("file size: %u bytes\n", file.file_size);
