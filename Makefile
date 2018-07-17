@@ -18,13 +18,11 @@ libc:
 
 iso:
 	@mkdir -p isodir/boot/grub
-	@mkdir -p isodir/boot/modules
-	@cp toolchain/*.bin isodir/boot/modules
+	@cp toolchain/initrd.bin isodir/boot
 	@cp sysroot/boot/micael.kernel isodir/boot/micael.kernel
-	@echo "menuentry micael { \
-						multiboot /boot/micael.kernel \
-						module    /boot/modules/program1.bin \
-			  }" > isodir/boot/grub/grub.cfg
+	@echo "menuentry micael {"            >  isodir/boot/grub/grub.cfg
+	@echo "multiboot /boot/micael.kernel" >> isodir/boot/grub/grub.cfg
+	@echo "module /boot/initrd.bin }"    >> isodir/boot/grub/grub.cfg
 	@grub-mkrescue -o micael.iso isodir
 
 run:
