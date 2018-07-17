@@ -7,3 +7,5 @@ kernel.map
 kernel.sym
 .gitignore
 .gdbinit
+toolchain/programs
+toolchain/initrd.bin
