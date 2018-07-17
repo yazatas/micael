@@ -21,9 +21,10 @@ enum vfs_types {
 #define VFS_IS_DIR(node)  ((node->inode->flags & VFS_TYPE_FILE) != 0)
 
 typedef enum vfs_status {
-    VFS_OK = 0,
-    VFS_CALLBACK_MISSING = -1,
-    VFS_FS_INIT_FAILED = -2,
+    VFS_OK               =  0,
+    VFS_GENERAL_ERROR    = -1,
+    VFS_CALLBACK_MISSING = -2,
+    VFS_FS_INIT_FAILED   = -3,
 } vfs_status_t;
 
 typedef int32_t off_t;
