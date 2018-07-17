@@ -42,11 +42,8 @@ void kmain(multiboot_info_t *mbinfo)
 	timer_install(); kb_install();
 	asm ("sti"); /* enable interrupts */
 
-    /* initialize file system before vmm because 
-     * the whole address space is identity mapped */
-    /* vfs_init(mbinfo); */
-  multiboot_load_modules(mbinfo);
 	vmm_init(mbinfo);
+    vfs_init(mbinfo);
 
 	for (;;);
 }

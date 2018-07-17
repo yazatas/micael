@@ -48,8 +48,8 @@ static page_t vmm_do_cow(page_t fault_addr)
     page_t *tmp_page_org = vmm_kalloc_tmp_vpage(),
            *tmp_page_cpy = vmm_kalloc_tmp_vpage();
 
-    vmm_map_page(fault_addr,    tmp_page_org, P_PRESENT | P_READWRITE);
-    vmm_map_page(new_phys_page, tmp_page_cpy, P_PRESENT | P_READWRITE);
+    vmm_map_page((void *)fault_addr,    tmp_page_org, P_PRESENT | P_READWRITE);
+    vmm_map_page((void *)new_phys_page, tmp_page_cpy, P_PRESENT | P_READWRITE);
 
     memcpy(tmp_page_cpy, tmp_page_org, 0x1000);
 
@@ -231,6 +231,26 @@ void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
     }
 }
 
+/* return the virtual address used to map the physical memory */
+void  *__vmm_map_page(void *physaddr, void *virtaddr)
+{
+    void *paddr = physaddr, *vaddr = virtaddr;
+
+    if (!physaddr) {
+        /* kdebug("allocating physical space!"); */
+        paddr = (void *)vmm_kalloc_frame();
+    }
+
+    if (!virtaddr) {
+        /* kdebug("allocating virtual address!"); */
+        vaddr = vmm_kalloc_tmp_vpage();
+    }
+
+    vmm_map_page(paddr, vaddr, P_PRESENT | P_READWRITE);
+
+    return vaddr;
+}
+
 void vmm_init(multiboot_info_t *mbinfo)
 {
     bm_set_range(&phys_pages, 0, phys_pages.len - 1);
@@ -384,8 +404,8 @@ void *vmm_duplicate_pdir(void *pdir)
 
     uint32_t flags = P_PRESENT | P_USER | P_READWRITE;
 
-    vmm_map_page(pdir,               (void *)pdir_v_org,  flags);
-    vmm_map_page(vmm_kalloc_frame(), (void *)pdir_v_copy, flags);
+    vmm_map_page(pdir,                       (void *)pdir_v_org,  flags);
+    vmm_map_page((void *)vmm_kalloc_frame(), (void *)pdir_v_copy, flags);
 
     for (size_t i = 0; i < KSTART; ++i) {
         if (P_TEST_FLAG(pdir_v_org[i], P_PRESENT)) {
@@ -394,7 +414,7 @@ void *vmm_duplicate_pdir(void *pdir)
             pdir_v_copy[i] = ((uint32_t)vmm_v_to_p(pt_v_copy)) | flags; 
 
             pt_v_org = vmm_kalloc_tmp_vpage();
-            vmm_map_page(pdir_v_org[i], pt_v_org, flags);
+            vmm_map_page((void *)pdir_v_org[i], pt_v_org, flags);
 
             for (size_t k = 0; k < 1024; ++k) {
                 if (P_TEST_FLAG(pt_v_org[k], P_PRESENT)) {

@@ -1,55 +1,81 @@
 #include <fs/vfs.h>
 #include <fs/initrd.h>
 #include <mm/kheap.h>
+#include <mm/vmm.h>
+#include <fs/multiboot.h>
+#include <kernel/kprint.h>
+#include <kernel/kpanic.h>
+
+#include <string.h>
+
+#define HEADER_MAGIC  0x13371338
+#define FILE_MAGIC    0xdeadbeef
+#define FNAME_MAXLEN  64
+
+struct disk_header {
+    uint8_t  file_count;
+    uint32_t disk_size;
+    uint32_t magic;
+} *disk_header;
+
+typedef struct file_header {
+    char file_name[FNAME_MAXLEN];
+    uint32_t file_size;
+    uint32_t magic;
+} file_header_t;
 
 static uint32_t initrd_read(file_t *file, uint32_t offset, uint32_t size, uint8_t *buffer)
 {
-    return 0;
-}
-
-static uint32_t initrd_write(file_t *file, uint32_t offset, uint32_t size, uint8_t *buffer)
-{
+    (void)file, (void)offset, (void)size, (void)buffer;
     return 0;
 }
 
 static void initrd_open(file_t *file, uint8_t read, uint8_t write)
 {
-}
-
-static void initrd_close(file_t *file)
-{
-}
-
-static dentry_t *initrd_read_dir(file_t *file, uint32_t index)
-{
-    return NULL;
-}
-
-static file_t *initrd_find_dir(file_t *file, char *name)
-{
-    return NULL;
+    (void)file, (void)read, (void)write;
 }
 
 static fs_t *initrd_create(void)
 {
-    return NULL;
+    fs_t *fs = kmalloc(sizeof(fs_t));
+
+    return fs;
 }
 
-static void initrd_destory(fs_t *fs)
+static void initrd_destroy(fs_t *fs)
 {
     kfree(fs);
 }
 
-/* TODO: return file system object instead */
-vfs_status_t inird_init(multiboot_info_t *mbinfo)
+vfs_status_t initrd_init(multiboot_info_t *mbinfo)
 {
-    fs_t *fs = kmalloc(sizeof(fs_t));
+    file_header_t *fh;
+    multiboot_info_t *mbi;
+    multiboot_module_t *mod;
 
-    fs->name    = "initrd";
-    fs->create  = initrd_create;
-    fs->destroy = initrd_destory;
+    mbi = __vmm_map_page(mbinfo, NULL);
 
-    return VFS_OK;
+    if (mbi->mods_count == 0) {
+        kpanic("trying to init initrd, module count 0!");
+        __builtin_unreachable();
+    }
+
+    kdebug("mbi->mods_count %u mbi->mods_addr 0x%x", mbi->mods_count, mbi->mods_addr);
+
+    mod = (multiboot_module_t *)((uint32_t)__vmm_map_page((void *)mbi->mods_addr, NULL) + 0x9c);
+
+    kdebug("mod start end size 0x%x 0x%x %u", mod->mod_start,
+            mod->mod_end, mod->mod_end - mod->mod_start);
+
+    disk_header = __vmm_map_page((void *)mod->mod_start, NULL);
+
+    kdebug("file count: %u | disk size: %u | magic: 0x%x", 
+            disk_header->file_count, disk_header->disk_size, disk_header->magic);
+
+    fh = (file_header_t *)((uint8_t*)disk_header + sizeof(struct disk_header));
+
+    for (size_t i = 0; i < disk_header->file_count; ++i) {
+        kdebug("name '%s' | size %u | magic 0x%x", fh->file_name, fh->file_size, fh->magic);
+        fh = (file_header_t *)((uint8_t *)fh + sizeof(file_header_t) + fh->file_size);
+    }
 }
-
-
