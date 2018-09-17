@@ -4,7 +4,7 @@
 
 void vfs_init(multiboot_info_t *mbinfo)
 {
-    inird_init(mbinfo);
+    initrd_init(mbinfo);
 }
 
 /* TODO: return error or set fs_errno?? */
@@ -41,7 +41,7 @@ uint32_t vfs_write(file_t *node, uint32_t offset, uint32_t size, uint8_t *buffer
 
 dentry_t *vfs_read_dir(file_t *node, uint32_t index)
 {
-    if (node && VFS_IS_DIR(node) && node->read_dir) {
+    if (node && node->read_dir) {
         return node->read_dir(node, index);
     }
     return NULL;
@@ -49,7 +49,7 @@ dentry_t *vfs_read_dir(file_t *node, uint32_t index)
 
 file_t *vfs_find_dir(file_t *node, char *name)
 {
-    if (node && VFS_IS_DIR(node) && node->read_dir) {
+    if (node && node->read_dir) {
         return node->find_dir(node, name);
     }
     return NULL;

@@ -24,15 +24,20 @@ typedef struct file_header {
     uint32_t magic;
 } file_header_t;
 
+static uint32_t initrd_lookup(const char *path)
+{
+    return 0;
+}
+
 static uint32_t initrd_read(file_t *file, uint32_t offset, uint32_t size, uint8_t *buffer)
 {
     (void)file, (void)offset, (void)size, (void)buffer;
     return 0;
 }
 
-static void initrd_open(file_t *file, uint8_t read, uint8_t write)
+static void initrd_open(const char *path, uint8_t mode)
 {
-    (void)file, (void)read, (void)write;
+    (void)path, (void)mode;
 }
 
 static fs_t *initrd_create(void)
