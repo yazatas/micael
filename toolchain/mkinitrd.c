@@ -17,12 +17,14 @@
 typedef struct disk_header {
     uint8_t  file_count;
     uint32_t disk_size;
+    uint32_t crc32;
     uint32_t magic;
 } disk_header_t;
 
 typedef struct file_header {
     char file_name[FNAME_MAXLEN];
     uint32_t file_size;
+    uint32_t crc32;
     uint32_t magic;
 } file_header_t;
 
