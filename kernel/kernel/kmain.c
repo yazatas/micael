@@ -12,7 +12,7 @@
 #include <mm/vmm.h>
 #include <mm/kheap.h>
 #include <fs/multiboot.h>
-#include <fs/vfs.h>
+#include <fs/initrd.h>
 #include <sched/kthread.h>
 #include <sched/proc.h>
 #include <drivers/timer.h>
@@ -23,6 +23,9 @@ extern uint32_t __kernel_physical_start, __kernel_physical_end;
 extern uint32_t __code_segment_start, __code_segment_end;
 extern uint32_t __data_segment_start, __data_segment_end;
 extern uint32_t boot_page_dir; 
+
+void **memories = NULL;
+size_t file_sizes[2] = { 0 };
 
 void kmain(multiboot_info_t *mbinfo)
 {
@@ -43,7 +46,44 @@ void kmain(multiboot_info_t *mbinfo)
 	asm ("sti"); /* enable interrupts */
 
 	vmm_init(mbinfo);
-    vfs_init(mbinfo);
+
+    disk_header_t *dh = initrd_init(mbinfo);
+    file_header_t *fh = NULL;
+
+    kdebug("file count: %u | disk size: %u | magic: 0x%x", 
+            dh->file_count, dh->disk_size, dh->magic);
+
+    fh = (file_header_t *)((uint8_t*)dh + sizeof(disk_header_t));
+
+    uint8_t *mem_ptr   = NULL;
+    uint8_t *ptr       = NULL;
+    uint8_t *f_start_p = NULL;
+    uint8_t *f_start_v = NULL;
+    
+    memories = kmalloc(sizeof(void *) * dh->file_count);
+
+    for (size_t i = 0; i < dh->file_count; ++i) {
+
+        kdebug("file start virt 0x%x", f_start_v);
+        kdebug("file start phys 0x%x\n", f_start_p);
+        kdebug("name '%s' | size %u | magic 0x%x", fh->file_name, fh->file_size, fh->magic);
+
+        ptr = memories[i] = kmalloc(fh->file_size);
+        file_sizes[i] = fh->file_size;
+
+        memcpy(ptr, (uint8_t *)&fh->magic + 4, fh->file_size);
+
+        fh = (file_header_t *)((uint8_t *)fh + sizeof(file_header_t) + fh->file_size);
+    }
+
+    kdebug("DONED FINALLY");
+
+    kdebug("tring to jump to user mode");
+
+    process_create_bin(memories[0], file_sizes[0]);
+
+    /* hex_dump(memories[0], 20); */
+    /* hex_dump(memories[0] + file_sizes[0] - 20, 20); */
 
 	for (;;);
 }

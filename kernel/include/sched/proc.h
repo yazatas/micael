@@ -17,5 +17,6 @@ typedef struct pcb {
 
 void tasking_init(void);
 pcb_t *process_create(const char *file);
+pcb_t *process_create_bin(uint8_t *file, size_t len);
 
 #endif /* end of include guard: __PROCESS_H__ */

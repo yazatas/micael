@@ -3,8 +3,8 @@
 
 void gpf_handler(uint32_t error_number)
 {
-    kprint("General Protection Fault");
-    kprint("Error number: %d 0x%x", error_number, error_number);
+    kprint("General Protection Fault\n");
+    kprint("Error number: %d 0x%x\n", error_number, error_number);
 
     uint32_t table_index = (error_number & 0x6) >> 1;
 

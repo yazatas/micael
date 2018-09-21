@@ -1,6 +1,6 @@
 #include <string.h>
 
-void *memcpy(void *dstptr, const void *srcptr, size_t size)
+void *memcpy(void *restrict dstptr, const void *restrict srcptr, size_t size)
 {
 	uint8_t *dst = dstptr;
 	const uint8_t *src = srcptr;

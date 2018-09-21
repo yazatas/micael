@@ -79,6 +79,8 @@ void  *vmm_kalloc_mapped_page(uint32_t flags);
 void  *vmm_kalloc_tmp_vpage(void);
 void  *vmm_duplicate_pdir(void *pdir);
 void  *__vmm_map_page(void *physaddr, void *virtaddr);
+void *vmm_mmap(void *addr, size_t len);
+void vmm_munmap(void *addr);
 
 /* debugging */
 void   vmm_list_pde(void);
