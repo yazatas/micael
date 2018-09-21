@@ -231,6 +231,25 @@ void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
     }
 }
 
+/* TODO: how to map page?? */
+void *vmm_mmap(void *addr, size_t len)
+{
+    uint32_t *start;
+
+    kdebug("len: %u", len);
+
+    for (size_t i = 0; i < len; i+=PAGE_SIZE) {
+        kdebug("i: %u", i);
+        start = __vmm_map_page(addr, NULL);
+    }
+
+    return start;
+}
+
+void vmm_munmap(void *addr)
+{
+}
+
 /* return the virtual address used to map the physical memory */
 void  *__vmm_map_page(void *physaddr, void *virtaddr)
 {

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <limits.h>
+#include <kernel/kprint.h>
 
 typedef struct isr_regs {
     uint16_t gs, fs, es, ds;
@@ -18,5 +19,16 @@ typedef struct isr_regs {
 #define ROUND_UP(addr,   boundary) ((addr % boundary) ? \
 								   ((addr & ~(boundary - 1)) + boundary) : \
 									(addr))
+
+static inline void hex_dump(void *buf, size_t len)
+{
+    for (size_t i = 0; i < len; i+=10) {
+        kprint("\t");
+        for (size_t k = i; k < i + 10; ++k) {
+            kprint("0x%02x ", ((uint8_t *)buf)[k]);
+        }
+        kprint("\n");
+    }
+}
 
 #endif /* end of include guard: __COMMON_H__ */
