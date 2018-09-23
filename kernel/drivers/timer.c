@@ -18,9 +18,6 @@ void timer_phase(size_t hz)
 
 void timer_handler()
 {
-    static int i = 0; 
-    if (i++ == 7)
-        kdebug("in timer handler"), i = 0;
 	ticks++;
 }
 

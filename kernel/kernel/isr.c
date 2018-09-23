@@ -43,10 +43,6 @@ extern void interrupt_handler(isr_regs_t *cpu_state)
             vmm_pf_handler(cpu_state->err_num);
             break;
 
-        case ISR_SYSCALL:
-            syscall_handler(cpu_state);
-            break;
-
         default:
             kpanic("unsupported interrut!");
             break;
