@@ -59,11 +59,6 @@ static inline void vmm_change_pdir(void *cr3)
                                       : "eax", "memory");
 }
 
-/* TODO: clearn this API
- * 
- * 1) give better names for functions
- * 2) remove too similar functions */
-
 /* miscellaneous */
 void  vmm_init(multiboot_info_t *mbinfo);
 void  vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags);
@@ -71,21 +66,41 @@ void  vmm_pf_handler(uint32_t error);
 void  vmm_claim_page(size_t page_idx);
 void *vmm_v_to_p(void *virtaddr);
 
-/* allocation */
-page_t vmm_kalloc_frame(void);
-void   vmm_kfree_frame(page_t frame);
-void   vmm_free_tmp_vpage(void *vpage);
-void  *vmm_kalloc_mapped_page(uint32_t flags);
-void  *vmm_kalloc_tmp_vpage(void);
-void  *vmm_duplicate_pdir(void *pdir);
-void  *__vmm_map_page(void *physaddr, void *virtaddr);
-void *vmm_mmap(void *addr, size_t len);
-void vmm_munmap(void *addr);
+/* allocate one physical page of memory return physical 
+ * page address on success and UINT_MAX on error */
+page_t vmm_alloc_page(void);
+
+/* allocate virtual range (granularity is 0x1000 bytes)
+ * this should be called with care, kernel has only so much
+ * free virtual address space so it's easy to run out of it
+ * the requests are very large or caller doesn't free the range 
+ *
+ * F.ex. if you want to allocate 0x2000 bytes of virtual address space:
+ * void *ptr = vmm_alloc_addr(2); // to allocate
+ * vmm_free_addr(ptr, 2); // to free
+ *
+ * caller must be sure that the range is sufficient. Kernel doesn't check 
+ * in any way if the read/write is beyond allocated range */
+void  *vmm_alloc_addr(size_t range);
+
+/* free physical page */
+void   vmm_free_page(page_t page);
+
+/* free address range
+ * freed range doesn't have to be the same as allocated range
+ * if you decided to split the free in n parts, remeber to free all parts */
+void   vmm_free_addr(void *addr, size_t range);
+
+/* duplicate page directory pointed to by pdir memory
+ * is not allocated for individual pages but instead 
+ * they're made to point to original page if write occurs
+ * to duplicated page, new page is allocated and contents
+ * of the original page is copied to this newly allocated page */
+void *vmm_duplicate_pdir(void *pdir);
 
 /* debugging */
 void   vmm_list_pde(void);
 void   vmm_list_pte(uint32_t pdi);
 void   vmm_print_memory_map(void);
-size_t vmm_count_free_pages(void);
 
 #endif /* end of include guard: __VMM_H__ */
