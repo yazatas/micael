@@ -42,55 +42,49 @@ static bitmap_t phys_pages = {
 static uint32_t kpdir[1024]   __align_4k;
 static uint32_t kpgtab[1024]  __align_4k;
 static uint32_t kheaptb[1024] __align_4k;
+static size_t   free_page_count = 0;
 
-static page_t vmm_do_cow(page_t fault_addr)
+/* static page_t vmm_do_cow(page_t fault_addr) */
+/* { */
+/*     page_t new_phys_page = vmm_alloc_page(); */
+/*     page_t *tmp_page_org = NULL, */
+/*            *tmp_page_cpy = NULL; */
+
+/*     vmm_map_page((void *)fault_addr,    tmp_page_org, P_PRESENT | P_READWRITE); */
+/*     vmm_map_page((void *)new_phys_page, tmp_page_cpy, P_PRESENT | P_READWRITE); */
+
+/*     memcpy(tmp_page_cpy, tmp_page_org, 0x1000); */
+
+/*     vmm_free_tmp_vpage(tmp_page_cpy); */
+/*     vmm_free_tmp_vpage(tmp_page_org); */
+
+/*     new_phys_page |= P_PRESENT | P_USER | P_READWRITE; */
+
+/*     /1* kdebug("new page addr: 0x%x", new_phys_page); *1/ */
+
+/*     return new_phys_page; */
+/* } */
+
+void *vmm_alloc_addr(size_t range)
 {
-    page_t new_phys_page = vmm_kalloc_frame();
-    page_t *tmp_page_org = vmm_kalloc_tmp_vpage(),
-           *tmp_page_cpy = vmm_kalloc_tmp_vpage();
-
-    vmm_map_page((void *)fault_addr,    tmp_page_org, P_PRESENT | P_READWRITE);
-    vmm_map_page((void *)new_phys_page, tmp_page_cpy, P_PRESENT | P_READWRITE);
-
-    memcpy(tmp_page_cpy, tmp_page_org, 0x1000);
-
-    vmm_free_tmp_vpage(tmp_page_cpy);
-    vmm_free_tmp_vpage(tmp_page_org);
-
-    new_phys_page |= P_PRESENT | P_USER | P_READWRITE;
-
-    /* kdebug("new page addr: 0x%x", new_phys_page); */
-
-    return new_phys_page;
-}
-
-void *vmm_kalloc_tmp_vpage(void)
-{
-    static size_t vpage_ptr   = 0;
-    int bit = bm_find_first_unset(&tmp_vpages, vpage_ptr, tmp_vpages.len - 1);
+    int bit = bm_find_first_unset_range(&tmp_vpages, 0, tmp_vpages.len - 1, range);
 
     if (bit == BM_NOT_FOUND_ERROR) {
-        bit = bm_find_first_unset(&tmp_vpages, 0, vpage_ptr);
-
-        if (bit == BM_NOT_FOUND_ERROR)
-            goto error;
+        kdebug("failed to allocate virtual address, range %u", range);
+        return NULL;
     }
 
-    bm_set_bit(&tmp_vpages, bit);
-    vpage_ptr = bit;
+    bm_set_range(&tmp_vpages, bit, range);
 
-    /* kdebug("allocated tmp vpage 0x%x", MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE); */
+    kdebug("allocated tmp vpage 0x%x", MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
     return (void *)(MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
-
-error:
-    kpanic("out of temporary virtual pages!");
-    __builtin_unreachable();
 }
 
 void vmm_free_tmp_vpage(void *vpage)
 {
     /* kdebug("freeing temporary virtual page at address 0x%x", (uint32_t*)vpage); */
     bm_unset_bit(&tmp_vpages, (((uint32_t)vpage) - MEM_TMP_VPAGES_BASE) / PAGE_SIZE);
+    free_page_count++;
 }
 
 /* try to find free page from range mem_pages_ptr -> phys_pages.len
@@ -98,7 +92,7 @@ void vmm_free_tmp_vpage(void *vpage)
  * 0 -> mem_pages_ptr. If free page is still missing, issue a kernel panic
  *
  * return the address of physical page */
-uint32_t vmm_kalloc_frame(void)
+uint32_t vmm_alloc_page(void)
 {
     static size_t ppage_ptr = 0;
     int bit = bm_find_first_unset(&phys_pages, ppage_ptr, phys_pages.len - 1);
@@ -112,6 +106,7 @@ uint32_t vmm_kalloc_frame(void)
 
     bm_set_bit(&phys_pages, bit);
     ppage_ptr = bit;
+    free_page_count--;
 
     return INDEX_TO_PHYSADDR(ppage_ptr);
 
@@ -124,22 +119,10 @@ error:
  * and the resulting address pointing to start of the
  * physical page is used to calculate the index 
  * which is in turn used to free the page */
-void vmm_kfree_frame(uint32_t physaddr)
+void vmm_free_page(uint32_t physaddr)
 {
     uint32_t frame = ROUND_DOWN(physaddr, PAGE_SIZE);
     bm_unset_bit(&phys_pages, PHYSADDR_TO_INDEX(frame));
-}
-
-size_t vmm_count_free_pages(void)
-{
-    size_t free_pages = 0;
-
-    for (uint32_t i = 0; i < phys_pages.len; ++i) {
-        if (bm_test_bit(&phys_pages, i) == PAGE_FREE)
-            free_pages++;
-    }
-
-    return free_pages;
 }
 
 void vmm_claim_page(uint32_t physaddr)
@@ -149,6 +132,8 @@ void vmm_claim_page(uint32_t physaddr)
         kpanic("bitmap range error in vmm_claim_page()!");
         __builtin_unreachable();
     }
+
+    free_page_count++;
 }
 
 void vmm_pf_handler(uint32_t error)
@@ -212,22 +197,18 @@ void vmm_pf_handler(uint32_t error)
     {
         kdebug("Copy-on-Write");
 
-        pt[pti] = vmm_do_cow(pt[pti]);
+        /* pt[pti] = vmm_do_cow(pt[pti]); */
         return;
     }
 
     for (;;);
 
-    vmm_map_page((void*)vmm_kalloc_frame(), (void*)fault_addr, P_PRESENT | P_READWRITE);
+    vmm_map_page((void *)vmm_alloc_page(), (void*)fault_addr, P_PRESENT | P_READWRITE);
     vmm_flush_TLB();
 }
 
-/* TODO: update this to take NULL as parameter
- *
- * if physaddr == NULL -> allocate just some random Page
- * if virtaddr == NULL -> allocate "temporary" virtual address 
- *
- * virtual address being null doesn't make sense, right?? */
+/* map physical address to virtual address
+ * this function is capable of mapping only 4kb bytes of memory */
 void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
 {
     uint32_t pdi = ((uint32_t)virtaddr) >> 22;
@@ -236,7 +217,7 @@ void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
     uint32_t *pd = (uint32_t*)0xfffff000;
     if (!(pd[pdi] & P_PRESENT)) {
         /* kdebug("Page Directory Entry %u is NOT present", pdi); */
-        pd[pdi] = vmm_kalloc_frame() | flags;
+        pd[pdi] = vmm_alloc_page() | flags;
     } 
 
     uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
@@ -244,45 +225,6 @@ void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
         /* kdebug("Page Table Entry %u is NOT present", pti); */
         pt[pti] = (uint32_t)physaddr | flags;
     }
-}
-
-/* TODO: how to map page?? */
-void *vmm_mmap(void *addr, size_t len)
-{
-    uint32_t *start;
-
-    kdebug("len: %u", len);
-
-    for (size_t i = 0; i < len; i+=PAGE_SIZE) {
-        kdebug("i: %u", i);
-        start = __vmm_map_page(addr, NULL);
-    }
-
-    return start;
-}
-
-void vmm_munmap(void *addr)
-{
-}
-
-/* return the virtual address used to map the physical memory */
-void  *__vmm_map_page(void *physaddr, void *virtaddr)
-{
-    void *paddr = physaddr, *vaddr = virtaddr;
-
-    if (!physaddr) {
-        /* kdebug("allocating physical space!"); */
-        paddr = (void *)vmm_kalloc_frame();
-    }
-
-    if (!virtaddr) {
-        /* kdebug("allocating virtual address!"); */
-        vaddr = vmm_kalloc_tmp_vpage();
-    }
-
-    vmm_map_page(paddr, vaddr, P_PRESENT | P_READWRITE);
-
-    return vaddr;
 }
 
 void vmm_init(multiboot_info_t *mbinfo)
@@ -303,8 +245,9 @@ void vmm_init(multiboot_info_t *mbinfo)
     }
 
     /* initialize 4MB of initial space for kernel heap */
-    for (size_t i = 0; i < 1020; ++i)
-        kheaptb[i] = ((uint32_t)vmm_kalloc_frame()) | P_PRESENT | P_READWRITE;
+    for (size_t i = 0; i < 1020; ++i) {
+        kheaptb[i] = ((uint32_t)vmm_alloc_page()) | P_PRESENT | P_READWRITE;
+    }
 
     kpdir[KSTART_HEAP] = ((uint32_t)vmm_v_to_p(&kheaptb)) | P_PRESENT | P_READWRITE;
     kpdir[KSTART]      = ((uint32_t)vmm_v_to_p(&kpgtab))  | P_PRESENT | P_READWRITE;
@@ -390,6 +333,16 @@ void vmm_print_memory_map(void)
     int firstb = bit, prevb = bit;
     int first = 0, prev = 0;
 
+    kprint("available memory:\n"
+           "\tpages:     %u\n"
+           "\tkilobytes: %uKB\n"
+           "\tmegabytes: %uMB\n"
+           "\tgigabytes: %uGB\n",
+           free_page_count,
+           (free_page_count  * PAGE_SIZE) / 1000,
+           ((free_page_count  * PAGE_SIZE) / 1000) / 1000,
+           (((free_page_count * PAGE_SIZE) / 1000) / 1000) / 1000);
+
     for (size_t i = 1; i < phys_pages.len; ++i) {
         bit = bm_test_bit(&phys_pages, i);
 
@@ -409,17 +362,6 @@ void vmm_print_memory_map(void)
     }
 }
 
-/* TODO: remove this and implement it as part of vmm_map_page */
-void *vmm_kalloc_mapped_page(uint32_t flags)
-{
-    uint32_t *TMP_PAGE = vmm_kalloc_tmp_vpage();
-
-    page_t tmp = vmm_kalloc_frame();
-    vmm_map_page((void*)tmp, (void*)TMP_PAGE, flags);
-
-    return (void *)TMP_PAGE;
-}
-
 /* temporarily map the page directory to kernel's address space,
  * traverse through it and copy address of each physical page
  * below KSTART to new page directory and mark every page as READ ONLY.
@@ -430,29 +372,29 @@ void *vmm_kalloc_mapped_page(uint32_t flags)
  * @pdir: virtual address of the pdir that needs to be duplicated */
 void *vmm_duplicate_pdir(void *pdir)
 {
-    /* kdebug("starting address space duplication.."); */
+    kdebug("starting address space duplication..");
 
-    pdir_t *pdir_v_copy = vmm_kalloc_tmp_vpage();
-    pdir_t *pdir_v_org  = vmm_kalloc_tmp_vpage();
+    pdir_t *pdir_v_copy = vmm_alloc_addr(1);
+    pdir_t *pdir_v_org  = vmm_alloc_addr(1);
     ptbl_t *pt_v_org, *pt_v_copy;
 
     uint32_t flags = P_PRESENT | P_USER | P_READWRITE;
 
     vmm_map_page(pdir,                       (void *)pdir_v_org,  flags);
-    vmm_map_page((void *)vmm_kalloc_frame(), (void *)pdir_v_copy, flags);
+    vmm_map_page((void *)vmm_alloc_page(), (void *)pdir_v_copy, flags);
 
     for (size_t i = 0; i < KSTART; ++i) {
         if (P_TEST_FLAG(pdir_v_org[i], P_PRESENT)) {
-
-            pt_v_copy      = vmm_kalloc_mapped_page(flags);
+            pt_v_copy      = NULL;
             pdir_v_copy[i] = ((uint32_t)vmm_v_to_p(pt_v_copy)) | flags; 
 
-            pt_v_org = vmm_kalloc_tmp_vpage();
+            pt_v_org = vmm_alloc_addr(1);
             vmm_map_page((void *)pdir_v_org[i], pt_v_org, flags);
 
             for (size_t k = 0; k < 1024; ++k) {
                 if (P_TEST_FLAG(pt_v_org[k], P_PRESENT)) {
-                    pt_v_copy[k] = vmm_do_cow(pt_v_org[k]);
+                    kdebug("Copy-on-Write");
+                    /* pt_v_copy[k] = vmm_do_cow(pt_v_org[k]); */
                 }
             }
         }

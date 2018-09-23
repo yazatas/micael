@@ -48,5 +48,15 @@ void kmain(multiboot_info_t *mbinfo)
 
 	vmm_init(mbinfo);
 
+    void *prev = kmalloc(0x50000),
+         *cur  = NULL;
+
+    while (1) {
+        cur = kmalloc(0x50000);
+        kdebug("%x", (uint32_t)cur - (uint32_t)prev);
+        prev = cur;
+        for (volatile int i = 0; i < 90000000; ++i);
+    }
+
 	for (;;);
 }

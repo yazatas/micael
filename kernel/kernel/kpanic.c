@@ -1,8 +1,9 @@
+#include <stdint.h>
+
 #include <kernel/tty.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
-#include <stdint.h>
-
+#include <kernel/common.h>
 #include <mm/vmm.h>
 
 #define REG(reg) reg, reg
@@ -16,7 +17,7 @@ struct regs_t {
 
 void kpanic(const char *error)
 {
-    asm ("cli");
+    disable_irq();
     tty_init(VGA_COLOR_WHITE, VGA_COLOR_BLUE);
 
 	struct regs_t *tmp = (struct regs_t*)error;
@@ -44,7 +45,7 @@ void kpanic(const char *error)
            "\tcr3: 0x%08x %8u\n\n\n", REG(eax), REG(ebx), REG(ecx), 
 		   REG(edx), REG(edi),    REG(cr2), REG(cr3));
 
-	kdebug("%u free pages", vmm_count_free_pages());
+    vmm_print_memory_map();
 	vmm_list_pde();
 
     while (1) { }

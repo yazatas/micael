@@ -42,7 +42,8 @@ disk_header_t *initrd_init(multiboot_info_t *mbinfo)
     multiboot_info_t *mbi;
     multiboot_module_t *mod;
 
-    mbi = __vmm_map_page(mbinfo, NULL);
+    /* mbi = __vmm_map_page(mbinfo, NULL); */
+    mbi = NULL;
 
     if (mbi->mods_count == 0) {
         kpanic("trying to init initrd, module count 0!");
@@ -51,7 +52,8 @@ disk_header_t *initrd_init(multiboot_info_t *mbinfo)
 
     kdebug("mbi->mods_count %u mbi->mods_addr 0x%x", mbi->mods_count, mbi->mods_addr);
 
-    mod = (multiboot_module_t *)((uint32_t)__vmm_map_page((void *)mbi->mods_addr, NULL) + 0x9c);
+    /* mod = (multiboot_module_t *)((uint32_t)__vmm_map_page((void *)mbi->mods_addr, NULL) + 0x9c); */
+    mod = NULL;
 
     kdebug("mod start end size 0x%x 0x%x %u", mod->mod_start,
             mod->mod_end, mod->mod_end - mod->mod_start);
@@ -90,5 +92,6 @@ disk_header_t *initrd_init(multiboot_info_t *mbinfo)
     kdebug("tring to jump to user mode");
 
 
-    return (disk_header_t *)__vmm_map_page((void *)mod->mod_start, NULL);
+    /* return (disk_header_t *)__vmm_map_page((void *)mod->mod_start, NULL); */
+    return NULL;
 }

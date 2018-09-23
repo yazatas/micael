@@ -41,7 +41,7 @@ size_t multiboot_load_modules(multiboot_info_t *mbi)
 
 
     multiboot_module_t *mod;
-    int i;
+    size_t i;
     kdebug("mods_count = %d, mods_addr = 0x%x\n",
             (int) mbi->mods_count, (int) mbi->mods_addr);
     for (i = 0, mod = (multiboot_module_t *) mbi->mods_addr;

@@ -37,8 +37,8 @@ static meta_t *morecore(size_t size)
     meta_t *tmp = (meta_t*)HEAP_BREAK;
 
     for (size_t i = 0; i < pgcount; ++i) {
-        vmm_map_page((void*)vmm_kalloc_frame(), HEAP_BREAK, P_PRESENT | P_READWRITE);
-        HEAP_BREAK = (uint32_t*)((uint8_t*)HEAP_BREAK + 0x1000);
+        vmm_map_page((void *)vmm_alloc_page(), HEAP_BREAK, P_PRESENT | P_READWRITE);
+        HEAP_BREAK = (uint32_t *)((uint8_t *)HEAP_BREAK + 0x1000);
     }
     vmm_flush_TLB();
 
@@ -99,10 +99,12 @@ void *kmalloc(size_t size)
     meta_t *b;
 
     if ((b = find_free_block(size)) == NULL) {
-		kpanic("kernel heap exhausted");
-		__builtin_unreachable();
-        /* if ((b = morecore(size + META_SIZE)) == NULL) { */
-        /* } */
+        kdebug("requesting more memory from kernel!");
+
+        if ((b = morecore(size + META_SIZE)) == NULL) {
+            kpanic("kernel heap exhausted");
+            __builtin_unreachable();
+        }
 
         split_block(b, size);
         UNMARK_FREE(b);
