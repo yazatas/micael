@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define NUM_FLAGS                5
 #define PAGE_FREE                0
 #define PAGE_USED                1
 #define ENTRY_NOT_PRESENT        0xffff
@@ -171,6 +172,10 @@ void vmm_pf_handler(uint32_t error)
     asm volatile ("mov %%cr2, %%eax \n \
                    mov %%eax, %0" : "=r" (fault_addr));
 
+    uint32_t cr3 = 0;
+    asm volatile ("mov %%cr3, %%eax \n \
+                   mov %%eax, %0" : "=r" (cr3));
+
     uint32_t pdi    = (fault_addr >> 22) & 0x3ff;
     uint32_t pti    = (fault_addr >> 12) & 0x3ff;
     uint32_t offset = fault_addr & 0xfff;
@@ -183,15 +188,25 @@ void vmm_pf_handler(uint32_t error)
 
     uint32_t *pd = (uint32_t*)0xfffff000;
     uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
-    uint32_t cr3;
 
     kdebug("faulting physaddr: 0x%x", pt[pti]);
+    kdebug("physaddr of pdir:  0x%x", cr3);
 
-    if (P_TEST_FLAG(pt[pti], P_USER))
-        kdebug("user flag set");
-    if (P_TEST_FLAG(pt[pti], P_READWRITE))
-        kdebug("r/w flag set");
+    /* check flags */
+    static struct {
+        uint32_t flag;
+        const char *str;
+    } flags[NUM_FLAGS] = {
+        {P_PRESENT, "present"}, {P_USER, "user"},
+        {P_READWRITE, "r/w"}, {P_READONLY, "read-only"},
+        {P_COW, "CoW"}
+    };
 
+    for (int i = 0; i < NUM_FLAGS; ++i) {
+        if (P_TEST_FLAG(pt[pti], flags[i].flag)) {
+            kdebug("%s flag set", flags[i].str);
+        }
+    }
     if (P_TEST_FLAG(pt[pti], P_READWRITE) == 0 &&
         P_TEST_FLAG(pt[pti], P_COW)       != 0)
     {

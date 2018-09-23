@@ -15,6 +15,7 @@
 #include <fs/initrd.h>
 #include <sched/kthread.h>
 #include <sched/proc.h>
+#include <sched/sched.h>
 #include <drivers/timer.h>
 #include <drivers/keyboard.h>
 
@@ -23,6 +24,8 @@ extern uint32_t __kernel_physical_start, __kernel_physical_end;
 extern uint32_t __code_segment_start, __code_segment_end;
 extern uint32_t __data_segment_start, __data_segment_end;
 extern uint32_t boot_page_dir; 
+
+extern void enter_usermode();
 
 void **memories = NULL;
 size_t file_sizes[2] = { 0 };
@@ -43,7 +46,7 @@ void kmain(multiboot_info_t *mbinfo)
 
 	gdt_init(); idt_init(); irq_init(); 
 	timer_install(); kb_install();
-	asm ("sti"); /* enable interrupts */
+    enable_irq();
 
 	vmm_init(mbinfo);
 
@@ -77,13 +80,22 @@ void kmain(multiboot_info_t *mbinfo)
     }
 
     kdebug("DONED FINALLY");
-
     kdebug("tring to jump to user mode");
 
-    process_create_bin(memories[0], file_sizes[0]);
+    pcb_t *pcbs[2];
+    pcb_t *new;
 
-    /* hex_dump(memories[0], 20); */
-    /* hex_dump(memories[0] + file_sizes[0] - 20, 20); */
+    pcbs[0] = process_create(memories[1], file_sizes[1]);
+    pcbs[1] = process_create(memories[1], file_sizes[1]);
+    /* pcbs[2] = process_create(memories[0], file_sizes[0]); */
+
+    /* new = pcbs[0]; */
+    /* vmm_change_pdir(new->page_dir); */
+    /* enter_usermode(); */
+
+    /* process_create(memories[0], file_sizes[0]); */
+
+    schedule();
 
 	for (;;);
 }

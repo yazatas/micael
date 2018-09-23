@@ -1,6 +1,7 @@
 #include <kernel/io.h>
 #include <kernel/irq.h>
 #include <drivers/timer.h>
+#include <kernel/kprint.h>
 
 #include <stddef.h>
 #include <stdio.h>
@@ -17,6 +18,9 @@ void timer_phase(size_t hz)
 
 void timer_handler()
 {
+    static int i = 0; 
+    if (i++ == 7)
+        kdebug("in timer handler"), i = 0;
 	ticks++;
 }
 

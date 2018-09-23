@@ -9,3 +9,4 @@ kernel.sym
 .gdbinit
 toolchain/programs
 toolchain/initrd.bin
+todo
