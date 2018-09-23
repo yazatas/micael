@@ -5,9 +5,16 @@
 
 typedef int8_t pid_t;
 
+enum {
+    P_RUNNING,
+    P_PAUSED,
+    P_SOMETHING /* FIXME:  */
+};
+
 typedef struct pcb {
 	void *page_dir;
 	pid_t pid;
+    uint8_t state; /* running, paused, not started */
 
 	struct registers {
 		uint32_t eax, ebx, ecx, edx, esi, edi;
@@ -16,7 +23,7 @@ typedef struct pcb {
 } pcb_t;
 
 void tasking_init(void);
-pcb_t *process_create(const char *file);
-pcb_t *process_create_bin(uint8_t *file, size_t len);
+pcb_t *process_create_remove(const char *file);
+pcb_t *process_create(uint8_t *file, size_t len);
 
 #endif /* end of include guard: __PROCESS_H__ */

@@ -13,12 +13,12 @@ typedef struct isr_regs {
     uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
 } isr_regs_t;
 
-#define MIN(v1, v2) ((v1 < v2) ? v1 : v2)
-#define MAX(v1, v2) ((v1 < v2) ? v2 : v1)
+#define MIN(v1, v2) (((v1) < (v2)) ? (v1) : (v2))
+#define MAX(v1, v2) (((v1) < (v2)) ? (v2) : (v1))
+
 #define ROUND_DOWN(addr, boundary) (addr & ~(boundary - 1))
 #define ROUND_UP(addr,   boundary) ((addr % boundary) ? \
-								   ((addr & ~(boundary - 1)) + boundary) : \
-									(addr))
+								   ((addr & ~(boundary - 1)) + boundary) : (addr))
 
 static inline void hex_dump(void *buf, size_t len)
 {
@@ -29,6 +29,16 @@ static inline void hex_dump(void *buf, size_t len)
         }
         kprint("\n");
     }
+}
+
+static inline void disable_irq(void)
+{
+    asm volatile ("cli" ::: "memory");
+}
+
+static inline void enable_irq(void)
+{
+    asm volatile ("sti" ::: "memory");
 }
 
 #endif /* end of include guard: __COMMON_H__ */

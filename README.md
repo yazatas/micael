@@ -4,6 +4,10 @@ micael is a 32-bit monolithic kernel written in C and x86 assembly.
 
 See doc/OVERVIEW.md for more details
 
+Currently I'm rewriting all tasking-related code. It's so messy it's hard to update or extend so I think the best thing is to just rewrite the whole thing. That includes also major MMU updates
+
+Once MMU is bug-free, I'll implement the VFS layer so that reading data from storage (be it initrd or disk) is sane. After that's done I'll refocus my attention to tasking and this time hopefully it works. No more "temporary solutions" and "Proof-of-Concepts"
+
 # What is ready:
 * libc
   * string.h (needs testing)

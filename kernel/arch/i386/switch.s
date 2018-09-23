@@ -1,5 +1,28 @@
 .section .text
 .global context_switch
+.global save_registers
+
+# brief:   save current register values to struct
+# @param1: ptr to struct of registers
+save_registers:
+    mov 44(%esp), %eax # TODO verify this is correct
+    mov %ebx, 4(%eax)
+    mov %ecx, 8(%eax)
+    mov %edx, 12(%eax)
+    mov %esi, 16(%eax)
+    mov %edi, 20(%eax)
+    mov 36(%esp), %ebx
+    mov 40(%esp), %ecx
+    mov 20(%esp), %edx
+    add $4, %edx
+    mov 16(%esp), %esi
+    mov 4(%esp), %edi
+    mov %ebx, (%eax)
+    mov %edx, 24(%eax)
+    mov %esi, 28(%eax)
+    mov %ecx, 32(%eax)
+    mov %edi, 36(%eax)
+    ret
 
 # @brief:  very similar to task switch but processes
 #          are switched, the cr3 reg is updated
@@ -8,7 +31,6 @@
 #
 # 1) save state of current process to reg struct
 # 2) read state of next process from reg struct to registers
-
 context_switch:
 	pusha
     pushf
