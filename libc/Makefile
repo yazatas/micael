@@ -1,6 +1,9 @@
 ROOTDIR?=$(shell pwd)/..
 include $(ROOTDIR)/Makefile.config
 include $(ARCHDIR)/make.config
+include string/make.config
+include stdlib/make.config
+include stdio/make.config
 
 DESTDIR=$(realpath $(shell pwd)/../sysroot)
 
@@ -9,15 +12,9 @@ LIBK_CFLAGS:=$(CFLAGS) -D__is_libk $(KERNEL_ARCH_CFLAGS)
 
 FREEOBJS=\
 $(ARCH_FREEOBJS) \
-stdio/printf.o \
-stdio/putchar.o \
-stdio/puts.o \
-stdlib/abort.o \
-string/memcmp.o \
-string/memcpy.o \
-string/memmove.o \
-string/memset.o \
-string/strlen.o \
+$(LIBC_STRING_OBJS) \
+$(LIBC_STDIO_OBJS) \
+$(LIBC_STDLIB_OBJS) \
 
 HOSTEDOBJS=$(ARCH_HOSTEDOBJS)
 OBJS=$(FREEOBJS) $(HOSTEDOBJS)
