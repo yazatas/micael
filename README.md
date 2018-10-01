@@ -32,6 +32,7 @@ Once MMU is bug-free, I'll implement the VFS layer so that reading data from sto
   * stdlib.h
   * time.h   (needs kernel)
   * signal.h (needs kernel)
+  * Unit tests for libc functions
 * kernel:
    * Multitasking
 	  * preemptive multitasking

@@ -5,7 +5,11 @@
 char *strdup(const char *s)
 {
 	size_t n = strlen(s), i;
+#ifdef __is_libk
+    char *new = kmalloc(n + 1);
+#else
 	char *new = malloc(n + 1);
+#endif
 
 	if (!new) {
 		/* TODO: set errno */
