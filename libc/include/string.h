@@ -32,6 +32,7 @@ char *strerror(int errnum);
 char *strpbrk(const char *s, const char *accept);
 char *strstr(const char *haystack, const char *needle);
 char *strtok(char *str, const char *delim);
+char *strsep(char **str, const char *delim);
 
 size_t strlen(const char *s);
 size_t strnlen(const char *s, size_t maxlen);
