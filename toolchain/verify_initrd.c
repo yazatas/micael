@@ -12,7 +12,11 @@
 
 #define HEADER_MAGIC  0x13371338
 #define FILE_MAGIC    0xdeadbeef
-#define FNAME_MAXLEN  64
+#define DIR_MAGIC     0xcafebabe
+
+#define NAME_MAXLEN   64
+#define MAX_FILES     5
+#define MAX_DIRS      5
 
 typedef struct disk_header {
     uint8_t  file_count;
@@ -20,9 +24,22 @@ typedef struct disk_header {
     uint32_t magic;
 } disk_header_t;
 
+typedef struct dir_header {
+    char dir_name[NAME_MAXLEN];
+    uint32_t item_count;
+
+    /* how many bytes the directory items take in total 
+     * Useful for skipping directories */
+    uint32_t bytes_len;
+
+    uint32_t inode;
+    uint32_t magic;
+} dir_header_t;
+
 typedef struct file_header {
-    char file_name[FNAME_MAXLEN];
+    char file_name[NAME_MAXLEN];
     uint32_t file_size;
+    uint32_t inode;
     uint32_t magic;
 } file_header_t;
 
@@ -39,64 +56,58 @@ uint32_t get_file_size(FILE *fp)
 
 int main(int argc, char **argv)
 {
-    if (argc == 1) {
-        return -1;
-    }
-
     FILE *disk_fp = fopen("initrd.bin", "r"), *tmp;
-    char *buffer  = NULL;
 
     disk_header_t disk_header;
-    file_header_t file_header;
+    dir_header_t  root_header;
+
+    uint8_t  file_count;
+    uint32_t disk_size;
+    uint32_t magic;
 
     fread(&disk_header, sizeof(disk_header_t), 1, disk_fp);
 
-    if (disk_header.magic != HEADER_MAGIC) {
-        fprintf(stderr, "invalid magic number for disk header!\n");
-        return -1;
+    printf("file_count: %u\n"
+           "disk_size:  %u\n"
+           "magic:      0x%x\n", disk_header.file_count,
+           disk_header.disk_size, disk_header.magic);
+
+    puts("\n------------");
+
+    fread(&root_header, sizeof(dir_header_t), 1, disk_fp);
+
+    printf("name:       %s\n"
+           "item count: %u\n"
+           "num bytes:  %u\n"
+           "inode:      %u\n"
+           "\ndirectory contents:\n",
+           root_header.dir_name,  root_header.item_count,
+           root_header.bytes_len, root_header.inode);
+
+    dir_header_t dir;
+    file_header_t file;
+
+    for (int dir_iter = 0; dir_iter < root_header.item_count; ++dir_iter) {
+        fread(&dir, sizeof(dir_header_t), 1, disk_fp);
+
+        printf("name:       %s\n"
+               "item count: %u\n"
+               "num bytes:  %u\n"
+               "inode:      %u\n"
+               "\ndirectory contents:\n",
+               dir.dir_name,  dir.item_count,
+               dir.bytes_len, dir.inode);
+
+        for (int file_iter = 0; file_iter < dir.item_count; ++file_iter) {
+            fread(&file, sizeof(file_header_t), 1, disk_fp);
+            printf("\tname:  %s\n"
+                   "\tsize:  %u\n"
+                   "\tinode: %u\n\n",
+                file.file_name, file.file_size,
+                file.inode, file.magic);
+            fseek(disk_fp, file.file_size, SEEK_CUR);
+        }
     }
 
-    fprintf(stderr, "file count: %u\ndisk size:  %u\n", 
-            disk_header.file_count, disk_header.disk_size);
-
-    fseek(disk_fp, sizeof(disk_header_t), SEEK_SET);
-
-    for (int i = 1; i < argc; ++i) {
-        fread(&file_header, sizeof(file_header_t), 1, disk_fp);
-
-        if (file_header.magic != FILE_MAGIC) {
-            fprintf(stderr, "invalid magic number for file header!\n");
-            return -1;
-        }
-
-        fprintf(stderr, "file info:\n\
-                \tname:  %s\n\
-                \tsize:  %u\n\
-                \tmagic: 0x%x\n\n", file_header.file_name, 
-                                    file_header.file_size, 
-                                    file_header.magic);
-
-        FILE *verify_fp  = fopen(argv[i], "r");
-        char *initrd_buf = malloc(file_header.file_size);
-        char *verify_buf = malloc(get_file_size(verify_fp));
-
-        fread(initrd_buf, file_header.file_size, 1, disk_fp);
-        fread(verify_buf, file_header.file_size, 1, verify_fp);
-
-        for (uint32_t k = 0; k < file_header.file_size; ++k) {
-            if (initrd_buf[k] != verify_buf[k]) {
-                fprintf(stderr, "byte at index %u does NOT match!\n", k);
-                return -1;
-            }
-        }
-
-        fprintf(stderr, "file at index %u (size %u) OK!\n\n", i, file_header.file_size);
-
-        fclose(verify_fp);
-        free(initrd_buf);
-        free(verify_buf);
-    }
-        
-    fclose(disk_fp);
     return 0;
 }
