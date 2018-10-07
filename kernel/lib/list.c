@@ -1,4 +1,5 @@
 #include <lib/list.h>
+#include <kernel/kprint.h>
 
 void list_init(list_head_t *s)
 {
@@ -14,8 +15,10 @@ void list_init_null(list_head_t *s)
 
 void list_remove(list_head_t *s)
 {
-    s->next->prev = s->prev;
-    s->prev->next = s->next;
+    if (s->next)
+        s->next->prev = s->prev;
+    if (s->prev)
+        s->prev->next = s->next;
 }
 
 /* insert node between next and prev */
@@ -33,7 +36,9 @@ void list_append(list_head_t *s, list_head_t *t)
     t->next = s->next;
     t->prev = s;
 
-    s->next->prev = t;
+    if (s->next)
+        s->next->prev = t;
+
     s->next = t;
 }
 
@@ -60,7 +65,8 @@ void list_prepend(list_head_t *s, list_head_t *t)
 {
     t->prev = s->prev;
     t->next = s;
-
-    s->prev->next = t;
     s->prev = t;
+
+    if (s->prev)
+        s->prev->next = t;
 }

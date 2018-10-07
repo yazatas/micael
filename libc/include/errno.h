@@ -7,6 +7,7 @@ int errno;
 #define ENOENT 2
 #define EINVAL 3
 #define EEXIST 4
+#define ENOMEM 5
 
 
 #endif /* __ERRNO_H__ */

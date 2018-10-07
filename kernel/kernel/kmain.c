@@ -9,10 +9,12 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <sync/mutex.h>
-#include <mm/vmm.h>
+#include <mm/cache.h>
 #include <mm/kheap.h>
+#include <mm/vmm.h>
 #include <fs/multiboot.h>
 #include <fs/initrd.h>
+#include <fs/vfs.h>
 #include <sched/kthread.h>
 #include <sched/proc.h>
 #include <sched/sched.h>
@@ -24,9 +26,6 @@ extern uint32_t __kernel_physical_start, __kernel_physical_end;
 extern uint32_t __code_segment_start, __code_segment_end;
 extern uint32_t __data_segment_start, __data_segment_end;
 extern uint32_t boot_page_dir; 
-
-extern void enter_usermode();
-
 
 void kmain(multiboot_info_t *mbinfo)
 {
@@ -47,16 +46,33 @@ void kmain(multiboot_info_t *mbinfo)
     enable_irq();
 
 	vmm_init(mbinfo);
+    (void)cache_init();
+    vmm_print_memory_map();
 
-    void *prev = kmalloc(0x50000),
-         *cur  = NULL;
+    void *ptr;
 
-    while (1) {
-        cur = kmalloc(0x50000);
-        kdebug("%x", (uint32_t)cur - (uint32_t)prev);
-        prev = cur;
-        for (volatile int i = 0; i < 90000000; ++i);
+    for (int i = 0; i < 5; ++i) {
+        if ((ptr = cache_alloc(C_NOFLAGS)) == NULL)
+            kdebug("dick space error");
+
+        /* cache_print_list(0); */
+        /* cache_print_list(1); */
+
+        /* cache_dealloc(ptr, C_NOFLAGS); */
+
+        /* kprint("\n"); */
+
+        /* cache_print_list(0); */
+        /* cache_print_list(1); */
     }
+
+    cache_print_list(0);
+    cache_print_list(1);
+
+    cache_dealloc(ptr, C_NOFLAGS);
+
+    cache_print_list(0);
+    cache_print_list(1);
 
 	for (;;);
 }
