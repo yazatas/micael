@@ -1,6 +1,8 @@
 #ifndef __CACHE_H__
 #define __CACHE_H__
 
+#include <stdint.h>
+
 enum {
     C_NOFLAGS = 0 << 0,
 
@@ -14,15 +16,15 @@ enum {
  * cache entries setting up all the necessary variables 
  *
  * return 0 on success and negative errno on error */
-int   cache_init(void);
+int cache_init(void);
 
 /* allocate 4KB (one page) block of memory
  * return pointer to memory block on success and NULL on error
  *
  * If you don't have cache to hold the page, pass C_NOCACHE */
-void *cache_alloc(uint32_t flags);
+void *cache_alloc_page(uint32_t flags);
 
-void cache_dealloc(void *ptr, uint32_t flags);
+void cache_dealloc_page(void *ptr, uint32_t flags);
 
 /* print contents of list 
  *

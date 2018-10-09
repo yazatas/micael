@@ -21,6 +21,7 @@ struct hashmap {
     size_t cap;
 
     hm_item_t **elem;
+    uint32_t (*hm_hash)(void *);
 };
 
 /*  https://stackoverflow.com/questions/664014/what-integer-
@@ -29,19 +30,23 @@ struct hashmap {
  *  "double hash" the key to prevent collicions as much as
  *  possible. Key gotten from block cache should be pretty unique 
  *  as there won't be that many devices running concurrently */
-static void hm_rehash(uint32_t *key)
+static uint32_t hm_rehash(void *key)
 {
     if (key == NULL)
-        return;
+        return UINT32_MAX;
 
-    *key = ((*key >> 16) ^ *key) * 0x45d9f3b;
-    *key = ((*key >> 16) ^ *key) * 0x45d9f3b;
-    *key = (*key  >> 16) ^ *key;
+    uint32_t tmp = *(uint32_t *)key;
+
+    tmp = ((tmp >> 16) ^ tmp) * 0x45d9f3b;
+    tmp = ((tmp >> 16) ^ tmp) * 0x45d9f3b;
+    tmp = ((tmp >> 16) ^ tmp);
+
+    return tmp;
 }
 
 /* "size" should be large enough so that rehashing
  * needn't to be performed as it's very expensive */
-hashmap_t *hm_alloc_hashmap(size_t size)
+hashmap_t *hm_alloc_hashmap(size_t size, uint32_t (*hm_hash_func)(void *))
 {
     hashmap_t *hm;
 
@@ -54,6 +59,11 @@ hashmap_t *hm_alloc_hashmap(size_t size)
     hm->len = 0;
     hm->cap = size;
 
+    if (hm_hash_func != NULL)
+        hm->hm_hash = hm_hash_func;
+    else
+        hm->hm_hash = hm_rehash;
+
     return hm;
 }
 
@@ -65,8 +75,9 @@ void hm_dealloc_hashmap(hashmap_t *hm)
     if (!hm->elem)
         goto free_hm;
 
-    for (size_t i = 0; i < hm->len; ++i)
+    for (size_t i = 0; i < hm->len; ++i) {
         kfree(hm->elem[i]);
+    }
 
     kfree(hm->elem);
 
@@ -93,7 +104,7 @@ static int hm_find_free_bucket(hashmap_t *hm, uint32_t key)
     return -ENOSPC;
 }
 
-int hm_insert(hashmap_t *hm, uint32_t key, void *elem)
+int hm_insert(hashmap_t *hm, void *ukey, void *elem)
 {
     if (!hm || !elem)
         return -EINVAL;
@@ -101,8 +112,13 @@ int hm_insert(hashmap_t *hm, uint32_t key, void *elem)
     if (hm->len == hm->cap)
         return -ENOSPC;
 
-    hm_rehash(&key);
-    int index = hm_find_free_bucket(hm, key);
+    uint32_t key;
+    int index;
+
+    if ((key = hm->hm_hash(ukey)) == UINT32_MAX)
+        return -EINVAL;
+
+    index = hm_find_free_bucket(hm, key);
 
     if (index < 0)
         return -ENOSPC;
@@ -115,13 +131,18 @@ int hm_insert(hashmap_t *hm, uint32_t key, void *elem)
     return 0;
 }
 
-int hm_remove(hashmap_t *hm, uint32_t key)
+int hm_remove(hashmap_t *hm, void *ukey)
 {
     if (!hm)
         return -EINVAL;
 
-    hm_rehash(&key);
-    int index = key % hm->cap;
+    uint32_t key;
+    int index;
+
+    if ((key = hm->hm_hash(ukey)) == UINT32_MAX)
+        return -EINVAL;
+
+    index = key % hm->cap;
 
     for (size_t i = 0; i < BUCKET_MAX_LEN; ++i) {
         if (hm->elem[index]->key == key) {
@@ -135,13 +156,18 @@ int hm_remove(hashmap_t *hm, uint32_t key)
     return -ENOENT;
 }
 
-void *hm_get(hashmap_t *hm, uint32_t key)
+void *hm_get(hashmap_t *hm, void *ukey)
 {
     if (!hm || !hm->elem)
         return NULL;
 
-    hm_rehash(&key);
-    int index = key % hm->cap;
+    uint32_t key;
+    int index;
+
+    if ((key = hm->hm_hash(ukey)) == UINT32_MAX)
+        return NULL;
+
+    index = key % hm->cap;
 
     for (size_t i = 0; i < BUCKET_MAX_LEN; ++i) {
         if (hm->elem[index] == NULL)

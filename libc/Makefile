@@ -4,6 +4,7 @@ include $(ARCHDIR)/make.config
 include string/make.config
 include stdlib/make.config
 include stdio/make.config
+include ctype/make.config
 
 DESTDIR=$(realpath $(shell pwd)/../sysroot)
 
@@ -15,6 +16,7 @@ $(ARCH_FREEOBJS) \
 $(LIBC_STRING_OBJS) \
 $(LIBC_STDIO_OBJS) \
 $(LIBC_STDLIB_OBJS) \
+$(LIBC_CTYPE_OBJS) \
 
 HOSTEDOBJS=$(ARCH_HOSTEDOBJS)
 OBJS=$(FREEOBJS) $(HOSTEDOBJS)
