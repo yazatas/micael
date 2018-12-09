@@ -1,7 +1,7 @@
 #include <kernel/kprint.h>
 #include <kernel/common.h>
 #include <fs/multiboot.h>
-#include <mm/vmm.h>
+#include <mm/mmu.h>
 
 size_t multiboot_map_memory(multiboot_info_t *mbinfo)
 {

@@ -2,8 +2,9 @@
 #include <kernel/kpanic.h>
 #include <kernel/compiler.h>
 #include <kernel/common.h>
-#include <mm/vmm.h>
+#include <mm/cache.h>
 #include <mm/kheap.h>
+#include <mm/mmu.h>
 #include <fs/multiboot.h>
 #include <lib/bitmap.h>
 #include <stddef.h>
@@ -50,15 +51,15 @@ static size_t   free_page_count = 0;
 /*     page_t *tmp_page_org = NULL, */
 /*            *tmp_page_cpy = NULL; */
 
-/*     vmm_map_page((void *)fault_addr,    tmp_page_org, P_PRESENT | P_READWRITE); */
-/*     vmm_map_page((void *)new_phys_page, tmp_page_cpy, P_PRESENT | P_READWRITE); */
+/*     vmm_map_page((void *)fault_addr,    tmp_page_org, MM_PRESENT | MM_READWRITE); */
+/*     vmm_map_page((void *)new_phys_page, tmp_page_cpy, MM_PRESENT | MM_READWRITE); */
 
 /*     memcpy(tmp_page_cpy, tmp_page_org, 0x1000); */
 
 /*     vmm_free_tmp_vpage(tmp_page_cpy); */
 /*     vmm_free_tmp_vpage(tmp_page_org); */
 
-/*     new_phys_page |= P_PRESENT | P_USER | P_READWRITE; */
+/*     new_phys_page |= MM_PRESENT | MM_USER | MM_READWRITE; */
 
 /*     /1* kdebug("new page addr: 0x%x", new_phys_page); *1/ */
 
@@ -70,14 +71,34 @@ void *vmm_alloc_addr(size_t range)
     int bit = bm_find_first_unset_range(&tmp_vpages, 0, tmp_vpages.len - 1, range);
 
     if (bit == BM_NOT_FOUND_ERROR) {
-        kdebug("failed to allocate virtual address, range %u", range);
-        return NULL;
+        kpanic("out of temporary virtual addresses");
+        /* kdebug("failed to allocate virtual address, range %u", range); */
+        /* return NULL; */
     }
 
-    bm_set_range(&tmp_vpages, bit, range);
+    bm_set_range(&tmp_vpages, bit, bit + range);
 
-    kdebug("allocated tmp vpage 0x%x", MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
+    /* kdebug("allocated address range 0x%x - 0x%x", MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE, */
+    /*         MEM_TMP_VPAGES_BASE + (bit + range) * PAGE_SIZE - 1); */
     return (void *)(MEM_TMP_VPAGES_BASE + bit * PAGE_SIZE);
+}
+
+void vmm_free_addr(void *addr, size_t range)
+{
+    const uint32_t start = (((uint32_t)addr) - MEM_TMP_VPAGES_BASE) / PAGE_SIZE;
+
+    bm_unset_range(&tmp_vpages, start, start + range);
+
+    const uint32_t pdi = ((uint32_t)addr) >> 22;
+    const uint32_t pti = ((uint32_t)addr) >> 12 & 0x3ff; 
+    const uint32_t *pd = (uint32_t *)0xfffff000;
+    uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
+
+    if (pd[pdi] & MM_PRESENT) {
+        if (pt[pti] & MM_PRESENT) {
+            pt[pti] &= ~MM_PRESENT;
+        }
+    }
 }
 
 void vmm_free_tmp_vpage(void *vpage)
@@ -182,18 +203,18 @@ void vmm_pf_handler(uint32_t error)
         uint32_t flag;
         const char *str;
     } flags[NUM_FLAGS] = {
-        {P_PRESENT, "present"}, {P_USER, "user"},
-        {P_READWRITE, "r/w"}, {P_READONLY, "read-only"},
-        {P_COW, "CoW"}
+        { MM_PRESENT, "present" }, { MM_USER, "user" },
+        { MM_READWRITE, "r/w" },   { MM_READONLY, "read-only" },
+        { MM_COW, "CoW" }
     };
 
     for (int i = 0; i < NUM_FLAGS; ++i) {
-        if (P_TEST_FLAG(pt[pti], flags[i].flag)) {
+        if (MM_TEST_FLAG(pt[pti], flags[i].flag)) {
             kdebug("%s flag set", flags[i].str);
         }
     }
-    if (P_TEST_FLAG(pt[pti], P_READWRITE) == 0 &&
-        P_TEST_FLAG(pt[pti], P_COW)       != 0)
+    if (MM_TEST_FLAG(pt[pti], MM_READWRITE) == 0 &&
+        MM_TEST_FLAG(pt[pti], MM_COW)       != 0)
     {
         kdebug("Copy-on-Write");
 
@@ -203,7 +224,7 @@ void vmm_pf_handler(uint32_t error)
 
     for (;;);
 
-    vmm_map_page((void *)vmm_alloc_page(), (void*)fault_addr, P_PRESENT | P_READWRITE);
+    vmm_map_page((void *)vmm_alloc_page(), (void*)fault_addr, MM_PRESENT | MM_READWRITE);
     vmm_flush_TLB();
 }
 
@@ -215,15 +236,26 @@ void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags)
     uint32_t pti = ((uint32_t)virtaddr) >> 12 & 0x3ff; 
 
     uint32_t *pd = (uint32_t*)0xfffff000;
-    if (!(pd[pdi] & P_PRESENT)) {
+    if (!(pd[pdi] & MM_PRESENT)) {
         /* kdebug("Page Directory Entry %u is NOT present", pdi); */
         pd[pdi] = vmm_alloc_page() | flags;
     } 
 
     uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
-    if (!(pt[pti] & P_PRESENT)) {
+    if (!(pt[pti] & MM_PRESENT)) {
         /* kdebug("Page Table Entry %u is NOT present", pti); */
         pt[pti] = (uint32_t)physaddr | flags;
+    }
+}
+
+void vmm_map_range(void *physaddr, void *virtaddr, size_t range, uint32_t flags)
+{
+    uint32_t paddr = (uint32_t)physaddr;
+    uint32_t vaddr = (uint32_t)virtaddr;
+
+    for (size_t i = 0; i < range; ++i) {
+        vmm_map_page((void *)paddr, (void *)vaddr, flags);
+        paddr += PAGE_SIZE, vaddr += PAGE_SIZE;
     }
 }
 
@@ -236,28 +268,31 @@ void vmm_init(multiboot_info_t *mbinfo)
     /* enable recursion for temporary page directory 
      * identity mapping enables us this "direct" access to physical memory */
     uint32_t *KPDIR_P = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000);
-    KPDIR_P[1023]     = ((uint32_t)KPDIR_P) | P_PRESENT | P_READONLY;
+    KPDIR_P[1023]     = ((uint32_t)KPDIR_P) | MM_PRESENT | MM_READONLY;
 
     /* initialize kernel page tables */
     for (size_t i = 0; i < 1024; ++i) {
         bm_set_bit(&phys_pages, i);
-        kpgtab[i] = (i * PAGE_SIZE) | P_PRESENT | P_READWRITE;
+        kpgtab[i] = (i * PAGE_SIZE) | MM_PRESENT | MM_READWRITE;
     }
 
     /* initialize 4MB of initial space for kernel heap */
     for (size_t i = 0; i < 1020; ++i) {
-        kheaptb[i] = ((uint32_t)vmm_alloc_page()) | P_PRESENT | P_READWRITE;
+        kheaptb[i] = ((uint32_t)vmm_alloc_page()) | MM_PRESENT | MM_READWRITE;
     }
 
-    kpdir[KSTART_HEAP] = ((uint32_t)vmm_v_to_p(&kheaptb)) | P_PRESENT | P_READWRITE;
-    kpdir[KSTART]      = ((uint32_t)vmm_v_to_p(&kpgtab))  | P_PRESENT | P_READWRITE;
-    kpdir[1023]        = ((uint32_t)vmm_v_to_p(&kpdir))   | P_PRESENT | P_READWRITE;
+    kpdir[KSTART_HEAP] = ((uint32_t)vmm_v_to_p(&kheaptb)) | MM_PRESENT | MM_READWRITE;
+    kpdir[KSTART]      = ((uint32_t)vmm_v_to_p(&kpgtab))  | MM_PRESENT | MM_READWRITE;
+    kpdir[1023]        = ((uint32_t)vmm_v_to_p(&kpdir))   | MM_PRESENT | MM_READWRITE;
 
     kdebug("changing to pdir located at address: 0x%x...", vmm_v_to_p(&kpdir));
     vmm_change_pdir(vmm_v_to_p(&kpdir));
 
     /* initialize heap meta data etc. */
-    kheap_initialize((uint32_t*)(KSTART_HEAP << 22));
+    kheap_initialize((uint32_t *)(KSTART_HEAP << 22));
+
+    if (cache_init() < 0)
+        kdebug("failed to init page cache");
 }
 
 /* convert virtual address to physical */
@@ -267,7 +302,7 @@ void *vmm_v_to_p(void *virtaddr)
     uint32_t pti = ((uint32_t)virtaddr) >> 12 & 0x3ff; 
     uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
 
-    return (void*)((pt[pti] & ~0xfff) + ((page_t)virtaddr & 0xfff));
+    return (void *)((pt[pti] & ~0xfff) + ((page_t)virtaddr & 0xfff));
 }
 
 /* list PDEs (page tables) */
@@ -277,10 +312,10 @@ void vmm_list_pde(void)
 
     uint32_t prev  = ENTRY_NOT_PRESENT,
              first = ENTRY_NOT_PRESENT,
-             *v    = (uint32_t*)0xfffff000;
+             *v    = (uint32_t *)0xfffff000;
 
     for (size_t i = 0; i < 1024; ++i) {
-        if (v[i] & P_PRESENT) {
+        if (v[i] & MM_PRESENT) {
             if (first == ENTRY_NOT_PRESENT)
                 first = i;
             prev = i;
@@ -308,7 +343,7 @@ void vmm_list_pde(void)
  * print also how many bytes the table maps */
 void vmm_list_pte(uint32_t pdi)
 {
-    if (!(((uint32_t*)0xfffff000)[pdi] & P_PRESENT)) {
+    if (!(((uint32_t*)0xfffff000)[pdi] & MM_PRESENT)) {
         kdebug("Page Directory Entry %u NOT present", pdi);
         return;
     }
@@ -317,7 +352,7 @@ void vmm_list_pte(uint32_t pdi)
     uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
 
     for (size_t i = 0; i < 1024; ++i) {
-        if (pt[i] & P_PRESENT) {
+        if (pt[i] & MM_PRESENT) {
             nbytes += 0x1000;
         }
     }
@@ -339,7 +374,7 @@ void vmm_print_memory_map(void)
            "\tmegabytes: %uMB\n"
            "\tgigabytes: %uGB\n",
            free_page_count,
-           (free_page_count  * PAGE_SIZE) / 1000,
+           (free_page_count   * PAGE_SIZE) / 1000,
            ((free_page_count  * PAGE_SIZE) / 1000) / 1000,
            (((free_page_count * PAGE_SIZE) / 1000) / 1000) / 1000);
 
@@ -369,22 +404,23 @@ void vmm_print_memory_map(void)
  *
  * Return the virtual address of new page directory
  *
- * @pdir: virtual address of the pdir that needs to be duplicated */
+ * @pdir: virtual address of the new page directory */
 void *vmm_duplicate_pdir(void *pdir)
 {
     kdebug("starting address space duplication..");
 
+    ptbl_t *pt_v_org, *pt_v_copy;
     pdir_t *pdir_v_copy = vmm_alloc_addr(1);
     pdir_t *pdir_v_org  = vmm_alloc_addr(1);
-    ptbl_t *pt_v_org, *pt_v_copy;
+    page_t page         = vmm_alloc_page();
 
-    uint32_t flags = P_PRESENT | P_USER | P_READWRITE;
+    uint32_t flags = MM_PRESENT | MM_USER | MM_READWRITE;
 
-    vmm_map_page(pdir,                       (void *)pdir_v_org,  flags);
-    vmm_map_page((void *)vmm_alloc_page(), (void *)pdir_v_copy, flags);
+    vmm_map_page(pdir,         (void *)pdir_v_org,  flags);
+    vmm_map_page((void *)page, (void *)pdir_v_copy, flags);
 
     for (size_t i = 0; i < KSTART; ++i) {
-        if (P_TEST_FLAG(pdir_v_org[i], P_PRESENT)) {
+        if (MM_TEST_FLAG(pdir_v_org[i], MM_PRESENT)) {
             pt_v_copy      = NULL;
             pdir_v_copy[i] = ((uint32_t)vmm_v_to_p(pt_v_copy)) | flags; 
 
@@ -392,7 +428,7 @@ void *vmm_duplicate_pdir(void *pdir)
             vmm_map_page((void *)pdir_v_org[i], pt_v_org, flags);
 
             for (size_t k = 0; k < 1024; ++k) {
-                if (P_TEST_FLAG(pt_v_org[k], P_PRESENT)) {
+                if (MM_TEST_FLAG(pt_v_org[k], MM_PRESENT)) {
                     kdebug("Copy-on-Write");
                     /* pt_v_copy[k] = vmm_do_cow(pt_v_org[k]); */
                 }
@@ -402,7 +438,7 @@ void *vmm_duplicate_pdir(void *pdir)
 
     /* map the kernel as is, no need to perform any CoW operations */
     for (size_t i = KSTART; i < 1024; ++i) {
-        if (pdir_v_org[i] & P_PRESENT) {
+        if (pdir_v_org[i] & MM_PRESENT) {
             pdir_v_copy[i] = pdir_v_org[i];
         }
     }
