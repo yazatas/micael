@@ -4,7 +4,7 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/common.h>
-#include <mm/vmm.h>
+#include <mm/mmu.h>
 
 #define REG(reg) reg, reg
 

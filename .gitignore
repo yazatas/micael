@@ -2,11 +2,12 @@ micael.iso
 isodir
 sysroot
 tags
-development_log
+.development_log
 kernel.map
 kernel.sym
 .gitignore
 .gdbinit
 toolchain/programs
 toolchain/initrd.bin
-todo
+.todo.list
+.todo

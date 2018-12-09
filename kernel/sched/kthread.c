@@ -3,7 +3,7 @@
 
 #include <sched/kthread.h>
 
-#include <mm/vmm.h>
+#include <mm/mmu.h>
 #include <mm/kheap.h>
 
 /* defined in boot.s */

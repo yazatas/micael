@@ -1,7 +1,7 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/common.h>
-#include <mm/vmm.h>
+#include <mm/mmu.h>
 #include <sched/syscall.h>
 #include <arch/i386/gpf.h>
 

@@ -1,5 +1,5 @@
-#ifndef __VMM_H__
-#define __VMM_H__
+#ifndef __MMU_H__
+#define __MMU_H__
 
 #include <stdint.h>
 #include <stddef.h>
@@ -9,21 +9,21 @@
 #define KSTART_HEAP         832
 #define PAGE_SIZE           0x1000
 
-#define P_SET_FLAG(value, flag)   (value |= flag)
-#define P_UNSET_FLAG(value, flag) (value &= ~flag)
-#define P_TEST_FLAG(value, flag)  (value & flag)
+#define MM_SET_FLAG(value, flag)   (value |= flag)
+#define MM_UNSET_FLAG(value, flag) (value &= ~flag)
+#define MM_TEST_FLAG(value, flag)  (value & flag)
 
 /* TODO: add more consistency ie. rewrite */
 enum {
-    P_PRESENT    = 1,
-    P_READWRITE  = 1 << 1,
-    P_READONLY   = 0 << 1,
-    P_USER       = 1 << 2,
-    P_WR_THROUGH = 1 << 3,
-    P_D_CACHE    = 1 << 4,
-    P_ACCESSED   = 1 << 5,
-    P_SIZE_4MB   = 1 << 6,
-    P_COW        = 1 << 9,
+    MM_PRESENT    = 1,
+    MM_READWRITE  = 1 << 1,
+    MM_READONLY   = 0 << 1,
+    MM_USER       = 1 << 2,
+    MM_WR_THROUGH = 1 << 3,
+    MM_D_CACHE    = 1 << 4,
+    MM_ACCESSED   = 1 << 5,
+    MM_SIZE_4MB   = 1 << 6,
+    MM_COW        = 1 << 9,
 } PAGING_FLAGS;
 
 typedef uint32_t page_t;
@@ -61,10 +61,24 @@ static inline void vmm_change_pdir(void *cr3)
 
 /* miscellaneous */
 void  vmm_init(multiboot_info_t *mbinfo);
-void  vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags);
 void  vmm_pf_handler(uint32_t error);
 void  vmm_claim_page(size_t page_idx);
 void *vmm_v_to_p(void *virtaddr);
+
+/* map one page of memory to 'virtaddr'
+ * this function can only map 4KB of memory */
+void vmm_map_page(void *physaddr, void *virtaddr, uint32_t flags);
+
+/* map multiple pages of memory, granularity is 4KB (0x1000 bytes)
+ *
+ * You can use the function like this
+ * (assuming 'physaddr' points to 16KB block of memory)
+ *
+ * void *virtaddr = vmm_alloc_addr(4);
+ * vmm_map_range(physaddr, virtaddr, 4, 0);
+ *
+ * */
+void vmm_map_range(void *physaddr, void *virtaddr, size_t range, uint32_t flags);
 
 /* allocate one physical page of memory return physical 
  * page address on success and UINT_MAX on error */
@@ -103,4 +117,4 @@ void   vmm_list_pde(void);
 void   vmm_list_pte(uint32_t pdi);
 void   vmm_print_memory_map(void);
 
-#endif /* end of include guard: __VMM_H__ */
+#endif /* end of include guard: __MMU_H__ */
