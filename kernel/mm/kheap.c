@@ -1,6 +1,6 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
-#include <mm/vmm.h>
+#include <mm/mmu.h>
 #include <mm/kheap.h>
 
 #include <string.h>
@@ -37,7 +37,7 @@ static meta_t *morecore(size_t size)
     meta_t *tmp = (meta_t*)HEAP_BREAK;
 
     for (size_t i = 0; i < pgcount; ++i) {
-        vmm_map_page((void *)vmm_alloc_page(), HEAP_BREAK, P_PRESENT | P_READWRITE);
+        vmm_map_page((void *)vmm_alloc_page(), HEAP_BREAK, MM_PRESENT | MM_READWRITE);
         HEAP_BREAK = (uint32_t *)((uint8_t *)HEAP_BREAK + 0x1000);
     }
     vmm_flush_TLB();
@@ -164,10 +164,11 @@ void *krealloc(void *ptr, size_t size)
  * hell breaks loose if ptr doesn't point to the beginning of memory block */
 void kfree(void *ptr)
 {
+    if (!ptr)
+        return;
+
     meta_t *b = GET_BASE(ptr), *tmp;
     MARK_FREE(b);
-
-    kdebug("freeing memory block of size %u", b->size);
 
     if (b->prev != NULL && IS_FREE(b->prev)) {
         merge_blocks(b->prev, b);
