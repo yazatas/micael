@@ -182,3 +182,13 @@ void *hm_get(hashmap_t *hm, void *ukey)
 
     return NULL;
 }
+
+size_t hm_get_size(hashmap_t *hm)
+{
+    return hm ? hm->len : 0;
+}
+
+size_t hm_get_capacity(hashmap_t *hm)
+{
+    return hm ? hm->cap : 0;
+}
