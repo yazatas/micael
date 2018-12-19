@@ -8,6 +8,8 @@ enum {
 
     /* allocate page of memory but don't cache it */
     C_NOCACHE  = 1 << 0,
+
+    /* TODO: ??? */
     C_ENTRYDEL = 1 << 1
 } CACHE_CONTROL_FLAGS;
 
@@ -23,8 +25,10 @@ int cache_init(void);
  *
  * If you don't have cache to hold the page, pass C_NOCACHE */
 void *cache_alloc_page(uint32_t flags);
+void *cache_alloc_mem(size_t size, uint32_t flags);
 
 void cache_dealloc_page(void *ptr, uint32_t flags);
+void cache_dealloc_mem(void *ptr, size_t mem, uint32_t flags);
 
 /* print contents of list 
  *

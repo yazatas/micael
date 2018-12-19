@@ -59,6 +59,15 @@ static inline void vmm_change_pdir(void *cr3)
                                       : "eax", "memory");
 }
 
+static inline uint32_t mmu_get_cr3(void)
+{
+    uint32_t cr3 = 0;
+
+    asm volatile ("mov %%cr3, %%eax \n \
+                   mov %%eax, %0" : "=r" (cr3));
+    return cr3;
+}
+
 /* miscellaneous */
 void  vmm_init(multiboot_info_t *mbinfo);
 void  vmm_pf_handler(uint32_t error);
@@ -111,6 +120,22 @@ void   vmm_free_addr(void *addr, size_t range);
  * to duplicated page, new page is allocated and contents
  * of the original page is copied to this newly allocated page */
 void *vmm_duplicate_pdir(void *pdir);
+
+/* duplicate page directory pointed to by pdir
+ * (pdir should be the value of cr3 register of the 
+ * page directory you want to duplicate)
+ *
+ * Memory is not allocated for individual pages but instead 
+ * they're made to point to original page if write occurs
+ * to duplicated page, new page is allocated and contents
+ * of the original page is copied to this newly allocated page */
+
+/* create new page directory (for a process)
+ * mark 0 - KSTART page directory entries as empty
+ * map  KSTART -> as is 
+ *
+ * return the virtual address of new page directory */
+void *mmu_build_pagedir(void);
 
 /* debugging */
 void   vmm_list_pde(void);

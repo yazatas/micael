@@ -45,26 +45,28 @@ static uint32_t kpgtab[1024]  __align_4k;
 static uint32_t kheaptb[1024] __align_4k;
 static size_t   free_page_count = 0;
 
-/* static page_t vmm_do_cow(page_t fault_addr) */
-/* { */
-/*     page_t new_phys_page = vmm_alloc_page(); */
-/*     page_t *tmp_page_org = NULL, */
-/*            *tmp_page_cpy = NULL; */
+static page_t vmm_do_cow(page_t fault_addr)
+{
+#if 0
+    page_t new_phys_page = vmm_alloc_page();
+    page_t *tmp_page_org = NULL,
+           *tmp_page_cpy = NULL;
 
-/*     vmm_map_page((void *)fault_addr,    tmp_page_org, MM_PRESENT | MM_READWRITE); */
-/*     vmm_map_page((void *)new_phys_page, tmp_page_cpy, MM_PRESENT | MM_READWRITE); */
+    vmm_map_page((void *)fault_addr,    tmp_page_org, MM_PRESENT | MM_READWRITE);
+    vmm_map_page((void *)new_phys_page, tmp_page_cpy, MM_PRESENT | MM_READWRITE);
 
-/*     memcpy(tmp_page_cpy, tmp_page_org, 0x1000); */
+    memcpy(tmp_page_cpy, tmp_page_org, 0x1000);
 
-/*     vmm_free_tmp_vpage(tmp_page_cpy); */
-/*     vmm_free_tmp_vpage(tmp_page_org); */
+    vmm_free_tmp_vpage(tmp_page_cpy);
+    vmm_free_tmp_vpage(tmp_page_org);
 
-/*     new_phys_page |= MM_PRESENT | MM_USER | MM_READWRITE; */
+    new_phys_page |= MM_PRESENT | MM_USER | MM_READWRITE;
 
-/*     /1* kdebug("new page addr: 0x%x", new_phys_page); *1/ */
+    /* kdebug("new page addr: 0x%x", new_phys_page); */
 
-/*     return new_phys_page; */
-/* } */
+    return new_phys_page;
+#endif
+}
 
 void *vmm_alloc_addr(size_t range)
 {
@@ -72,8 +74,6 @@ void *vmm_alloc_addr(size_t range)
 
     if (bit == BM_NOT_FOUND_ERROR) {
         kpanic("out of temporary virtual addresses");
-        /* kdebug("failed to allocate virtual address, range %u", range); */
-        /* return NULL; */
     }
 
     bm_set_range(&tmp_vpages, bit, bit + range);
@@ -414,7 +414,7 @@ void *vmm_duplicate_pdir(void *pdir)
     pdir_t *pdir_v_org  = vmm_alloc_addr(1);
     page_t page         = vmm_alloc_page();
 
-    uint32_t flags = MM_PRESENT | MM_USER | MM_READWRITE;
+    uint32_t flags = MM_PRESENT | MM_READWRITE;
 
     vmm_map_page(pdir,         (void *)pdir_v_org,  flags);
     vmm_map_page((void *)page, (void *)pdir_v_copy, flags);
@@ -446,3 +446,68 @@ void *vmm_duplicate_pdir(void *pdir)
     vmm_flush_TLB();
     return (void *)pdir_v_copy;
 }
+
+void *mmu_build_pagedir(void)
+{
+    /* physical and virtual addresses of the new directory */
+    page_t pdir  = vmm_alloc_page();
+    pdir_t *vdir = vmm_alloc_addr(1);
+
+    vmm_map_page((void *)pdir, (void *)vdir, MM_PRESENT | MM_READWRITE);
+
+    for (size_t i = 0; i < KSTART; ++i) {
+        vdir[i] = ~MM_PRESENT;
+    }
+
+    for (size_t i = KSTART; i < 1024; ++i) {
+        vdir[i] = kpdir[i];
+    }
+
+    return vdir;
+}
+
+#if 0
+void *mmu_build_pagedir(void)
+{
+    ptbl_t *pt_v_org, *pt_v_copy;
+    pdir_t *pdir_v_copy = vmm_alloc_addr(1);
+    pdir_t *pdir_v_org  = vmm_alloc_addr(1);
+    page_t page         = vmm_alloc_page();
+
+    uint32_t flags = MM_PRESENT | MM_READWRITE;
+
+    vmm_map_page(pdir,         (void *)pdir_v_org,  flags);
+    vmm_map_page((void *)page, (void *)pdir_v_copy, flags);
+
+    for (size_t i = 0; i < KSTART; ++i) {
+        if (MM_TEST_FLAG(pdir_v_org[i], MM_PRESENT)) {
+            pt_v_copy      = NULL;
+            pdir_v_copy[i] = ((uint32_t)vmm_v_to_p(pt_v_copy)) | flags; 
+
+            pt_v_org = vmm_alloc_addr(1);
+            vmm_map_page((void *)pdir_v_org[i], pt_v_org, flags);
+
+            for (size_t k = 0; k < 1024; ++k) {
+                 /* Add special flag MM_COW which tells us that this is 
+                 * really not a read-only page but rather a CoW-mapped page 
+                 * which should result in memory copying upon page fault */
+                if (MM_TEST_FLAG(pt_v_org[k], MM_PRESENT)) {
+                    /* TODO: make sure this works (require user mode support) */
+                    /* pt_v_copy[k] = (pt_v_org[k] |= MM_COW | MM_READONLY); */
+
+                }
+            }
+        }
+    }
+
+    /* map the kernel as is, no need to perform any CoW operations */
+    for (size_t i = KSTART; i < 1024; ++i) {
+        if (pdir_v_org[i] & MM_PRESENT) {
+            pdir_v_copy[i] = pdir_v_org[i];
+        }
+    }
+
+    vmm_flush_TLB();
+    return (void *)pdir_v_copy;
+}
+#endif

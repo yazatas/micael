@@ -1,14 +1,13 @@
-#include <lib/hashmap.h>
 #include <lib/list.h>
 #include <mm/cache.h>
 #include <mm/kheap.h>
-#include <mm/vmm.h>
+#include <mm/mmu.h>
 
 #include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-#define CACHE_INITIAL_SIZE 3
+#define CACHE_INITIAL_SIZE 48
 #define CACHE_MAX_ENTRIES  512
 
 enum {
@@ -102,7 +101,7 @@ static struct cache_entry *alloc_entry(void)
         return NULL;
     }
 
-    vmm_map_page((void *)ce->phys_addr, ce->mem, P_PRESENT | P_READWRITE);
+    vmm_map_page((void *)ce->phys_addr, ce->mem, MM_PRESENT | MM_READWRITE);
     list_init_null(&ce->list);
 
     return ce;
@@ -161,7 +160,7 @@ int cache_init(void)
     return 0;
 }
 
-void *cache_alloc(uint32_t flags)
+void *cache_alloc_page(uint32_t flags)
 {
     list_head_t *next_ce    = NULL;
     struct cache_entry *ce  = NULL,
@@ -199,8 +198,16 @@ void *cache_alloc(uint32_t flags)
     return NULL;
 }
 
+void *cache_alloc_mem(size_t size, uint32_t flags)
+{
+}
+
+void cache_dealloc_mem(void *ptr, size_t mem, uint32_t flags)
+{
+}
+
 /* FIXME: how to obtain cache_entry in constant time? */
-void cache_dealloc(void *ptr, uint32_t flags)
+void cache_dealloc_page(void *ptr, uint32_t flags)
 {
     if (!ptr)
         return;
@@ -233,9 +240,9 @@ void cache_dealloc(void *ptr, uint32_t flags)
 
     cache_list_remove(&cache.used_list, ce);
 
-    /* if (ce->flags & CE_DIRTY) */
-    /*     cache_list_insert(&cache.dirty_list, ce); */
-    /* else */
+    if (ce->flags & CE_DIRTY)
+        cache_list_insert(&cache.dirty_list, ce);
+    else
         cache_list_insert(&cache.free_list, ce);
 }
 
