@@ -8,6 +8,9 @@ typedef struct list_head {
 	struct list_head *prev;
 } list_head_t;
 
+#define FOREACH(list_head, iter) \
+    for (iter = list_head; iter != NULL; iter = iter->next)
+
 /* https://en.wikipedia.org/wiki/Offsetof#Usage
  *
  * thank mr. linux */

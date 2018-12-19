@@ -117,7 +117,7 @@ dentry_t *dentry_alloc(const char *name)
     struct hm_item hi, *tmp = dcache.free_list->next_free;
     memset(&hi, 0, sizeof(struct hm_item));
 
-    hi.de     = dcache.free_list;
+    hi.de = dcache.free_list;
     strncpy(hi.dntr.d_name, name, VFS_NAME_MAX_LEN);
 
     memcpy(dcache.free_list->next_free, &hi, sizeof(struct hm_item));
@@ -127,7 +127,6 @@ dentry_t *dentry_alloc(const char *name)
     dcache.free_list->num_free--;
 
     if (dcache.free_list->num_free == 0) {
-
         if (dcache.used_list == NULL)
             dcache.used_list = dcache.free_list;
         else
@@ -136,6 +135,9 @@ dentry_t *dentry_alloc(const char *name)
     } else {
         dcache.free_list->next_free++;
     }
+
+    /* allocate hashmap for dentry's children */
+    tmp->dntr.children = hm_alloc_hashmap(DENTRY_HM_LEN, dcache_hash);
 
     return &tmp->dntr;
 }

@@ -1,7 +1,7 @@
 #ifndef __DCACHE_H__
 #define __DCACHE_H__
 
-#include <fs/vfs.h>
+#include <fs/fs.h>
 
 int dcache_init(void);
 
