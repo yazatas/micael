@@ -2,7 +2,7 @@
 #include <fs/initrd.h>
 #include <fs/fs.h>
 #include <kernel/kprint.h>
-#include <mm/kheap.h>
+#include <mm/heap.h>
 
 #include <errno.h>
 #include <string.h>

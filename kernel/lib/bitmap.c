@@ -1,6 +1,6 @@
 #include <lib/bitmap.h>
 #include <kernel/kprint.h>
-#include <mm/kheap.h>
+#include <mm/heap.h>
 
 #define BM_GET_MULTIPLE_OF_32(n) (n % 32) ? ((n / 32) + 1) : (n / 32)
 

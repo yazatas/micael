@@ -3,7 +3,7 @@
 
 #include <fs/fs.h>
 #include <fs/initrd.h>
-#include <mm/kheap.h>
+#include <mm/heap.h>
 #include <mm/mmu.h>
 #include <fs/dcache.h>
 #include <fs/multiboot.h>
