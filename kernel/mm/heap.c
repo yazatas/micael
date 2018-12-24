@@ -1,7 +1,7 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <mm/mmu.h>
-#include <mm/kheap.h>
+#include <mm/heap.h>
 
 #include <string.h>
 

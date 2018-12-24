@@ -4,7 +4,7 @@
 #include <sched/kthread.h>
 
 #include <mm/mmu.h>
-#include <mm/kheap.h>
+#include <mm/heap.h>
 
 /* defined in boot.s */
 extern uint32_t boot_page_dir;

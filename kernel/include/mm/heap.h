@@ -1,5 +1,5 @@
-#ifndef __KHEAP_H__
-#define __KHEAP_H__
+#ifndef __KERNEL_HEAP_H__
+#define __KERNEL_HEAP_H__
 
 #include <stddef.h>
 #include <stdint.h>
@@ -9,6 +9,6 @@ void *kcalloc(size_t nmemb, size_t size);
 void *krealloc(void *ptr, size_t size);
 void  kfree(void *ptr);
 
-void kheap_initialize(uint32_t *heap_start);
+void heap_initialize(uint32_t *heap_start);
 
-#endif /* end of include guard: __KHEAP_H__ */
+#endif /* end of include guard: __KERNEL_HEAP_H__ */

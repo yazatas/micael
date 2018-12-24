@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include <lib/hashmap.h>
-#include <mm/kheap.h>
+#include <mm/heap.h>
 
 #define BUCKET_MAX_LEN 12
 #define KEY_SIZE       12
