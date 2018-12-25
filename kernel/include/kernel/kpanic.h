@@ -4,6 +4,6 @@
 #include <stdarg.h>
 
 /* TODO: global error number better than string */
-void kpanic(const char *err);
+void kpanic(const char *err) __attribute__((noreturn));
 
 #endif /* end of include guard: __KPANIC_H__ */

@@ -15,7 +15,8 @@ struct regs_t {
 	uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
 };
 
-void kpanic(const char *error)
+void __attribute__((noreturn))
+kpanic(const char *error)
 {
     disable_irq();
     tty_init(VGA_COLOR_WHITE, VGA_COLOR_BLUE);
