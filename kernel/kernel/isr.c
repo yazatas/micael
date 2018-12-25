@@ -31,12 +31,10 @@ extern void interrupt_handler(isr_regs_t *cpu_state)
         case 0x0c: case 0x0f: case 0x10: case 0x11: 
         case 0x12: case 0x14:
             kpanic(interrupts[cpu_state->isr_num]);
-            __builtin_unreachable();
             break;
 
         case ISR_GPF:
             gpf_handler(cpu_state->err_num);
-            __builtin_unreachable();
             break;
 
         case ISR_PAGE_FAULT:

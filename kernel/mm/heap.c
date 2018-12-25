@@ -103,7 +103,6 @@ void *kmalloc(size_t size)
 
         if ((b = morecore(size + META_SIZE)) == NULL) {
             kpanic("kernel heap exhausted");
-            __builtin_unreachable();
         }
 
         split_block(b, size);
@@ -181,7 +180,7 @@ void kfree(void *ptr)
     /* TODO: call vmm_kfree_frame */
 }
 
-void kheap_initialize(uint32_t *heap_start_v)
+void heap_initialize(uint32_t *heap_start_v)
 {
 	kdebug("initializing kernel heap...");
 

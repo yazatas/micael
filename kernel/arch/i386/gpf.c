@@ -1,7 +1,8 @@
 #include <arch/i386/gpf.h>
 #include <kernel/kprint.h>
 
-void gpf_handler(uint32_t error_number)
+void __attribute__((noreturn))
+gpf_handler(uint32_t error_number)
 {
     kprint("General Protection Fault\n");
     kprint("Error number: %d 0x%x\n", error_number, error_number);
@@ -30,4 +31,5 @@ void gpf_handler(uint32_t error_number)
     kdebug("Faulty descriptor index: %u", desc_index);
 
     while (1);
+    __builtin_unreachable();
 }
