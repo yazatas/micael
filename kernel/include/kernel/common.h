@@ -19,6 +19,7 @@ typedef struct isr_regs {
 #define ROUND_DOWN(addr, boundary) (addr & ~(boundary - 1))
 #define ROUND_UP(addr,   boundary) ((addr % boundary) ? \
 								   ((addr & ~(boundary - 1)) + boundary) : (addr))
+#define MULTIPLE_OF_2(value)       ((value + 1) & -2)
 
 static inline void hex_dump(void *buf, size_t len)
 {
