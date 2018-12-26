@@ -1,6 +1,6 @@
 #include <lib/list.h>
 #include <mm/cache.h>
-#include <mm/kheap.h>
+#include <mm/heap.h>
 #include <mm/mmu.h>
 
 #include <errno.h>
@@ -14,6 +14,35 @@ enum {
     CE_DIRTY = 1 << 0,
 } CACHE_ENTRY_FLAGS;
 
+struct cache_free_chunk {
+    void *mem;
+    list_head_t list;
+};
+
+struct cache_fixed_entry {
+    size_t num_free;
+
+    void *next_free; /* pointer to next free slot in mem */
+    void *mem;       /* pointer to memory block */
+
+    list_head_t list;
+};
+
+struct cache_fixed {
+    size_t item_size;
+    size_t capacity; /* number of total items (# of pages * (PAGE_SIZE / item_size)) */
+
+    /* TODO:  */
+    struct cache_fixed_entry *free_list;
+
+    /* list of cache entries, each entry is work of 4KB of memory  */
+    struct cache_fixed_entry *used_list;
+
+    /* TODO:  */
+    struct cache_free_chunk  *free_chunks;
+};
+
+/* page cache stuff */
 struct cache_entry {
     void *mem;
     page_t phys_addr;
@@ -21,8 +50,6 @@ struct cache_entry {
     uint32_t flags;
     uint32_t uniq;
     size_t ref_count;
-
-    /* TODO: who owns this cache entry?? */
 
     list_head_t list;
 };
@@ -75,6 +102,22 @@ static void cache_list_insert(struct cache_entry **head,
     } else {
         list_append(&(*head)->list, &entry->list);
     }
+}
+
+static struct cache_fixed_entry *alloc_fixed_entry(size_t capacity)
+{
+    struct cache_fixed_entry *cfe = NULL;
+
+    if ((cfe = kmalloc(sizeof(struct cache_fixed_entry))) == NULL)
+        return NULL;
+
+    cfe->mem       = cache_alloc_page(C_NOFLAGS);
+    cfe->next_free = cfe->mem;
+    cfe->num_free  = capacity;
+
+    list_init_null(&cfe->list);
+
+    return cfe;
 }
 
 static struct cache_entry *alloc_entry(void)
@@ -130,6 +173,7 @@ static void dealloc_entry(struct cache_entry *entry)
     }
 
     if (list_head != NULL && next_entry != NULL) {
+        kdebug("what is supposed to happen here?");
         /* TODO: ??? */
     }
 
@@ -173,7 +217,7 @@ void *cache_alloc_page(uint32_t flags)
         if (next_ce != NULL)
             tmp = container_of(next_ce, struct cache_entry, list);
 
-        kdebug("returning block with block %u", ce->uniq);
+        kdebug("returning page with uniq %u", ce->uniq);
 
         list_remove(&ce->list);
         cache.free_list = tmp;
@@ -196,14 +240,6 @@ void *cache_alloc_page(uint32_t flags)
     }
 
     return NULL;
-}
-
-void *cache_alloc_mem(size_t size, uint32_t flags)
-{
-}
-
-void cache_dealloc_mem(void *ptr, size_t mem, uint32_t flags)
-{
 }
 
 /* FIXME: how to obtain cache_entry in constant time? */
@@ -285,4 +321,126 @@ void cache_print_list(int type)
         next_entry = next_entry->next;
         ce = container_of(next_entry, struct cache_entry, list);
     }
+}
+
+cache_t *cache_create(size_t size, uint32_t flags)
+{
+    cache_t *c = NULL;
+
+    if (size > PAGE_SIZE) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if ((c = kmalloc(sizeof(cache_t))) == NULL)
+        return NULL;
+
+    c->item_size = MULTIPLE_OF_2(size);
+    c->capacity  = PAGE_SIZE / c->item_size;
+
+    c->free_list = alloc_fixed_entry(c->capacity);
+    c->used_list = NULL;
+
+    kdebug("one page holds %u items of size %u (%u)",
+            c->capacity, c->item_size, MULTIPLE_OF_2(c->item_size));
+
+    return c;
+}
+
+int cache_destroy(cache_t *c)
+{
+    if (!c)
+        return -EINVAL;
+
+    if (c->used_list != NULL) {
+        kdebug("cache still in use, unable to destroy it!");
+        return -EEXIST;
+    }
+
+    if (c->free_list == NULL) {
+        kdebug("cache doesn't hold any memory");
+        return -EINVAL;
+    }
+
+    /* list_head_t *next_entry; */
+    /* struct cache_entry *ce = c->free_list; */
+    /* do { */
+    /*     next_entry = ce->list.next; */
+    /*     dealloc_entry(ce); */
+    /*     ce = container_of(next_entry, struct cache_entry, list); */
+    /* } while (ce->list.next); */
+
+    return 0;
+}
+
+void *cache_alloc_entry(cache_t *c, uint32_t flags)
+{
+    if (!c) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    /* if there are any free chunks left, try to use them first and return early */
+    if (c->free_chunks != NULL && (flags & C_FORCE_SPATIAL) == 0) {
+        void *ret = c->free_chunks->mem;
+
+        /* is there only one free chunk? */
+        if (c->free_chunks->list.next == NULL) {
+            kdebug("only one free: 0x%x", ret);
+            c->free_chunks = NULL;
+        } else {
+            list_head_t *next_chunk = c->free_chunks->list.next;
+            list_remove(&c->free_chunks->list);
+            c->free_chunks = container_of(next_chunk, struct cache_free_chunk, list);
+            kdebug("ret 0x%x | next 0x%x", ret, c->free_chunks->mem);
+        }
+
+        return ret;
+    }
+
+    void *ret = NULL;
+
+    if (c->free_list == NULL) {
+        c->free_list = alloc_fixed_entry(c->capacity);
+        c->capacity += PAGE_SIZE / c->item_size;
+    }
+
+    ret = c->free_list->next_free;
+
+    /* if last element, set free_list to NULL and append cache_entry to used list 
+     * else set next_free to point to next free element in c->free_list->mem */
+    if (c->free_list->num_free-- == 0) {
+        kdebug("allocated last element from free list");
+
+        if (c->used_list == NULL)
+            c->used_list = c->free_list;
+        else
+            list_append(&c->used_list->list, &c->free_list->list);
+
+        c->free_list = NULL;
+    } else {
+        kdebug("old free 0x%x | new free 0x%x (item size %u)",
+                c->free_list->next_free,
+                (uint8_t *)c->free_list->next_free + c->item_size,
+                c->item_size);
+
+        c->free_list->next_free = (uint8_t *)c->free_list->next_free + c->item_size;
+    }
+
+    return ret;
+}
+
+void cache_dealloc_entry(cache_t *c, void *entry, uint32_t flags)
+{
+    struct cache_free_chunk *cfc = kmalloc(sizeof(struct cache_free_chunk));
+
+    list_init_null(&cfc->list);
+    cfc->mem = entry;
+
+    kdebug("freeing memory at address 0x%x", cfc->mem);
+
+    if (c->free_chunks == NULL)
+        c->free_chunks = cfc;
+    else
+        list_append(&c->free_chunks->list, &cfc->list);
 }
