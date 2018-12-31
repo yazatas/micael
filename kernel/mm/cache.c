@@ -206,6 +206,8 @@ int cache_init(void)
 
 void *cache_alloc_page(uint32_t flags)
 {
+    (void)flags;
+
     list_head_t *next_ce    = NULL;
     struct cache_entry *ce  = NULL,
                        *tmp = NULL;
@@ -217,7 +219,7 @@ void *cache_alloc_page(uint32_t flags)
         if (next_ce != NULL)
             tmp = container_of(next_ce, struct cache_entry, list);
 
-        kdebug("returning page with uniq %u", ce->uniq);
+        /* kdebug("returning page with uniq %u", ce->uniq); */
 
         list_remove(&ce->list);
         cache.free_list = tmp;
@@ -226,11 +228,11 @@ void *cache_alloc_page(uint32_t flags)
 
     if (ce == NULL && cache.len < CACHE_MAX_ENTRIES) {
         ce = alloc_entry();
-        kdebug("ALLOCATIN NEW BLOCK %u", ce->uniq);
+        /* kdebug("ALLOCATIN NEW BLOCK %u", ce->uniq); */
     }
 
     if (ce) {
-        kdebug("returning 0x%x 0x%x", ce->phys_addr, ce->mem);
+        /* kdebug("returning 0x%x 0x%x", ce->phys_addr, ce->mem); */
         cache_list_insert(&cache.used_list, ce);
 
         ce->ref_count++;
@@ -245,6 +247,8 @@ void *cache_alloc_page(uint32_t flags)
 /* FIXME: how to obtain cache_entry in constant time? */
 void cache_dealloc_page(void *ptr, uint32_t flags)
 {
+    (void)flags;
+
     if (!ptr)
         return;
 
@@ -325,6 +329,8 @@ void cache_print_list(int type)
 
 cache_t *cache_create(size_t size, uint32_t flags)
 {
+    (void)flags;
+
     cache_t *c = NULL;
 
     if (size > PAGE_SIZE) {
@@ -341,8 +347,8 @@ cache_t *cache_create(size_t size, uint32_t flags)
     c->free_list = alloc_fixed_entry(c->capacity);
     c->used_list = NULL;
 
-    kdebug("one page holds %u items of size %u (%u)",
-            c->capacity, c->item_size, MULTIPLE_OF_2(c->item_size));
+    /* kdebug("one page holds %u items of size %u (%u)", */
+    /*         c->capacity, c->item_size, MULTIPLE_OF_2(c->item_size)); */
 
     return c;
 }
@@ -386,13 +392,13 @@ void *cache_alloc_entry(cache_t *c, uint32_t flags)
 
         /* is there only one free chunk? */
         if (c->free_chunks->list.next == NULL) {
-            kdebug("only one free: 0x%x", ret);
+            /* kdebug("only one free: 0x%x", ret); */
             c->free_chunks = NULL;
         } else {
             list_head_t *next_chunk = c->free_chunks->list.next;
             list_remove(&c->free_chunks->list);
             c->free_chunks = container_of(next_chunk, struct cache_free_chunk, list);
-            kdebug("ret 0x%x | next 0x%x", ret, c->free_chunks->mem);
+            /* kdebug("ret 0x%x | next 0x%x", ret, c->free_chunks->mem); */
         }
 
         return ret;
@@ -419,10 +425,10 @@ void *cache_alloc_entry(cache_t *c, uint32_t flags)
 
         c->free_list = NULL;
     } else {
-        kdebug("old free 0x%x | new free 0x%x (item size %u)",
-                c->free_list->next_free,
-                (uint8_t *)c->free_list->next_free + c->item_size,
-                c->item_size);
+        /* kdebug("old free 0x%x | new free 0x%x (item size %u)", */
+        /*         c->free_list->next_free, */
+        /*         (uint8_t *)c->free_list->next_free + c->item_size, */
+        /*         c->item_size); */
 
         c->free_list->next_free = (uint8_t *)c->free_list->next_free + c->item_size;
     }
@@ -432,12 +438,14 @@ void *cache_alloc_entry(cache_t *c, uint32_t flags)
 
 void cache_dealloc_entry(cache_t *c, void *entry, uint32_t flags)
 {
+    (void)flags;
+
     struct cache_free_chunk *cfc = kmalloc(sizeof(struct cache_free_chunk));
 
     list_init_null(&cfc->list);
     cfc->mem = entry;
 
-    kdebug("freeing memory at address 0x%x", cfc->mem);
+    /* kdebug("freeing memory at address 0x%x", cfc->mem); */
 
     if (c->free_chunks == NULL)
         c->free_chunks = cfc;

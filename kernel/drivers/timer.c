@@ -3,9 +3,6 @@
 #include <drivers/timer.h>
 #include <kernel/kprint.h>
 
-#include <stddef.h>
-#include <stdio.h>
-
 static size_t ticks = 0;
 
 void timer_phase(size_t hz)

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <stdint.h>
+#include <ctype.h>
 #include <string.h>
 #include <kernel/tty.h>
 #include <kernel/gdt.h>
@@ -8,15 +9,11 @@
 #include <kernel/irq.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
-#include <sync/mutex.h>
 #include <mm/cache.h>
-#include <mm/kheap.h>
-#include <mm/vmm.h>
-#include <fs/multiboot.h>
+#include <mm/mmu.h>
 #include <fs/initrd.h>
-#include <fs/vfs.h>
-#include <sched/kthread.h>
-#include <sched/proc.h>
+#include <fs/fs.h>
+#include <sched/task.h>
 #include <sched/sched.h>
 #include <drivers/timer.h>
 #include <drivers/keyboard.h>
@@ -26,6 +23,24 @@ extern uint32_t __kernel_physical_start, __kernel_physical_end;
 extern uint32_t __code_segment_start, __code_segment_end;
 extern uint32_t __data_segment_start, __data_segment_end;
 extern uint32_t boot_page_dir; 
+
+static void *init_task_func(void *arg)
+{
+    (void)arg;
+
+    kdebug("starting init task...");
+
+    for (;;) {
+        kdebug("in init task!");
+
+        for (volatile int i = 0; i < 50000000; ++i)
+            ;
+    }
+
+    kdebug("ending init task...");
+
+    return NULL;
+}
 
 void kmain(multiboot_info_t *mbinfo)
 {
@@ -46,33 +61,25 @@ void kmain(multiboot_info_t *mbinfo)
     enable_irq();
 
 	vmm_init(mbinfo);
-    (void)cache_init();
-    vmm_print_memory_map();
+    vfs_init(mbinfo);
+    sched_init();
 
-    void *ptr;
+#if 0
+    fs_t *fs = vfs_register_fs("initrd", "/mnt", mbinfo);
 
-    for (int i = 0; i < 5; ++i) {
-        if ((ptr = cache_alloc(C_NOFLAGS)) == NULL)
-            kdebug("dick space error");
+    if (vfs_lookup("/mnt/sbin/init") == NULL)
+        kdebug("no such file or directory");
+    else
+        kdebug("/sbin/init exists!");
+#endif
 
-        /* cache_print_list(0); */
-        /* cache_print_list(1); */
+    task_t   *init_task   = sched_task_create("init_task");
+    thread_t *init_thread = sched_thread_create(init_task_func, NULL);
 
-        /* cache_dealloc(ptr, C_NOFLAGS); */
+    sched_task_add_thread(init_task, init_thread);
+    sched_task_schedule(init_task);
 
-        /* kprint("\n"); */
-
-        /* cache_print_list(0); */
-        /* cache_print_list(1); */
-    }
-
-    cache_print_list(0);
-    cache_print_list(1);
-
-    cache_dealloc(ptr, C_NOFLAGS);
-
-    cache_print_list(0);
-    cache_print_list(1);
+    sched_start();
 
 	for (;;);
 }

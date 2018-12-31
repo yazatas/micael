@@ -3,6 +3,17 @@
 
 #include <stdint.h>
 
+#define DPL_KERNEL 0x00
+#define DPL_USER   0x03
+
+#define CPL_KERNEL 0x00
+#define CPL_USER   0x03
+
+#define SEG_KERNEL_CODE 0x08
+#define SEG_KERNEL_DATA 0x10
+#define SEG_USER_CODE   0x1b
+#define SEG_USER_DATA   0x23
+
 struct gdt_ptr_t {
     uint16_t limit;
     uint32_t base;
