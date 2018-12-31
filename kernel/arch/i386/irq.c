@@ -78,6 +78,12 @@ void irq_init(void)
 	kdebug("IRQs enabled!");
 }
 
+void irq_ack_interrupt(int irq_num)
+{
+	if (irq_num >= 40)
+		outb(PIC_SLAVE_CMD_PORT, PIC_ACK);
+	outb(PIC_MASTER_CMD_PORT, PIC_ACK);
+}
 
 /* irq raised by master -> acknowledge master 
  * irq raised by slave, -> acknowledge both slave AND master */
@@ -93,7 +99,5 @@ void irq_handler(struct isr_regs *cpu_state)
 	handler = irq_routines[irq_index];
 	handler(cpu_state);
 
-	if (cpu_state->isr_num >= 40)
-		outb(PIC_SLAVE_CMD_PORT, PIC_ACK);
-	outb(PIC_MASTER_CMD_PORT, PIC_ACK);
+    irq_ack_interrupt(cpu_state->isr_num);
 }

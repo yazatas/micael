@@ -9,5 +9,6 @@
 
 void irq_init(void);
 void irq_install_handler(void (*handler)(), int irq_num);
+void irq_ack_interrupt(int irq_num);
 
 #endif /* end of include guard: __PIC_H__ */

@@ -3,7 +3,7 @@
 #include <kernel/compiler.h>
 #include <kernel/common.h>
 #include <mm/cache.h>
-#include <mm/kheap.h>
+#include <mm/heap.h>
 #include <mm/mmu.h>
 #include <fs/multiboot.h>
 #include <lib/bitmap.h>
@@ -133,7 +133,6 @@ uint32_t vmm_alloc_page(void)
 
 error:
     kpanic("physical memory exhausted!");
-    __builtin_unreachable();
 }
 
 /* if the address isn't page-aligned it's round down 
@@ -151,7 +150,6 @@ void vmm_claim_page(uint32_t physaddr)
     uint32_t index = PHYSADDR_TO_INDEX(physaddr);
     if (bm_unset_bit(&phys_pages, index) == BM_OUT_OF_RANGE_ERROR) {
         kpanic("bitmap range error in vmm_claim_page()!");
-        __builtin_unreachable();
     }
 
     free_page_count++;
@@ -169,7 +167,7 @@ void vmm_pf_handler(uint32_t error)
         case 5: strerr = "page read, protection fault (user)";        break;
         case 6: strerr = "page write, not present (user)";            break;
         case 7: strerr = "page write, protection fault (user)";       break;
-        default: kpanic("undocumented error code"); __builtin_unreachable();
+        default: kpanic("undocumented error code");
     }
     kprint("\n\n");
     kdebug("%s", strerr);
@@ -277,7 +275,7 @@ void vmm_init(multiboot_info_t *mbinfo)
     }
 
     /* initialize 4MB of initial space for kernel heap */
-    for (size_t i = 0; i < 1020; ++i) {
+    for (size_t i = 0; i < 1024; ++i) {
         kheaptb[i] = ((uint32_t)vmm_alloc_page()) | MM_PRESENT | MM_READWRITE;
     }
 
@@ -286,13 +284,13 @@ void vmm_init(multiboot_info_t *mbinfo)
     kpdir[1023]        = ((uint32_t)vmm_v_to_p(&kpdir))   | MM_PRESENT | MM_READWRITE;
 
     kdebug("changing to pdir located at address: 0x%x...", vmm_v_to_p(&kpdir));
-    vmm_change_pdir(vmm_v_to_p(&kpdir));
+    mmu_change_pdir((uint32_t)vmm_v_to_p(&kpdir));
 
     /* initialize heap meta data etc. */
-    kheap_initialize((uint32_t *)(KSTART_HEAP << 22));
+    heap_initialize((uint32_t *)(KSTART_HEAP << 22));
 
     if (cache_init() < 0)
-        kdebug("failed to init page cache");
+        kpanic("failed to init page cache");
 }
 
 /* convert virtual address to physical */

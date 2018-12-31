@@ -42,4 +42,12 @@ static inline void enable_irq(void)
     asm volatile ("sti" ::: "memory");
 }
 
+static inline uint32_t get_sp(void)
+{
+    uint32_t sp;
+    asm volatile ("mov %%esp, %0" : "=r"(sp));
+
+    return sp;
+}
+
 #endif /* end of include guard: __COMMON_H__ */

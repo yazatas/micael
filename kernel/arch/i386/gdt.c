@@ -36,8 +36,8 @@ void gdt_init(void)
 
 	memset(&tss_ptr, 0, sizeof(struct tss_ptr_t));
 
-	tss_ptr.ss0  = 0x10;          /* kernel data segment offset */
-	tss_ptr.esp0 = &stack_bottom; /* kernel stack */
+	tss_ptr.ss0  = SEG_KERNEL_DATA;         /* kernel data segment offset */
+	tss_ptr.esp0 = (uint32_t)&stack_bottom; /* kernel stack */
 
 	gdt_flush(gdt_ptr);
 	kdebug("GDT and TSS initialized! Start addresses 0x%x 0x%x", &GDT, &tss_ptr);

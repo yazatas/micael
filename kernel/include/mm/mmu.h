@@ -52,10 +52,10 @@ static inline void vmm_flush_TLB(void)
                    mov %ecx, %cr3");
 }
 
-static inline void vmm_change_pdir(void *cr3) 
+static inline void mmu_change_pdir(uint32_t cr3) 
 {
     asm volatile ("mov %0, %%eax \n\
-                   mov %%eax, %%cr3" :: "r" ((uint32_t)cr3) 
+                   mov %%eax, %%cr3" :: "r" (cr3)
                                       : "eax", "memory");
 }
 
