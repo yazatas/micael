@@ -32,6 +32,7 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
     t->kstack_bottom = (uint8_t *)t->kstack_top + KSTACK_SIZE;
     t->exec_state    = (exec_state_t *)((uint8_t *)t->kstack_bottom - sizeof(exec_state_t));
 
+    list_init(&t->list);
     memset(t->exec_state, 0, sizeof(exec_state_t));
 
     /* TODO: comment */
@@ -58,11 +59,11 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
 
 task_t *sched_task_create(const char *name)
 {
-    task_t *t = cache_alloc_entry(task_cache, C_NOFLAGS);
-    t->parent = NULL;
-    t->name   = name;
+    task_t *t   = cache_alloc_entry(task_cache, C_NOFLAGS);
+    t->parent   = NULL;
+    t->name     = name;
+    t->nthreads = 0;
 
-    memset(t->threads, 0, 16 * sizeof(thread_t *));
     list_init_null(&t->children);
     list_init_null(&t->list);
 
@@ -74,18 +75,16 @@ task_t *sched_task_create(const char *name)
 
 int sched_task_add_thread(task_t *parent, thread_t *child)
 {
-    size_t i = 0;
-
-    while (parent->threads[i] != NULL) {
-        if (i++ == MAX_THREADS - 1)
-            goto end;
+    if (parent->nthreads == 0) {
+        parent->threads = child;
+    } else {
+        thread_t *last = container_of(parent->threads->list.prev, thread_t, list);
+        list_append(&last->list, &child->list);
     }
 
-    parent->threads[i] = child;
-    return 0;
+    parent->nthreads++;
 
-end:
-    return -ENOSPC;
+    return 0;
 }
 
 task_t *sched_task_fork(task_t *t)

@@ -8,8 +8,6 @@
 #include <sched/sched.h>
 #include <errno.h>
 
-#define SET_REG(task, reg) (task->threads[0]->exec_state->reg = cpu_state->reg)
-
 static task_t *current   = NULL;
 static task_t *idle_task = NULL;
 static list_head_t queued_tasks;
@@ -40,7 +38,7 @@ do_context_switch(struct isr_regs *cpu_state)
     disable_irq();
 
     if (cpu_state != NULL) {
-        if (get_sp() < (uint32_t)current->threads[0]->kstack_top)
+        if (get_sp() < (uint32_t)current->threads->kstack_top)
             kpanic("kernel stack overflow!");
 
         /* because we've installed do_context_switch as timer interrupt routine
@@ -49,8 +47,13 @@ do_context_switch(struct isr_regs *cpu_state)
 
         /* cpu_state now points to the beginning of trap frame, 
          * update exec_state to point to it so next context switch succeeds */
-        current->threads[0]->exec_state = cpu_state;
-        current->threads[0]->exec_state->eflags |= (1 << 9);
+        current->threads->exec_state = (exec_state_t *)cpu_state;
+        current->threads->exec_state->eflags |= (1 << 9);
+    }
+
+    if (current->nthreads > 1) {
+        current->threads =
+            container_of(current->threads->list.next, thread_t, list);
     }
 
     task_t *running = current,
@@ -60,12 +63,12 @@ do_context_switch(struct isr_regs *cpu_state)
     list_remove(&next->list);
     current = next;
 
-    running->threads[0]->state = T_READY;
-    next->threads[0]->state    = T_RUNNING;
+    running->threads->state = T_READY;
+    next->threads->state    = T_RUNNING;
 
     /* TODO: remember to update tss */
 
-    context_switch(next->cr3, next->threads[0]->exec_state);
+    context_switch(next->cr3, next->threads->exec_state);
     kpanic("context_switch() returned!");
 }
 
@@ -84,7 +87,7 @@ void sched_init(void)
     if ((idle_task = sched_task_create("idle_task")) == NULL)
         kpanic("failed to create idle task");
 
-    if ((idle_task->threads[0] = sched_thread_create(idle_task_func, NULL)) == NULL)
+    if ((idle_task->threads = sched_thread_create(idle_task_func, NULL)) == NULL)
         kpanic("failed to create thread for idle task");
 
     sched_task_schedule(idle_task);
