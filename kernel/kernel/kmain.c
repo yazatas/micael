@@ -42,6 +42,38 @@ static void *init_task_func(void *arg)
     return NULL;
 }
 
+static void *init_task_func2(void *arg)
+{
+    kdebug("starting init task2...");
+
+    for (;;) {
+        kdebug("in init task2!");
+
+        for (volatile int i = 0; i < 50000000; ++i)
+            ;
+    }
+
+    kdebug("ending init task2...");
+
+    return NULL;
+}
+
+static void *init_task_func3(void *arg)
+{
+    kdebug("starting init task3...");
+
+    for (;;) {
+        kdebug("in init task3!");
+
+        for (volatile int i = 0; i < 50000000; ++i)
+            ;
+    }
+
+    kdebug("ending init task3...");
+
+    return NULL;
+}
+
 void kmain(multiboot_info_t *mbinfo)
 {
     tty_init_default();
@@ -73,10 +105,15 @@ void kmain(multiboot_info_t *mbinfo)
         kdebug("/sbin/init exists!");
 #endif
 
-    task_t   *init_task   = sched_task_create("init_task");
-    thread_t *init_thread = sched_thread_create(init_task_func, NULL);
+    task_t   *init_task    = sched_task_create("init_task");
+    thread_t *init_thread  = sched_thread_create(init_task_func, NULL);
+    thread_t *init_thread2 = sched_thread_create(init_task_func2, NULL);
+    thread_t *init_thread3 = sched_thread_create(init_task_func3, NULL);
 
     sched_task_add_thread(init_task, init_thread);
+    sched_task_add_thread(init_task, init_thread2);
+    sched_task_add_thread(init_task, init_thread3);
+
     sched_task_schedule(init_task);
 
     sched_start();

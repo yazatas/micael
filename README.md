@@ -11,10 +11,10 @@ See doc/OVERVIEW.md for more details
 * kernel
    * Memory Management
       * Paging
-      * Kernel heap
-	  * Page cache
+      * Kernel Heap
+	  * Page Cache
    * Multitasking
-      * Preemptive multitasking
+      * Preemptive Multitasking
    * File System
       * Virtual File System (WIP)
 	  * Initrd

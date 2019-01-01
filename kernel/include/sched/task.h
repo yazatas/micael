@@ -30,6 +30,7 @@ typedef struct exec_state {
 
 typedef struct thread {
     thread_state_t state;
+    list_head_t list;
 
     void *kstack_top;
     void *kstack_bottom;
@@ -40,7 +41,8 @@ typedef struct thread {
 typedef struct task {
     struct task *parent;
 
-    thread_t *threads[16];
+    size_t nthreads;
+    thread_t *threads;
 
     /* TODO: remove */
     const char *name;
