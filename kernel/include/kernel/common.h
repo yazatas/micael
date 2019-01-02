@@ -25,7 +25,7 @@ static inline void hex_dump(void *buf, size_t len)
 {
     for (size_t i = 0; i < len; i+=10) {
         kprint("\t");
-        for (size_t k = i; k < i + 10; ++k) {
+        for (size_t k = i; k < i + 10 && k < len; ++k) {
             kprint("0x%02x ", ((uint8_t *)buf)[k]);
         }
         kprint("\n");

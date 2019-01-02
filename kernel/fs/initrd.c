@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -68,21 +69,93 @@ typedef struct file_private {
 #define SET_PHYS_START(fs, start) (((fs_private_t *)fs->private)->phys_start = (start))
 
 static inode_t *initrd_alloc_inode(fs_t *fs);
+static int initrd_seek_file(file_t *file, off_t offset);
 
-static ssize_t initrd_read_file(file_t *fp, off_t offset, size_t len, uint8_t *buf)
+static ssize_t initrd_read_file(file_t *file, off_t offset, size_t len, void *buf)
 {
-    (void)fp, (void)offset, (void)len, (void)buf;
-    return -1;
+    int ret = -1;
+    file_header_t *fh = file->private;
+
+    if (len > fh->file_size)
+        return -E2BIG;
+
+    if (offset != 0) {
+        if ((ret = initrd_seek_file(file, offset)) < 0)
+            return ret;
+    }
+
+    if (fh->file_size < len + file->offset)
+        return -E2BIG;
+
+    void *ptr = (uint8_t *)fh + sizeof(file_header_t) + file->offset;
+
+    memcpy(buf, ptr, len);
+    return (ssize_t)len;
 }
 
 /* TODO: make sure that this is the last refrence to this file */
-static void initrd_close_file(file_t *fp)
+static void initrd_close_file(file_t *file)
 {
-    kfree(fp->f_dentry);
-    kfree(fp->f_inode);
-    kfree(fp->f_mnt);
+    if (--file->refcount == 0) {
+        /* TODO: closing should be ok */
+        kdebug("file refcount > 1 (%u), can't close it", file->refcount);
+        errno = EBUSY;
+        return;
+    }
 
-    kfree(fp);
+    kfree(file->f_dentry);
+    kfree(file);
+}
+
+/* make sure that resulting offset (file->offset + offset)
+ * is not less than 0 and that the new offset is not larger than FILE_SIZE */
+static int initrd_seek_file(file_t *file, off_t offset)
+{
+    const uint32_t FILE_SIZE = file->f_dentry->d_inode->i_size;
+
+    if (file->offset < -offset || file->offset + offset > (off_t)FILE_SIZE)
+        return -ESPIPE;
+
+    file->offset = file->offset + offset;
+    return 0;
+}
+
+static file_t *initrd_open_file(dentry_t *dntr, uint8_t mode)
+{
+    /* initrd is read-only */
+    if ((mode & VFS_WRITE) != 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    /* only files are readable (for now) */
+    if ((dntr->d_inode->flags & VFS_TYPE_FILE) == 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    file_t *fp = kmalloc(sizeof(file_t));
+
+    if (!fp)
+        return NULL;
+
+    if ((fp->f_ops  = kmalloc(sizeof(struct file_ops))) == NULL) {
+        kfree(fp);
+        return NULL;
+    }
+
+    fp->f_ops->read  = initrd_read_file;
+    fp->f_ops->open  = initrd_open_file;
+    fp->f_ops->close = initrd_close_file;
+    fp->f_ops->seek  = initrd_seek_file;
+    fp->f_ops->write = NULL;
+
+    fp->refcount = 1;
+    fp->offset   = 0;
+    fp->f_dentry = dntr;
+    fp->private  = dntr->private;
+
+    return fp;
 }
 
 static void initrd_free_inode(fs_t *fs, inode_t *ino)
@@ -94,6 +167,7 @@ static void initrd_free_inode(fs_t *fs, inode_t *ino)
 /* TODO: check for resource leaks */
 static inode_t *initrd_lookup_inode(fs_t *fs, void *param)
 {
+    (void)fs, (void)param;
     char *to_free, *str, *tok;
     uint32_t phys_offset = 0;
 
@@ -119,6 +193,8 @@ static dentry_t *initrd_lookup_dentry(fs_t *fs, dentry_t *haystack, const char *
 
         dntr->d_inode->i_ino  = file->inode;
         dntr->d_inode->i_size = file->file_size;
+        dntr->d_inode->flags  = VFS_TYPE_FILE;
+        dntr->private         = file;
 
         hm_insert(haystack->children, file->file_name, dntr);
 
@@ -129,46 +205,31 @@ search:
     return hm_get(haystack->children, (void *)needle);
 }
 
-static file_t *initrd_open_file(fs_t *fs, inode_t *ino, uint8_t mode)
-{
-    (void)fs, (void)mode;
-
-    file_t *fp = kmalloc(sizeof(file_t));
-
-    fp->f_ops->read  = initrd_read_file;
-    fp->f_ops->open  = initrd_open_file;
-    fp->f_ops->close = initrd_close_file;
-    fp->f_ops->write = NULL;
-    fp->f_ops->seek  = NULL;
-
-    /* TODO: not ready: dentry, mount and inode missing */
-
-    return fp;
-}
-
 static inode_t *initrd_alloc_inode(fs_t *fs)
 {
     (void)fs;
 
     inode_t *ino = kmalloc(sizeof(inode_t));
-    /* inode_t *ino = inode_alloc(); */
 
-    ino->i_ino  = 0;
-    ino->i_size = 0;
-    ino->i_uid  = 0;
-    ino->i_gid  = 0;
-
-    ino->flags   = 0;
-    ino->mask    = 0;
     ino->private = NULL;
+    ino->i_ino   = ino->i_size = 0;
+    ino->i_uid   = ino->i_gid  = 0;
+    ino->flags   = ino->mask   = 0;
 
     ino->i_ops = kmalloc(sizeof(struct inode_ops));
+    ino->f_ops = kmalloc(sizeof(struct file_ops));
 
     ino->i_ops->lookup_inode  = initrd_lookup_inode;
     ino->i_ops->lookup_dentry = initrd_lookup_dentry;
     ino->i_ops->alloc_inode   = initrd_alloc_inode;
     ino->i_ops->free_inode    = initrd_free_inode;
 
+    ino->f_ops->read  = initrd_read_file;
+    ino->f_ops->open  = initrd_open_file;
+    ino->f_ops->close = initrd_close_file;
+    ino->f_ops->seek  = initrd_seek_file;
+
+    ino->f_ops->write        = NULL;
     ino->i_ops->write_inode  = NULL;
     ino->i_ops->read_inode   = NULL;
 
@@ -242,7 +303,6 @@ fs_t *initrd_create(void *args)
 
     vmm_free_addr(mbi, 1);
     vmm_free_addr(mod, 1);
-    vmm_free_addr(dh,  1);
 
     return fs;
 }

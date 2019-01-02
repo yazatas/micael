@@ -3,5 +3,6 @@
 
 #define __packed   __attribute__((packed))
 #define __align_4k __attribute__((aligned(4096)))
+#define __noreturn __attribute__((noreturn))
 
 #endif /* end of include guard: __COMPILER_H__ */

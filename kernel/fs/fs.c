@@ -1,3 +1,4 @@
+#include <fs/binfmt.h>
 #include <fs/dcache.h>
 #include <fs/initrd.h>
 #include <fs/fs.h>
@@ -7,11 +8,16 @@
 #include <errno.h>
 #include <string.h>
 
+#define NUM_FS      1
+#define NUM_LOADERS 1
+
 static mount_t root_fs;
 
-#define NUM_FS 1
+static bool (*loaders[NUM_LOADERS])(file_t *, int, char **) = {
+    binfmt_elf_loader
+};
 
-fs_type_t fs_types[NUM_FS] = {
+static fs_type_t fs_types[NUM_FS] = {
     {
         .fs_dev_id  = 0x1338,
         .fs_name    = "initrd",
@@ -67,6 +73,11 @@ void vfs_init(void *args)
     list_init_null(&root_fs.mountpoints);
 
     dcache_init();
+    binfmt_init();
+
+    for (int i = 0; i < NUM_LOADERS; ++i) {
+        binfmt_add_loader(loaders[i]);
+    }
 }
 
 fs_t *vfs_register_fs(const char *fs_name, const char *mnt, void *arg)
@@ -201,4 +212,71 @@ dentry_t *vfs_lookup(const char *path)
     if (!dntr)
         errno = ENOENT;
     return dntr;
+}
+
+file_t *vfs_open_file(dentry_t *dntr)
+{
+    if (!dntr) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if (!dntr->d_inode->f_ops->open) {
+        errno = ENOSYS;
+        return NULL;
+    }
+
+    return dntr->d_inode->f_ops->open(dntr, VFS_READ);
+}
+
+void vfs_close_file(file_t *file)
+{
+    if (!file) {
+        errno = EINVAL;
+        return;
+    }
+
+    if (!file->f_ops->close) {
+        errno = ENOSYS;
+        return;
+    }
+
+    file->f_ops->close(file);
+}
+
+int vfs_seek(file_t *file, off_t off)
+{
+    if (!file) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (!file->f_ops->seek) {
+        errno = ENOSYS;
+        return -1;
+    }
+
+    return file->f_ops->seek(file, off);
+}
+
+ssize_t vfs_read(file_t *file, off_t offset, size_t size, void *buffer)
+{
+    if (!file || !buffer)
+        return -EINVAL;
+
+    if (!file->f_ops->read)
+        return -ENOSYS;
+
+    return file->f_ops->read(file, offset, size, buffer);
+}
+
+ssize_t vfs_write(file_t *file, off_t offset, size_t size, void *buffer)
+{
+    if (!file || !buffer)
+        return -EINVAL;
+
+    if (!file->f_ops->write)
+        return -ENOSYS;
+
+    return file->f_ops->write(file, offset, size, buffer);
 }
