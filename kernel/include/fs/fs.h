@@ -54,11 +54,11 @@ struct inode_ops {
 };
 
 struct file_ops {
-    ssize_t  (*read)(file_t  *, off_t, size_t, uint8_t *);
-    ssize_t  (*write)(file_t *, off_t, size_t, uint8_t *);
-    file_t  *(*open)(fs_t *, inode_t *, uint8_t);
+    ssize_t  (*read)(file_t  *, off_t, size_t, void *);
+    ssize_t  (*write)(file_t *, off_t, size_t, void *);
+    file_t  *(*open)(dentry_t *, uint8_t);
     void     (*close)(file_t *);
-    off_t    (*seek)(file_t *, off_t);
+    int      (*seek)(file_t *, off_t);
 };
 
 struct fs_type {
@@ -108,14 +108,15 @@ struct inode {
     void *private;    /* implementation-specific data */
 
     struct inode_ops *i_ops;
+    struct file_ops  *f_ops;
 };
 
 struct file {
     dentry_t *f_dentry;
-    inode_t  *f_inode;
-    mount_t  *f_mnt;
 
-    char f_path[VFS_NAME_MAX_LEN];
+    void *private;
+    size_t refcount;
+    off_t offset;
 
     struct file_ops *f_ops;
 };
@@ -136,12 +137,22 @@ dentry_t *vfs_lookup(const char *path);
 
 /* ********************************************************** */
 
-void vfs_close(file_t *node);
-void vfs_open(file_t *node, uint8_t read, uint8_t write);
+file_t   *vfs_open_file(dentry_t *dentry);
 
-file_t   *vfs_open_file(inode_t *inode);
-void      vfs_close_file(file_t *file);
-uint32_t  vfs_read(file_t  *node, uint32_t offset, uint32_t size, uint8_t *buffer);
-uint32_t  vfs_write(file_t *node, uint32_t offset, uint32_t size, uint8_t *buffer);
+/* TODO: comment */
+void     vfs_close_file(file_t *file);
+
+/* read "size" bytes from file to "buffer" starting at "offset"
+ *
+ * return number of bytes read on success and -errno on error */
+ssize_t  vfs_read(file_t  *file, off_t offset, size_t size, void *buffer);
+
+/* write "size" bytes to "file" from "buffer" starting at "offset"
+ *
+ * return number of bytes written on success and -errno on error */
+ssize_t  vfs_write(file_t *file, off_t offset, size_t size, void *buffer);
+
+/* TODO: comment */
+int      vfs_seek(file_t  *file, off_t off);
 
 #endif /* end of include guard: __VFS_H__ */
