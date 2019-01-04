@@ -177,10 +177,7 @@ void mmu_pf_handler(uint32_t error)
     asm volatile ("mov %%cr2, %%eax \n \
                    mov %%eax, %0" : "=r" (fault_addr));
 
-    uint32_t cr3 = 0;
-    asm volatile ("mov %%cr3, %%eax \n \
-                   mov %%eax, %0" : "=r" (cr3));
-
+    uint32_t cr3    = mmu_get_cr3();
     uint32_t pdi    = (fault_addr >> 22) & 0x3ff;
     uint32_t pti    = (fault_addr >> 12) & 0x3ff;
     uint32_t offset = fault_addr & 0xfff;
@@ -191,8 +188,8 @@ void mmu_pf_handler(uint32_t error)
            "\tpage frame offset:    %4u 0x%03x\n",
            pdi, pdi, pti, pti, offset, offset);
 
-    uint32_t *pd = (uint32_t*)0xfffff000;
-    uint32_t *pt = ((uint32_t*)0xffc00000) + (0x400 * pdi);
+    uint32_t *pd = (uint32_t *)0xfffff000;
+    uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
 
     kdebug("faulting physaddr: 0x%x", pt[pti]);
     kdebug("physaddr of pdir:  0x%x", cr3);
@@ -202,9 +199,9 @@ void mmu_pf_handler(uint32_t error)
         uint32_t flag;
         const char *str;
     } flags[NUM_FLAGS] = {
-        { MM_PRESENT, "Present" }, { MM_USER, "User" },
-        { MM_READWRITE, "R/W" },   { MM_READONLY, "Read-Only" },
-        { MM_COW, "CoW" }
+        { MM_PRESENT,   "Present" }, { MM_USER,     "User" },
+        { MM_READWRITE, "R/W"     }, { MM_READONLY, "Read-Only" },
+        { MM_COW,       "CoW"     }
     };
 
     kdebug("Page flags:");
@@ -213,6 +210,7 @@ void mmu_pf_handler(uint32_t error)
             kprint("\t%s flag set\n", flags[i].str);
         }
     }
+
     if (MM_TEST_FLAG(pt[pti], MM_READWRITE) == 0 &&
         MM_TEST_FLAG(pt[pti], MM_COW)       != 0)
     {
@@ -236,6 +234,7 @@ void mmu_map_page(void *physaddr, void *virtaddr, uint32_t flags)
     uint32_t pti = ((uint32_t)virtaddr) >> 12 & 0x3ff; 
 
     uint32_t *pd = (uint32_t*)0xfffff000;
+
     if (!(pd[pdi] & MM_PRESENT)) {
         /* kdebug("Page Directory Entry %u is NOT present", pdi); */
         pd[pdi] = mmu_alloc_page() | flags;
@@ -460,9 +459,12 @@ void *mmu_build_pagedir(void)
         vdir[i] = ~MM_PRESENT;
     }
 
-    for (size_t i = KSTART; i < 1024; ++i) {
+    for (size_t i = KSTART; i < 1023; ++i) {
         vdir[i] = kpdir[i];
     }
+
+    /* recursive page directory */
+    vdir[1023] = pdir | MM_PRESENT | MM_READONLY;
 
     return vdir;
 }

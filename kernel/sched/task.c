@@ -38,18 +38,13 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
     /* TODO: comment */
     /* TODO: push arg to stack */
 
-    t->exec_state->eax = 0x1336;
-    t->exec_state->ecx = 0x1337;
-    t->exec_state->edx = 0x1338;
-    t->exec_state->ebx = 0x1339;
-
-    t->exec_state->fs = 0x10; /* TODO: SEG_KERNEL_DATA?? */
-    t->exec_state->gs = 0x10;
-    t->exec_state->ds = 0x10;
-    t->exec_state->es = 0x10;
+    t->exec_state->fs = SEG_KERNEL_DATA;
+    t->exec_state->gs = SEG_KERNEL_DATA;
+    t->exec_state->ds = SEG_KERNEL_DATA;
+    t->exec_state->es = SEG_KERNEL_DATA;
 
     t->exec_state->eip     = (uint32_t)func;
-    t->exec_state->eflags  = 1 << 9;
+    t->exec_state->eflags  = 1 << 9; /* enable interrupts */
     t->exec_state->ss      = SEG_KERNEL_DATA;
     t->exec_state->cs      = SEG_KERNEL_CODE;
     t->exec_state->useresp = (uint32_t)t->exec_state + 4;

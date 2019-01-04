@@ -90,6 +90,8 @@ static ssize_t initrd_read_file(file_t *file, off_t offset, size_t len, void *bu
     void *ptr = (uint8_t *)fh + sizeof(file_header_t) + file->offset;
 
     memcpy(buf, ptr, len);
+    file->offset += len;
+
     return (ssize_t)len;
 }
 
