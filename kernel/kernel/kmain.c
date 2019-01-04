@@ -1,7 +1,4 @@
-#include <stdio.h>
-#include <limits.h>
 #include <stdint.h>
-#include <ctype.h>
 #include <string.h>
 #include <kernel/tty.h>
 #include <kernel/gdt.h>
@@ -10,8 +7,9 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <mm/cache.h>
+#include <mm/heap.h>
 #include <mm/mmu.h>
-#include <fs/initrd.h>
+#include <fs/binfmt.h>
 #include <fs/fs.h>
 #include <sched/task.h>
 #include <sched/sched.h>
@@ -24,52 +22,29 @@ extern uint32_t __code_segment_start, __code_segment_end;
 extern uint32_t __data_segment_start, __data_segment_end;
 extern uint32_t boot_page_dir; 
 
+/* look for /sbin/init and if it does exist -> execute it
+ * otherwise issue kernel panic  */
 static void *init_task_func(void *arg)
 {
+    disable_irq();
+
     (void)arg;
 
     kdebug("starting init task...");
 
-    for (;;) {
-        kdebug("in init task!");
+    file_t *file   = NULL;
+    dentry_t *dntr = NULL;
 
-        for (volatile int i = 0; i < 50000000; ++i)
-            ;
-    }
+    if ((dntr = vfs_lookup("/mnt/sbin/init")) == NULL)
+        kpanic("failed to find init script from file system");
 
-    kdebug("ending init task...");
+    if ((file = vfs_open_file(dntr)) == NULL)
+        kpanic("failed to open file /sbin/init");
 
-    return NULL;
-}
-
-static void *init_task_func2(void *arg)
-{
-    kdebug("starting init task2...");
-
-    for (;;) {
-        kdebug("in init task2!");
-
-        for (volatile int i = 0; i < 50000000; ++i)
-            ;
-    }
-
-    kdebug("ending init task2...");
-
-    return NULL;
-}
-
-static void *init_task_func3(void *arg)
-{
-    kdebug("starting init task3...");
-
-    for (;;) {
-        kdebug("in init task3!");
-
-        for (volatile int i = 0; i < 50000000; ++i)
-            ;
-    }
-
-    kdebug("ending init task3...");
+    /* binfmt_load doesn't ever return:
+     * it either jumps to user mode and continues execution there
+     * or issues a kernel panic because loading failed */
+    binfmt_load(file, 0, NULL);
 
     return NULL;
 }
@@ -90,30 +65,21 @@ void kmain(multiboot_info_t *mbinfo)
 
 	gdt_init(); idt_init(); irq_init(); 
 	timer_install(); kb_install();
-    enable_irq();
 
+    /* building memory map requires multiboot info */
 	vmm_init(mbinfo);
+
+    /* initrd initialization requires multiboot info */
     vfs_init(mbinfo);
     sched_init();
 
-#if 0
+    /* initialize initrd and init task */
     fs_t *fs = vfs_register_fs("initrd", "/mnt", mbinfo);
-
-    if (vfs_lookup("/mnt/sbin/init") == NULL)
-        kdebug("no such file or directory");
-    else
-        kdebug("/sbin/init exists!");
-#endif
 
     task_t   *init_task    = sched_task_create("init_task");
     thread_t *init_thread  = sched_thread_create(init_task_func, NULL);
-    thread_t *init_thread2 = sched_thread_create(init_task_func2, NULL);
-    thread_t *init_thread3 = sched_thread_create(init_task_func3, NULL);
 
     sched_task_add_thread(init_task, init_thread);
-    sched_task_add_thread(init_task, init_thread2);
-    sched_task_add_thread(init_task, init_thread3);
-
     sched_task_schedule(init_task);
 
     sched_start();

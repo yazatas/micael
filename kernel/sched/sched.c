@@ -13,8 +13,7 @@ static task_t *idle_task = NULL;
 static list_head_t queued_tasks;
 
 /* defined in arch/i386/switch.s */
-extern void __attribute__((noreturn))
-context_switch(uint32_t, void *);
+extern void __noreturn context_switch(uint32_t, void *);
 
 static void *idle_task_func(void *arg)
 {
@@ -32,8 +31,7 @@ static void *idle_task_func(void *arg)
     return NULL;
 }
 
-static void __attribute__((noreturn))
-do_context_switch(struct isr_regs *cpu_state)
+static void __noreturn do_context_switch(struct isr_regs *cpu_state)
 {
     disable_irq();
 
@@ -66,7 +64,7 @@ do_context_switch(struct isr_regs *cpu_state)
     running->threads->state = T_READY;
     next->threads->state    = T_RUNNING;
 
-    /* TODO: remember to update tss */
+    tss_ptr.esp0 = (uint32_t)current->threads->kstack_bottom;
 
     context_switch(next->cr3, next->threads->exec_state);
     kpanic("context_switch() returned!");
@@ -80,7 +78,7 @@ void sched_task_schedule(task_t *t)
 void sched_init(void)
 {
     if (sched_task_init() < 0)
-        kpanic("failed to init tasks");
+        kpanic("failed to inititialize tasks");
 
     list_init_null(&queued_tasks);
 
@@ -104,4 +102,31 @@ void sched_start(void)
     do_context_switch(NULL);
 
     kpanic("do_context_switch() returned!");
+}
+
+task_t *sched_get_current(void)
+{
+    return current;
+}
+
+void sched_enter_userland(void *eip, void *esp)
+{
+    disable_irq();
+
+    current->threads->exec_state->eip      = (uint32_t)eip;
+    current->threads->exec_state->esp      = (uint32_t)esp;
+    current->threads->exec_state->useresp  = (uint32_t)esp;
+    current->threads->exec_state->eflags  |= (1 << 9); /* enable interrupts */
+
+    current->threads->exec_state->gs = SEG_USER_DATA;
+    current->threads->exec_state->fs = SEG_USER_DATA;
+    current->threads->exec_state->es = SEG_USER_DATA;
+    current->threads->exec_state->ds = SEG_USER_DATA;
+
+    current->threads->exec_state->cs = SEG_USER_CODE;
+    current->threads->exec_state->ss = SEG_USER_DATA;
+
+    tss_ptr.esp0 = (uint32_t)current->threads->kstack_bottom;
+
+    context_switch(current->cr3, current->threads->exec_state);
 }
