@@ -11,6 +11,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include <sched/sched.h>
+
 #define NUM_FLAGS                5
 #define PAGE_FREE                0
 #define PAGE_USED                1
@@ -47,26 +49,21 @@ static size_t   free_page_count = 0;
 
 static page_t mmu_do_cow(page_t fault_addr)
 {
-    (void)fault_addr;
-#if 0
-    page_t new_phys_page = mmu_alloc_page();
-    page_t *tmp_page_org = NULL,
-           *tmp_page_cpy = NULL;
+    page_t p_fault = ROUND_DOWN(fault_addr, PAGE_SIZE);
+    page_t p_copy  = mmu_alloc_page();
+    page_t *v_org  = mmu_alloc_addr(1),
+           *v_copy = mmu_alloc_addr(1);
 
-    mmu_map_page((void *)fault_addr,    tmp_page_org, MM_PRESENT | MM_READWRITE);
-    mmu_map_page((void *)new_phys_page, tmp_page_cpy, MM_PRESENT | MM_READWRITE);
+    /* copy contents from fault page to new page, free temporary addresses and return new page */
+    mmu_map_page((void *)p_fault, v_org,  MM_PRESENT | MM_READWRITE);
+    mmu_map_page((void *)p_copy,  v_copy, MM_PRESENT | MM_READWRITE);
 
-    memcpy(tmp_page_cpy, tmp_page_org, 0x1000);
+    memcpy(v_copy, v_org, PAGE_SIZE);
 
-    mmu_free_tmp_vpage(tmp_page_cpy);
-    mmu_free_tmp_vpage(tmp_page_org);
+    mmu_free_addr(v_org,  1);
+    mmu_free_addr(v_copy, 1);
 
-    new_phys_page |= MM_PRESENT | MM_USER | MM_READWRITE;
-
-    /* kdebug("new page addr: 0x%x", new_phys_page); */
-
-    return new_phys_page;
-#endif
+    return p_copy | MM_PRESENT | MM_READWRITE | MM_USER;
 }
 
 void *mmu_alloc_addr(size_t range)
@@ -192,7 +189,7 @@ void mmu_pf_handler(uint32_t error)
     uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
 
     kdebug("faulting physaddr: 0x%x", pt[pti]);
-    kdebug("physaddr of pdir:  0x%x", cr3);
+    kdebug("physaddr of pdir:  0x%x (0x%x)", cr3, mmu_v_to_p((uint32_t *)0xfffff000));
 
     /* check flags */
     static struct {
@@ -214,9 +211,7 @@ void mmu_pf_handler(uint32_t error)
     if (MM_TEST_FLAG(pt[pti], MM_READWRITE) == 0 &&
         MM_TEST_FLAG(pt[pti], MM_COW)       != 0)
     {
-        kdebug("Copy-on-Write");
-
-        /* pt[pti] = mmu_do_cow(pt[pti]); */
+        pt[pti] = mmu_do_cow(pt[pti]);
         return;
     }
 
@@ -397,56 +392,6 @@ void mmu_print_memory_map(void)
     }
 }
 
-/* temporarily map the page directory to kernel's address space,
- * traverse through it and copy address of each physical page
- * below KSTART to new page directory and mark every page as READ ONLY.
- * Above KSTAR just map the page tables instead if individual pages.
- *
- * Return the virtual address of new page directory
- *
- * @pdir: virtual address of the new page directory */
-void *mmu_duplicate_pdir(void *pdir)
-{
-    kdebug("starting address space duplication..");
-
-    ptbl_t *pt_v_org, *pt_v_copy;
-    pdir_t *pdir_v_copy = mmu_alloc_addr(1);
-    pdir_t *pdir_v_org  = mmu_alloc_addr(1);
-    page_t page         = mmu_alloc_page();
-
-    uint32_t flags = MM_PRESENT | MM_READWRITE;
-
-    mmu_map_page(pdir,         (void *)pdir_v_org,  flags);
-    mmu_map_page((void *)page, (void *)pdir_v_copy, flags);
-
-    for (size_t i = 0; i < KSTART; ++i) {
-        if (MM_TEST_FLAG(pdir_v_org[i], MM_PRESENT)) {
-            pt_v_copy      = NULL;
-            pdir_v_copy[i] = ((uint32_t)mmu_v_to_p(pt_v_copy)) | flags; 
-
-            pt_v_org = mmu_alloc_addr(1);
-            mmu_map_page((void *)pdir_v_org[i], pt_v_org, flags);
-
-            for (size_t k = 0; k < 1024; ++k) {
-                if (MM_TEST_FLAG(pt_v_org[k], MM_PRESENT)) {
-                    kdebug("Copy-on-Write");
-                    /* pt_v_copy[k] = mmu_do_cow(pt_v_org[k]); */
-                }
-            }
-        }
-    }
-
-    /* map the kernel as is, no need to perform any CoW operations */
-    for (size_t i = KSTART; i < 1024; ++i) {
-        if (pdir_v_org[i] & MM_PRESENT) {
-            pdir_v_copy[i] = pdir_v_org[i];
-        }
-    }
-
-    mmu_flush_TLB();
-    return (void *)pdir_v_copy;
-}
-
 void *mmu_build_pagedir(void)
 {
     /* physical and virtual addresses of the new directory */
@@ -469,48 +414,37 @@ void *mmu_build_pagedir(void)
     return vdir;
 }
 
-#if 0
-void *mmu_build_pagedir(void)
+void *mmu_duplicate_pdir(void)
 {
-    ptbl_t *pt_v_org, *pt_v_copy;
-    pdir_t *pdir_v_copy = mmu_alloc_addr(1);
-    pdir_t *pdir_v_org  = mmu_alloc_addr(1);
-    page_t page         = mmu_alloc_page();
+    kdebug("starting address space duplication..");
 
-    uint32_t flags = MM_PRESENT | MM_READWRITE;
-
-    mmu_map_page(pdir,         (void *)pdir_v_org,  flags);
-    mmu_map_page((void *)page, (void *)pdir_v_copy, flags);
+    uint32_t *pdir   = mmu_build_pagedir();
+    uint32_t *d_iter = (uint32_t *)0xfffff000;
+    uint32_t *t_iter = NULL;
+    uint32_t *tbl_v  = NULL;
 
     for (size_t i = 0; i < KSTART; ++i) {
-        if (MM_TEST_FLAG(pdir_v_org[i], MM_PRESENT)) {
-            pt_v_copy      = NULL;
-            pdir_v_copy[i] = ((uint32_t)mmu_v_to_p(pt_v_copy)) | flags; 
-
-            pt_v_org = mmu_alloc_addr(1);
-            mmu_map_page((void *)pdir_v_org[i], pt_v_org, flags);
+        if (MM_TEST_FLAG(d_iter[i], MM_PRESENT)) {
+            pdir[i] = mmu_alloc_page() | (d_iter[i] & 0xfff);
+            t_iter  = ((uint32_t *)0xffc00000) + (0x400 * i);
 
             for (size_t k = 0; k < 1024; ++k) {
-                 /* Add special flag MM_COW which tells us that this is 
-                 * really not a read-only page but rather a CoW-mapped page 
-                 * which should result in memory copying upon page fault */
-                if (MM_TEST_FLAG(pt_v_org[k], MM_PRESENT)) {
-                    /* TODO: make sure this works (require user mode support) */
-                    /* pt_v_copy[k] = (pt_v_org[k] |= MM_COW | MM_READONLY); */
+                if (MM_TEST_FLAG(t_iter[k], MM_PRESENT)) {
+                    /* TODO: rewrite this!! */
+                    void *new_addr = mmu_alloc_addr(1);
+                    if (tbl_v != NULL)
+                        mmu_free_addr(tbl_v, 1);
+                    tbl_v = new_addr;
 
+                    mmu_map_page((void *)pdir[i], tbl_v, MM_PRESENT | MM_READWRITE);
+
+                    t_iter[k] &= ~MM_READWRITE; /* rw must be cleared explicitly */
+                    t_iter[k] |= (MM_COW | MM_READONLY);
+                    tbl_v[k]   = t_iter[k];
                 }
             }
         }
     }
 
-    /* map the kernel as is, no need to perform any CoW operations */
-    for (size_t i = KSTART; i < 1024; ++i) {
-        if (pdir_v_org[i] & MM_PRESENT) {
-            pdir_v_copy[i] = pdir_v_org[i];
-        }
-    }
-
-    mmu_flush_TLB();
-    return (void *)pdir_v_copy;
+    return pdir;
 }
-#endif

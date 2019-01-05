@@ -19,6 +19,9 @@ void list_remove(list_head_t *s)
         s->next->prev = s->prev;
     if (s->prev)
         s->prev->next = s->next;
+
+    s->next = NULL;
+    s->prev = NULL;
 }
 
 /* insert node between next and prev */

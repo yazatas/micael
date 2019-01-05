@@ -7,6 +7,8 @@
 #define MAX_THREADS 16
 #define KSTACK_SIZE 0x400 /* 1024 bytes */
 
+typedef int pid_t;
+
 typedef enum {
     T_READY   = 0 << 0,
     T_RUNNING = 1 << 0,
@@ -46,6 +48,8 @@ typedef struct task {
 
     /* TODO: remove */
     const char *name;
+
+    pid_t pid;
 
     list_head_t list;
     list_head_t children;

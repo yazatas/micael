@@ -1,9 +1,8 @@
-#include <kernel/kprint.h>
+#include <arch/i386/gpf.h>
 #include <kernel/kpanic.h>
 #include <kernel/common.h>
 #include <mm/mmu.h>
 #include <sched/syscall.h>
-#include <arch/i386/gpf.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -39,6 +38,10 @@ extern void interrupt_handler(isr_regs_t *cpu_state)
 
         case ISR_PAGE_FAULT:
             vmm_pf_handler(cpu_state->err_num);
+            break;
+
+        case ISR_SYSCALL:
+            syscall_handler(cpu_state);
             break;
 
         default:

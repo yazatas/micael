@@ -143,7 +143,8 @@ void   mmu_free_addr(void *addr, size_t range);
  * they're made to point to original page if write occurs
  * to duplicated page, new page is allocated and contents
  * of the original page is copied to this newly allocated page */
-void *mmu_duplicate_pdir(void *pdir);
+/* TODO: deprecated comment */
+void *mmu_duplicate_pdir(void);
 
 /* duplicate page directory pointed to by pdir
  * (pdir should be the value of cr3 register of the 
