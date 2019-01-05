@@ -8,6 +8,8 @@ kernel.sym
 .gitignore
 .gdbinit
 toolchain/programs
+toolchain/mkinitrd
+toolchain/verify
 toolchain/initrd.bin
 .todo.list
 .todo

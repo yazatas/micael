@@ -10,6 +10,7 @@ void sched_task_schedule(task_t *t);
 
 /* TODO: comment */
 task_t *sched_get_current(void);
-void sched_enter_userland(void *eip, void *esp);
+void sched_enter_userland(void *eip, void *esp) __noreturn;
+void sched_print_tasks(void);
 
 #endif /* end of include guard: __SCHED_H__ */

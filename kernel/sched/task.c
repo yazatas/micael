@@ -10,7 +10,12 @@
 static cache_t *task_cache = NULL;
 static cache_t *thread_cache = NULL;
 
-extern uint32_t stack_bottom;
+static pid_t sched_get_pid(void)
+{
+    static pid_t pid = 1;
+
+    return pid++;
+}
 
 int sched_task_init(void)
 {
@@ -52,22 +57,6 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
     return t;
 }
 
-task_t *sched_task_create(const char *name)
-{
-    task_t *t   = cache_alloc_entry(task_cache, C_NOFLAGS);
-    t->parent   = NULL;
-    t->name     = name;
-    t->nthreads = 0;
-
-    list_init_null(&t->children);
-    list_init_null(&t->list);
-
-    t->dir = mmu_build_pagedir();
-    t->cr3 = (uint32_t)vmm_v_to_p(t->dir);
-
-    return t;
-}
-
 int sched_task_add_thread(task_t *parent, thread_t *child)
 {
     if (parent->nthreads == 0) {
@@ -82,9 +71,57 @@ int sched_task_add_thread(task_t *parent, thread_t *child)
     return 0;
 }
 
-task_t *sched_task_fork(task_t *t)
+task_t *sched_task_create(const char *name)
 {
-    (void)t;
+    task_t *t   = cache_alloc_entry(task_cache, C_NOFLAGS);
+    t->parent   = NULL;
+    t->name     = name;
+    t->nthreads = 0;
+    t->pid      = sched_get_pid();
 
-    return NULL;
+    list_init_null(&t->children);
+    list_init(&t->list);
+
+    t->dir = mmu_build_pagedir();
+    t->cr3 = (uint32_t)vmm_v_to_p(t->dir);
+
+    return t;
+}
+
+task_t *sched_task_fork(task_t *parent)
+{
+    task_t *child   = cache_alloc_entry(task_cache, C_NOFLAGS);
+    child->parent   = parent;
+    child->pid      = sched_get_pid();
+    child->name     = "forked_task";
+    child->nthreads = 0;
+
+    /* copy all data form parent threads but allocate new stack for each thread */
+    thread_t *child_t  = NULL;
+    thread_t *parent_t = parent->threads;
+
+    for (size_t i = 0; i < parent->nthreads; ++i) {
+        child_t  = cache_alloc_entry(thread_cache, C_FORCE_SPATIAL);
+
+        child_t->state         = parent_t->state;
+        child_t->kstack_top    = kmalloc(KSTACK_SIZE);
+        child_t->kstack_bottom = (uint8_t *)child_t->kstack_top + KSTACK_SIZE;
+        child_t->exec_state    = (exec_state_t *)((uint8_t *)child_t->kstack_bottom - sizeof(exec_state_t));
+
+        list_init(&child_t->list);
+        memcpy(child_t->exec_state, parent_t->exec_state, sizeof(exec_state_t));
+
+        sched_task_add_thread(child, child_t);
+        parent_t = container_of(parent_t->list.next, thread_t, list);
+    }
+
+    list_init_null(&child->children);
+    list_init(&child->list);
+
+    list_append(&parent->children, &child->list);
+
+    child->dir = mmu_duplicate_pdir();
+    child->cr3 = (uint32_t)vmm_v_to_p(child->dir);
+
+    return child;
 }

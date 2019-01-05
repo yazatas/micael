@@ -108,7 +108,6 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
             mmu_map_page((void *)page, (void *)v_start, mm_flags);
 
             size_t read_size = MIN(PAGE_SIZE, nleft);
-
             memcpy((void *)ehdr->e_entry, fptr, read_size);
 
             nwritten += read_size;
@@ -121,8 +120,6 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
     mmu_map_page((void *)mmu_alloc_page(), (void *)USER_STACK_START, mm_flags);
 
     /* TODO: add argc + argv to stack */
-
-    vmm_flush_TLB();
 
     sched_enter_userland((void *)ehdr->e_entry, (void *)USER_STACK_START);
 }

@@ -15,6 +15,7 @@ See doc/OVERVIEW.md for more details
 	  * Page Cache
    * Multitasking
       * Preemptive Multitasking
+	  * User Mode
    * File System
       * Virtual File System (WIP)
 	  * Initrd
