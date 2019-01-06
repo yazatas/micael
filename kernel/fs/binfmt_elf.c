@@ -70,28 +70,32 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
         return false;
     }
 
-    /* kprint("\tentry point:                  0x%08x\n" */
-    /*        "\tprogram header table:         0x%08x\n" */
-    /*        "\tsection header table:         0x%08x\n" */
-    /*        "\tsizeof(program header entry):   %8u\n" */
-    /*        "\t# of program header entries:    %8u\n" */
-    /*        "\tsizeof(section header entry):   %8u\n" */
-    /*        "\t# of program header entries:    %8u\n", */
-    /*     ehdr->e_entry, ehdr->e_phoff, ehdr->e_shoff, */
-    /*     ehdr->e_phentsize, ehdr->e_phnum, */ 
-    /*     ehdr->e_shentsize, ehdr->e_shnum); */
+#if 0
+    kprint("\tentry point:                  0x%08x\n"
+           "\tprogram header table:         0x%08x\n"
+           "\tsection header table:         0x%08x\n"
+           "\tsizeof(program header entry):   %8u\n"
+           "\t# of program header entries:    %8u\n"
+           "\tsizeof(section header entry):   %8u\n"
+           "\t# of program header entries:    %8u\n",
+        ehdr->e_entry, ehdr->e_phoff, ehdr->e_shoff,
+        ehdr->e_phentsize, ehdr->e_phnum, 
+        ehdr->e_shentsize, ehdr->e_shnum);
+#endif
 
     Elf32_Phdr *phdr = (Elf32_Phdr *)((uint8_t *)ehdr + ehdr->e_phoff);
 
     if (phdr->p_type == PT_LOAD) {
-        /* kprint("\tp_offset:   %8u\n", phdr->p_offset); */
-        /* kprint("\tp_vaddr:  0x%08x\n", phdr->p_vaddr); */
-        /* kprint("\tp_paddr:  0x%08x\n", phdr->p_paddr); */
-        /* kprint("\tp_filesz:   %8u\n", phdr->p_filesz); */
-        /* kprint("\tp_memsz:    %8u\n", phdr->p_memsz); */
-        /* kprint("\tp_flags:    %8u\n", phdr->p_flags); */
-        /* kprint("\tp_align:    %8u\n", phdr->p_align); */
+#if 0
+        kprint("\tp_offset:   %8u\n", phdr->p_offset);
+        kprint("\tp_vaddr:  0x%08x\n", phdr->p_vaddr);
+        kprint("\tp_paddr:  0x%08x\n", phdr->p_paddr);
+        kprint("\tp_filesz:   %8u\n", phdr->p_filesz);
+        kprint("\tp_memsz:    %8u\n", phdr->p_memsz);
+        kprint("\tp_flags:    %8u\n", phdr->p_flags);
+        kprint("\tp_align:    %8u\n", phdr->p_align);
         kdebug("loadable segment found!");
+#endif
 
         uint32_t mm_flags = MM_PRESENT | MM_USER;
 

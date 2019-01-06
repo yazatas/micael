@@ -3,7 +3,7 @@
 #include <mm/heap.h>
 
 typedef struct {
-    bool (*load_bin)(file_t *, int, char **);
+    binfmt_loader_t loader;
     list_head_t list;
 } binfmt_t;
 
@@ -11,14 +11,14 @@ static binfmt_t loaders;
 
 void binfmt_init(void)
 {
-    loaders.load_bin = NULL;
+    loaders.loader = NULL;
     list_init_null(&loaders.list);
 }
 
-void binfmt_add_loader(bool (*load_bin)(file_t *, int, char **argv))
+void binfmt_add_loader(binfmt_loader_t loader)
 {
     binfmt_t *bfmt = kmalloc(sizeof(binfmt_t));
-    bfmt->load_bin = load_bin;
+    bfmt->loader = loader;
 
     list_init_null(&bfmt->list);
     list_append(&loaders.list, &bfmt->list);
@@ -32,7 +32,7 @@ void binfmt_load(file_t *file, int argc, char **argv)
     FOREACH(&loaders.list, iter) {
         loader = container_of(iter, binfmt_t, list);
 
-        if (loader->load_bin && loader->load_bin(file, argc, argv))
+        if (loader->loader && loader->loader(file, argc, argv))
             kpanic("binfmt load_bin returned!");
     }
 

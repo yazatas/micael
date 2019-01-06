@@ -8,8 +8,6 @@
 #include <sched/sched.h>
 #include <errno.h>
 
-#include <string.h>
-
 static task_t *current   = NULL;
 static task_t *queued    = NULL;
 static task_t *idle_task = NULL;
@@ -146,6 +144,13 @@ void __noreturn sched_enter_userland(void *eip, void *esp)
 {
     disable_irq();
 
+    /* TODO: remove */
+    static int index = 0;
+    static const char *names[5] = {
+        "user_mode1", "user_mode2", "user_mode3",
+        "user_mode4", "user_mode5"
+    };
+
     current->threads->exec_state->eip      = (uint32_t)eip;
     current->threads->exec_state->esp      = (uint32_t)esp;
     current->threads->exec_state->useresp  = (uint32_t)esp;
@@ -162,7 +167,7 @@ void __noreturn sched_enter_userland(void *eip, void *esp)
     tss_ptr.esp0 = (uint32_t)current->threads->kstack_bottom;
 
     /* TODO: remove */
-    current->name = "user_mode";
+    current->name = names[index++];
 
     context_switch(current->cr3, current->threads->exec_state);
 }

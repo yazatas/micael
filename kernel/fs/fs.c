@@ -13,7 +13,7 @@
 
 static mount_t root_fs;
 
-static bool (*loaders[NUM_LOADERS])(file_t *, int, char **) = {
+static binfmt_loader_t loaders[NUM_LOADERS] = {
     binfmt_elf_loader
 };
 

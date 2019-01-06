@@ -92,6 +92,15 @@ static inline uint32_t mmu_get_cr3(void)
     return cr3;
 }
 
+static inline uint32_t mmu_get_cr2(void)
+{
+    uint32_t cr2 = 0;
+
+    asm volatile ("mov %%cr2, %%eax \n \
+                   mov %%eax, %0" : "=r" (cr2));
+    return cr2;
+}
+
 /* miscellaneous */
 void  mmu_init(multiboot_info_t *mbinfo);
 void  mmu_pf_handler(uint32_t error);
@@ -166,5 +175,6 @@ void *mmu_build_pagedir(void);
 void   mmu_list_pde(void);
 void   mmu_list_pte(uint32_t pdi);
 void   mmu_print_memory_map(void);
+void mmu_unmap_pages(size_t start, size_t end);
 
 #endif /* end of include guard: __MMU_H__ */

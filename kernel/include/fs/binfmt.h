@@ -4,8 +4,10 @@
 #include <fs/fs.h>
 #include <lib/list.h>
 
+typedef bool (*binfmt_loader_t)(file_t *, int, char **);
+
 void binfmt_init(void);
-void binfmt_add_loader(bool (*load_bin)(file_t *, int, char **));
+void binfmt_add_loader(binfmt_loader_t loader);
 void binfmt_load(file_t *file, int argc, char **argv);
 
 /* defined in kernel/fs/binfmt_elf.c */
