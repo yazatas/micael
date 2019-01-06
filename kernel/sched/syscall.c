@@ -1,4 +1,6 @@
 #include <string.h>
+#include <fs/binfmt.h>
+#include <fs/fs.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <mm/mmu.h>
@@ -7,12 +9,10 @@
 #include <sched/syscall.h>
 
 #define MAX_SYSCALLS 4
-#define SYSCALL_NAME(name) sys_##name
-#define DEFINE_SYSCALL(name) uint32_t SYSCALL_NAME(name)(isr_regs_t *cpu)
 
-typedef uint32_t (*syscall_t)(isr_regs_t *cpu);
+typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
-DEFINE_SYSCALL(fork)
+int32_t sys_fork(isr_regs_t *cpu)
 {
     (void)cpu;
 
@@ -32,16 +32,34 @@ DEFINE_SYSCALL(fork)
     return 0;
 }
 
-DEFINE_SYSCALL(execv)
+int32_t sys_execv(isr_regs_t *cpu)
 {
-    (void)cpu;
+    const char *path = (const char *)cpu->ebx;
 
-    return 0;
+    file_t *file   = NULL;
+    dentry_t *dntr = NULL;
+
+    if ((dntr = vfs_lookup(path)) == NULL)
+        return -1;
+
+    if ((file = vfs_open_file(dntr)) == NULL)
+        return -1;
+
+    /* clear page tables of current process: 
+     * mark all user page tables as not present and try to free 
+     * as many page frames as possible (all not marked as CoW) */
+    mmu_unmap_pages(0, KSTART - 1);
+
+    /* binfmt_load either jumps to user land and starts to execute
+     * the new process or it fails (and returns) and we must return -1 to caller */
+    binfmt_load(file, 0, NULL);
+
+    return -1;
 }
 
 static syscall_t syscalls[MAX_SYSCALLS] = {
-    [2] = SYSCALL_NAME(fork),
-    [3] = SYSCALL_NAME(execv),
+    [2]  = sys_fork,
+    [3]  = sys_execv,
 };
 
 void syscall_handler(isr_regs_t *cpu)
@@ -49,7 +67,7 @@ void syscall_handler(isr_regs_t *cpu)
     if (cpu->eax >= MAX_SYSCALLS) {
         kpanic("unsupported system call");
     } else {
-        uint32_t ret = syscalls[cpu->eax](cpu);
+        int32_t ret = syscalls[cpu->eax](cpu);
 
         /* return value is transferred in eax */
         task_t *current = sched_get_current();

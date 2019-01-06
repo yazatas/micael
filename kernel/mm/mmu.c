@@ -155,6 +155,22 @@ void mmu_claim_page(uint32_t physaddr)
 
 void mmu_pf_handler(uint32_t error)
 {
+    uint32_t cr2 = mmu_get_cr2(); /* faulting address */
+    uint32_t cr3 = mmu_get_cr3(); /* page directory */
+
+    uint32_t off = cr2 & 0xfff;
+    uint32_t pdi = (cr2 >> 22) & 0x3ff;
+    uint32_t pti = (cr2 >> 12) & 0x3ff;
+    uint32_t *pd = (uint32_t *)0xfffff000;
+    uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
+
+    if (MM_TEST_FLAG(pt[pti], MM_READWRITE) == 0 &&
+        MM_TEST_FLAG(pt[pti], MM_COW)       != 0)
+    {
+        pt[pti] = mmu_do_cow(pt[pti]);
+        return;
+    }
+
     const char *strerr = "";
     switch (error) {
         case 0: strerr = "page read, not present (supervisor)";       break;
@@ -167,26 +183,13 @@ void mmu_pf_handler(uint32_t error)
         case 7: strerr = "page write, protection fault (user)";       break;
         default: kpanic("undocumented error code");
     }
-    kprint("\n\n");
-    kdebug("%s", strerr);
 
-    uint32_t fault_addr = 0;
-    asm volatile ("mov %%cr2, %%eax \n \
-                   mov %%eax, %0" : "=r" (fault_addr));
-
-    uint32_t cr3    = mmu_get_cr3();
-    uint32_t pdi    = (fault_addr >> 22) & 0x3ff;
-    uint32_t pti    = (fault_addr >> 12) & 0x3ff;
-    uint32_t offset = fault_addr & 0xfff;
-
-    kprint("\tfaulting address: 0x%08x\n", fault_addr);
+    kprint("\n\n%s\n", strerr);
+    kprint("\tfaulting address: 0x%08x\n", cr2);
     kprint("\tpage directory index: %4u 0x%03x\n"
            "\tpage table index:     %4u 0x%03x\n"
-           "\tpage frame offset:    %4u 0x%03x\n",
-           pdi, pdi, pti, pti, offset, offset);
-
-    uint32_t *pd = (uint32_t *)0xfffff000;
-    uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
+           "\tpage frame off:       %4u 0x%03x\n",
+           pdi, pdi, pti, pti, off, off);
 
     kdebug("faulting physaddr: 0x%x", pt[pti]);
     kdebug("physaddr of pdir:  0x%x (0x%x)", cr3, mmu_v_to_p((uint32_t *)0xfffff000));
@@ -201,6 +204,8 @@ void mmu_pf_handler(uint32_t error)
         { MM_COW,       "CoW"     }
     };
 
+    task_t *current = sched_get_current();
+    kprint("\t%s 0x%x\n", current->name, current->cr3);
     kdebug("Page flags:");
     for (int i = 0; i < NUM_FLAGS; ++i) {
         if (MM_TEST_FLAG(pt[pti], flags[i].flag)) {
@@ -208,17 +213,10 @@ void mmu_pf_handler(uint32_t error)
         }
     }
 
-    if (MM_TEST_FLAG(pt[pti], MM_READWRITE) == 0 &&
-        MM_TEST_FLAG(pt[pti], MM_COW)       != 0)
-    {
-        pt[pti] = mmu_do_cow(pt[pti]);
-        return;
-    }
-
+    mmu_list_pde();
+    mmu_list_pte(1023);
+    
     for (;;);
-
-    mmu_map_page((void *)mmu_alloc_page(), (void*)fault_addr, MM_PRESENT | MM_READWRITE);
-    mmu_flush_TLB();
 }
 
 /* map physical address to virtual address
@@ -230,16 +228,11 @@ void mmu_map_page(void *physaddr, void *virtaddr, uint32_t flags)
 
     uint32_t *pd = (uint32_t*)0xfffff000;
 
-    if (!(pd[pdi] & MM_PRESENT)) {
-        /* kdebug("Page Directory Entry %u is NOT present", pdi); */
+    if (!(pd[pdi] & MM_PRESENT))
         pd[pdi] = mmu_alloc_page() | flags;
-    } 
 
     uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
-    if (!(pt[pti] & MM_PRESENT)) {
-        /* kdebug("Page Table Entry %u is NOT present", pti); */
-        pt[pti] = (uint32_t)physaddr | flags;
-    }
+    pt[pti] = (uint32_t)physaddr | flags;
 }
 
 void mmu_map_range(void *physaddr, void *virtaddr, size_t range, uint32_t flags)
@@ -447,4 +440,30 @@ void *mmu_duplicate_pdir(void)
     }
 
     return pdir;
+}
+
+void mmu_unmap_pages(size_t start, size_t end)
+{
+    uint32_t *dir = (uint32_t *)0xfffff000;
+    uint32_t *tbl = NULL;
+    kdebug("0%x", vmm_v_to_p(dir));
+
+    for (size_t di = start; di <= end; ++di) {
+        if (dir[di] & MM_PRESENT) {
+            tbl = ((uint32_t *)0xffc00000) + (0x400 * di);
+
+            for (size_t ti = 0; ti < 1024; ++ti) {
+                if (tbl[ti] & MM_PRESENT) {
+                    /* set table entry as not present and if possible, deallocate used page */
+                    if ((tbl[ti] & MM_COW) == 0)
+                        mmu_free_page(tbl[ti]);
+
+                    tbl[ti] = ~MM_PRESENT;
+                }
+            }
+            dir[di] = ~MM_PRESENT;
+        }
+    }
+
+    mmu_flush_TLB();
 }

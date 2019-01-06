@@ -76,6 +76,16 @@ void kmain(multiboot_info_t *mbinfo)
     /* initialize initrd and init task */
     fs_t *fs = vfs_register_fs("initrd", "/mnt", mbinfo);
 
+#if 0
+    file_t *file   = NULL;
+    dentry_t *dntr = NULL;
+
+    if ((dntr = vfs_lookup("/mnt/bin/echo")) == NULL)
+        kpanic("failed to find init script from file system");
+
+    if ((file = vfs_open_file(dntr)) == NULL)
+        kpanic("failed to open file /sbin/init");
+#else 
     task_t   *init_task    = sched_task_create("init_task");
     thread_t *init_thread  = sched_thread_create(init_task_func, NULL);
 
@@ -83,6 +93,7 @@ void kmain(multiboot_info_t *mbinfo)
     sched_task_schedule(init_task);
 
     sched_start();
+#endif
 
 	for (;;);
 }
