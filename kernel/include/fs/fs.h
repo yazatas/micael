@@ -135,6 +135,8 @@ void vfs_list_mountpoints(void);
 
 dentry_t *vfs_lookup(const char *path);
 
+void vfs_free_fs_context(fs_context_t *ctx);
+
 /* ********************************************************** */
 
 file_t   *vfs_open_file(dentry_t *dentry);

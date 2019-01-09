@@ -33,7 +33,7 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
     thread_t *t = cache_alloc_entry(thread_cache, C_NOFLAGS);
 
     t->state         = T_READY;
-    t->kstack_top    = kmalloc(KSTACK_SIZE);
+    t->kstack_top    = cache_alloc_page(C_NOFLAGS);
     t->kstack_bottom = (uint8_t *)t->kstack_top + KSTACK_SIZE;
     t->exec_state    = (exec_state_t *)((uint8_t *)t->kstack_bottom - sizeof(exec_state_t));
 
@@ -55,6 +55,15 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
     t->exec_state->useresp = (uint32_t)t->exec_state + 4;
 
     return t;
+}
+
+void sched_thread_destory(thread_t *t)
+{
+    if (!t)
+        return;
+
+    list_remove(&t->list);
+    memset(t->kstack_top, 0, KSTACK_SIZE);
 }
 
 int sched_task_add_thread(task_t *parent, thread_t *child)
@@ -88,6 +97,10 @@ task_t *sched_task_create(const char *name)
     return t;
 }
 
+void sched_task_destroy(task_t *task)
+{
+}
+
 task_t *sched_task_fork(task_t *parent)
 {
     task_t *child   = cache_alloc_entry(task_cache, C_NOFLAGS);
@@ -104,7 +117,7 @@ task_t *sched_task_fork(task_t *parent)
         child_t  = cache_alloc_entry(thread_cache, C_FORCE_SPATIAL);
 
         child_t->state         = parent_t->state;
-        child_t->kstack_top    = kmalloc(KSTACK_SIZE);
+        child_t->kstack_top    = cache_alloc_page(C_NOFLAGS);
         child_t->kstack_bottom = (uint8_t *)child_t->kstack_top + KSTACK_SIZE;
         child_t->exec_state    = (exec_state_t *)((uint8_t *)child_t->kstack_bottom - sizeof(exec_state_t));
 
@@ -118,10 +131,23 @@ task_t *sched_task_fork(task_t *parent)
     list_init_null(&child->children);
     list_init(&child->list);
 
-    list_append(&parent->children, &child->list);
-
     child->dir = mmu_duplicate_pdir();
     child->cr3 = (uint32_t)vmm_v_to_p(child->dir);
 
     return child;
+}
+
+void sched_free_threads(task_t *t)
+{
+    if (t->nthreads == 1)
+        return;
+
+    thread_t *iter = container_of(t->threads->list.next, thread_t, list);
+
+    do {
+        kdebug("freeing thread %u", t->nthreads);
+        cache_dealloc_page(iter->kstack_top, C_NOFLAGS);
+        cache_dealloc_entry(thread_cache, iter, C_NOFLAGS);
+        iter = container_of(iter->list.next, thread_t, list);
+    } while (--t->nthreads > 1);
 }

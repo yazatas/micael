@@ -11,6 +11,8 @@ typedef struct list_head {
 #define FOREACH(list_head, iter) \
     for (iter = list_head; iter != NULL; iter = iter->next)
 
+#define LIST_EMPTY(l) (l.next == NULL && l.prev == NULL)
+
 /* https://en.wikipedia.org/wiki/Offsetof#Usage
  *
  * thank mr. linux */

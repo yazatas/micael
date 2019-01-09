@@ -5,5 +5,6 @@
 typedef int ssize_t;
 #endif
 
+typedef int gid_t;
 
 #endif /* __TYPES_H__ */
