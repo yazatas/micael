@@ -8,15 +8,17 @@
 #include <sched/sched.h>
 #include <errno.h>
 
-static task_t *current   = NULL;
-static task_t *queued    = NULL;
-static task_t *idle_task = NULL;
+static list_head_t run_queue;
+static list_head_t wait_queue;
 
-static list_head_t old_queued_tasks;
+static task_t *idle_task = NULL;
+static task_t *init_task = NULL;
+static task_t *current   = NULL;
 
 /* defined in arch/i386/switch.s */
 extern void __noreturn context_switch(uint32_t, void *);
 
+/* --------------- idle and init tasks --------------- */
 static void *idle_task_func(void *arg)
 {
     (void)arg;
@@ -33,24 +35,61 @@ static void *idle_task_func(void *arg)
     return NULL;
 }
 
-/* select first task from the queue and TODO */
-static task_t *sched_select_task(task_t **queue)
+/* --------------- /idle and init tasks --------------- */
+
+/* TODO: add comment */
+static task_t *sched_dequeue_task(list_head_t *queue)
 {
     if (!queue)
         return NULL;
 
-    task_t *ret = *queue;
+    task_t *ret = NULL;
 
-    if (ret->list.next == NULL) {
-        *queue = ret;
-    } else {
-        *queue = container_of(ret->list.next, task_t, list);
-        (*queue)->list.prev = ret->list.prev;
+    /* queue is empty if it's next elements points to itself */
+    if (queue->next != queue) {
+        ret = container_of(queue->next, task_t, list);
+        queue->next = ret->list.next;
+
+        if (queue->next == queue)
+            list_init(queue);
     }
 
     return ret;
 }
 
+/* run_queue has a list of tasks in order of execution ie queue->next
+ * points to task that is going to get execution time next.
+ *
+ * queue->prev points to last element of the list so that new task can be
+ * inserted in constant time. Last_task->next points to queue in order to
+ * make the list iterable (see sched_print_tasks) */
+static void sched_enqueue_task(list_head_t *queue, task_t *task)
+{
+    if (!queue || !task)
+        return;
+
+    if (queue->next == queue->prev) {
+        if (queue->next != queue) {
+            queue->prev->next = &task->list;
+            task->list.next = queue;
+        } else {
+            task->list.next = queue;
+            queue->next = &task->list;
+        }
+    } else {
+        task_t *last = container_of(queue->prev, task_t, list);
+        last->list.next = &task->list;
+        task->list.next = queue;
+    }
+
+    /* make queue->prev point to last element on the list so
+     * future insertions can be done in constant time */
+    queue->prev = &task->list;
+}
+
+/* this function gets called when timer interrupt occurs. It saves
+ * the state of currently running process and then calls sched_switch()
+ * to perform the actual context switch */
 static void __noreturn do_context_switch(struct isr_regs *cpu_state)
 {
     disable_irq();
@@ -75,39 +114,43 @@ static void __noreturn do_context_switch(struct isr_regs *cpu_state)
             container_of(current->threads->list.next, thread_t, list);
     }
 
-    task_t *next = sched_select_task(&queued);
+    sched_switch();
+}
+
+void __noreturn sched_switch(void)
+{
+    /* first remove next task from run_queue and then and current queue to run_queue.
+     * There's a chance that system has only one task running (very unlikely in the future).
+     * If we enqueded this task before dequeuing, the run_queue would fill up with the same task 
+     * which is obviously something we don't want */
+    task_t *next = sched_dequeue_task(&run_queue);
 
     if (current != idle_task)
-        sched_task_schedule(current);
+        sched_enqueue_task(&run_queue, current);
 
-    if ((current = next) == NULL)
-        current = idle_task;
+    if ((current = next) == NULL) {
+        /* there was no task in the run_queue, select current task again */
+        current = sched_dequeue_task(&run_queue);
 
+        if (current == NULL) {
+            kdebug("no task to run, choosing idle task");
+            current = idle_task;
+        }
+    }
+
+    /* update tss, important for user mode tasks */
     tss_ptr.esp0 = (uint32_t)current->threads->kstack_bottom;
 
     context_switch(current->cr3, current->threads->exec_state);
     kpanic("context_switch() returned!");
 }
 
-/* queued holds pointer to last element of the list so 
- * inserting can be done in constant time and a pointer to next element */
 void sched_task_schedule(task_t *task)
 {
-    list_init_null(&task->list);
-
-    if (queued == NULL) {
-        queued = task;
-    } else if (queued->list.prev == NULL) {
-        queued->list.prev = &task->list;
-        queued->list.next = &task->list;
-    } else {
-        task_t *last = container_of(queued->list.prev, task_t, list);
-
-        last->list.next   = &task->list;
-        queued->list.prev = &task->list;
-    }
+    sched_enqueue_task(&run_queue, task);
 }
 
+/* initialize idle task (and init in the future) and run/wait queues */
 void sched_init(void)
 {
     if (sched_task_init() < 0)
@@ -119,7 +162,9 @@ void sched_init(void)
     if ((idle_task->threads = sched_thread_create(idle_task_func, NULL)) == NULL)
         kpanic("failed to create thread for idle task");
 
-    queued = NULL;
+    list_init(&run_queue);
+    list_init(&wait_queue);
+
     current = idle_task;
 }
 
@@ -130,14 +175,9 @@ void sched_start(void)
     timer_phase(100);
     irq_install_handler(do_context_switch, 0);
 
-    do_context_switch(NULL);
+    sched_switch();
 
     kpanic("do_context_switch() returned!");
-}
-
-task_t *sched_get_current(void)
-{
-    return current;
 }
 
 void __noreturn sched_enter_userland(void *eip, void *esp)
@@ -172,15 +212,25 @@ void __noreturn sched_enter_userland(void *eip, void *esp)
     context_switch(current->cr3, current->threads->exec_state);
 }
 
+/* TODO: remove this! */
 void sched_print_tasks(void)
 {
-    task_t *iter = queued;
-    int i = 0;
+    kprint("-------\nlist of items:\n");
+    task_t *task  = NULL;
 
-    while (iter->list.next != NULL && i++ < 10) {
-        kprint("\t%s\n", iter->name);
-        iter = container_of(iter->list.next, task_t, list);
+    for (list_head_t *t = run_queue.next; t != &run_queue; t = t->next) {
+        task = container_of(t, task_t, list);
+        kprint("\t%s\n", task->name);
     }
+    kprint("-------\n");
+}
 
-    kprint("\t%s\n", iter->name);
+task_t *sched_get_current(void)
+{
+    return current;
+}
+
+task_t *sched_get_init(void)
+{
+    return init_task;
 }
