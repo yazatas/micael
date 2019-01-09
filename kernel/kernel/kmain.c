@@ -86,11 +86,11 @@ void kmain(multiboot_info_t *mbinfo)
     if ((file = vfs_open_file(dntr)) == NULL)
         kpanic("failed to open file /sbin/init");
 #else 
-    task_t   *init_task    = sched_task_create("init_task");
-    thread_t *init_thread  = sched_thread_create(init_task_func, NULL);
+    task_t *task     = sched_task_create("init_task");
+    thread_t *thread = sched_thread_create(init_task_func, NULL);
 
-    sched_task_add_thread(init_task, init_thread);
-    sched_task_schedule(init_task);
+    sched_task_add_thread(task, thread);
+    sched_task_schedule(task);
 
     sched_start();
 #endif

@@ -125,7 +125,11 @@ void __noreturn sched_switch(void)
      * which is obviously something we don't want */
     task_t *next = sched_dequeue_task(&run_queue);
 
-    if (current != idle_task)
+    /* current may be zombie if user called sys_exit. Sys_exit releases
+     * all memory that can be released, sets the state of its only thread to
+     * T_ZOMBIE and then calls sched_switch. These zombie tasks should be
+     * scheduled (obviously) */
+    if (current != idle_task && current->threads->state != T_ZOMBIE)
         sched_enqueue_task(&run_queue, current);
 
     if ((current = next) == NULL) {

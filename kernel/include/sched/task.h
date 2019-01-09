@@ -1,8 +1,10 @@
 #ifndef __TASK_H__
 #define __TASK_H__
 
+#include <fs/fs.h>
 #include <lib/list.h>
 #include <mm/mmu.h>
+#include <sys/types.h>
 
 #define MAX_THREADS 16
 #define KSTACK_SIZE 0x400 /* 1024 bytes */
@@ -12,7 +14,8 @@ typedef int pid_t;
 typedef enum {
     T_READY   = 0 << 0,
     T_RUNNING = 1 << 0,
-    T_BLOCKED = 1 << 1
+    T_BLOCKED = 1 << 1,
+    T_ZOMBIE  = 1 << 2,
 } thread_state_t;
 
 typedef struct exec_state {
@@ -50,6 +53,11 @@ typedef struct task {
     const char *name;
 
     pid_t pid;
+    gid_t gid;
+    int exit_status;
+
+    /* open files, devices etc. */
+    fs_context_t *fs_ctx;
 
     list_head_t list;
     list_head_t children;
@@ -62,6 +70,9 @@ int sched_task_add_thread(task_t *parent, thread_t *child);
 thread_t *sched_thread_create(void *(*func)(void *), void *arg);
 task_t *sched_task_create(const char *name);
 task_t *sched_task_fork(task_t *t);
+
+/* release memory of all but currently running thread */
+void sched_free_threads(task_t *t);
 
 /* create caches for threads and tasks
  * return 0 on success and -errno on error 

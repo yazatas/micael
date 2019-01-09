@@ -280,3 +280,9 @@ ssize_t vfs_write(file_t *file, off_t offset, size_t size, void *buffer)
 
     return file->f_ops->write(file, offset, size, buffer);
 }
+
+void vfs_free_fs_context(fs_context_t *ctx)
+{
+    if (!ctx)
+        return;
+}

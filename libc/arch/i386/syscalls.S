@@ -32,3 +32,9 @@ execv:
     mov 8(%esp), %ecx  # argv
     int $0x80
     ret
+
+_exit:
+    mov $6, %eax      # syscall number
+    mov 4(%esp), %ebx # status
+    int $0x80
+    ret
