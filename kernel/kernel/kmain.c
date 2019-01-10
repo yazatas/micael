@@ -22,33 +22,6 @@ extern uint32_t __code_segment_start, __code_segment_end;
 extern uint32_t __data_segment_start, __data_segment_end;
 extern uint32_t boot_page_dir; 
 
-/* look for /sbin/init and if it does exist -> execute it
- * otherwise issue kernel panic  */
-static void *init_task_func(void *arg)
-{
-    disable_irq();
-
-    (void)arg;
-
-    kdebug("starting init task...");
-
-    file_t *file   = NULL;
-    dentry_t *dntr = NULL;
-
-    if ((dntr = vfs_lookup("/mnt/sbin/init")) == NULL)
-        kpanic("failed to find init script from file system");
-
-    if ((file = vfs_open_file(dntr)) == NULL)
-        kpanic("failed to open file /sbin/init");
-
-    /* binfmt_load doesn't ever return:
-     * it either jumps to user mode and continues execution there
-     * or issues a kernel panic because loading failed */
-    binfmt_load(file, 0, NULL);
-
-    return NULL;
-}
-
 void kmain(multiboot_info_t *mbinfo)
 {
     tty_init_default();
@@ -76,6 +49,10 @@ void kmain(multiboot_info_t *mbinfo)
     /* initialize initrd and init task */
     fs_t *fs = vfs_register_fs("initrd", "/mnt", mbinfo);
 
+    sched_start();
+
+	for (;;);
+
 #if 0
     file_t *file   = NULL;
     dentry_t *dntr = NULL;
@@ -85,15 +62,5 @@ void kmain(multiboot_info_t *mbinfo)
 
     if ((file = vfs_open_file(dntr)) == NULL)
         kpanic("failed to open file /sbin/init");
-#else 
-    task_t *task     = sched_task_create("init_task");
-    thread_t *thread = sched_thread_create(init_task_func, NULL);
-
-    sched_task_add_thread(task, thread);
-    sched_task_schedule(task);
-
-    sched_start();
 #endif
-
-	for (;;);
 }
