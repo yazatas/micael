@@ -24,7 +24,7 @@ void binfmt_add_loader(binfmt_loader_t loader)
     list_append(&loaders.list, &bfmt->list);
 }
 
-void binfmt_load(file_t *file, int argc, char **argv)
+bool binfmt_load(file_t *file, int argc, char **argv)
 {
     list_head_t *iter = NULL;
     binfmt_t *loader  = NULL;
@@ -36,5 +36,5 @@ void binfmt_load(file_t *file, int argc, char **argv)
             kpanic("binfmt load_bin returned!");
     }
 
-    kpanic("no suitable binfmt loader found!");
+    return false;
 }
