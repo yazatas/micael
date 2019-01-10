@@ -1,4 +1,6 @@
 #include <drivers/timer.h>
+#include <fs/fs.h>
+#include <fs/binfmt.h>
 #include <kernel/common.h>
 #include <kernel/gdt.h>
 #include <kernel/irq.h>
@@ -31,6 +33,33 @@ static void *idle_task_func(void *arg)
         for (volatile int i = 0; i < 50000000; ++i)
             ;
     }
+
+    return NULL;
+}
+
+/* look for /sbin/init and if it does exist -> execute it
+ * otherwise issue kernel panic  */
+static void *init_task_func(void *arg)
+{
+    disable_irq();
+
+    (void)arg;
+
+    kdebug("starting init task...");
+
+    file_t *file   = NULL;
+    dentry_t *dntr = NULL;
+
+    if ((dntr = vfs_lookup("/mnt/sbin/init")) == NULL)
+        kpanic("failed to find init script from file system");
+
+    if ((file = vfs_open_file(dntr)) == NULL)
+        kpanic("failed to open file /sbin/init");
+
+    /* binfmt_load doesn't ever return:
+     * it either jumps to user mode and continues execution there
+     * or issues a kernel panic because loading failed */
+    binfmt_load(file, 0, NULL);
 
     return NULL;
 }
@@ -157,17 +186,30 @@ void sched_task_schedule(task_t *task)
 /* initialize idle task (and init in the future) and run/wait queues */
 void sched_init(void)
 {
+    thread_t *idle_thread = NULL,
+             *init_thread = NULL;
+
     if (sched_task_init() < 0)
         kpanic("failed to inititialize tasks");
 
     if ((idle_task = sched_task_create("idle_task")) == NULL)
         kpanic("failed to create idle task");
 
-    if ((idle_task->threads = sched_thread_create(idle_task_func, NULL)) == NULL)
+    if ((init_task = sched_task_create("init_task")) == NULL)
+        kpanic("failed to create init task");
+
+    if ((idle_thread = sched_thread_create(idle_task_func, NULL)) == NULL)
         kpanic("failed to create thread for idle task");
+
+    if ((init_thread = sched_thread_create(init_task_func, NULL)) == NULL)
+        kpanic("failed to create thread for init task");
+
+    sched_task_add_thread(init_task, init_thread);
+    sched_task_add_thread(idle_task, idle_thread);
 
     list_init(&run_queue);
     list_init(&wait_queue);
+    sched_enqueue_task(&run_queue, init_task);
 
     current = idle_task;
 }
