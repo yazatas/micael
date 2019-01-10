@@ -56,10 +56,9 @@ static void *init_task_func(void *arg)
     if ((file = vfs_open_file(dntr)) == NULL)
         kpanic("failed to open file /sbin/init");
 
-    /* binfmt_load doesn't ever return:
-     * it either jumps to user mode and continues execution there
-     * or issues a kernel panic because loading failed */
     binfmt_load(file, 0, NULL);
+
+    kpanic("binfmt_load() returned, failed to start init task!");
 
     return NULL;
 }
