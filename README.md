@@ -16,9 +16,15 @@ See doc/OVERVIEW.md for more details
    * Multitasking
       * Preemptive Multitasking
 	  * User Mode
+	  * POSIX-compliant system call interface:
+	     * execv
+	     * fork
+	     * exit
    * File System
       * Virtual File System (WIP)
-	  * Initrd
+	  * Initial RAM disk
+   * Drivers
+	  * VESA VBE 3.0
 
 ### What is not ready aka TODO
 * libc:
@@ -43,7 +49,6 @@ See doc/OVERVIEW.md for more details
          * procfs
          * sysfs
    * Drivers
-      * BGA/VGA
 	  * PCI(-e)
 	  * SATA
 	  * SCSI?
@@ -53,6 +58,7 @@ See doc/OVERVIEW.md for more details
 	  * Ethernet, IP, TCP/UDP
    * Miscellaneous
       * 64-bit support
+      * POSIX-compliant system call interface
 
 # Copying
 micael is free software. It's licensed under the MIT license.

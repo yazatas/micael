@@ -1,7 +1,7 @@
 #include <drivers/keyboard.h>
+#include <drivers/tty.h>
 #include <kernel/irq.h>
 #include <kernel/io.h>
-#include <kernel/tty.h>
 
 unsigned char kbdus[128] =
 {
@@ -50,7 +50,7 @@ void keyboard_handler(void)
 	if (sc & 0x80) {
 		/* key released */
 	} else {
-		term_putc(kbdus[sc]);
+		tty_putc(kbdus[sc]);
 	}
 }
 

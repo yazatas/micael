@@ -1,6 +1,5 @@
 #include <stdint.h>
 
-#include <kernel/tty.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/common.h>
@@ -19,7 +18,6 @@ void __attribute__((noreturn))
 kpanic(const char *error)
 {
     disable_irq();
-    tty_init(VGA_COLOR_WHITE, VGA_COLOR_BLUE);
 
 	struct regs_t *tmp = (struct regs_t*)error;
 
