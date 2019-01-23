@@ -30,7 +30,7 @@ run:
 
 debug:
 	objcopy --only-keep-debug kernel/micael.kernel kernel.sym
-	qemu-system-i386 -cdrom micael.iso $(QEMUFLAGS) -curses -gdb tcp::1337 -S
+	qemu-system-i386 -cdrom micael.iso $(QEMUFLAGS) -gdb tcp::1337 -S
 
 clean:
 	$(MAKE) --directory=kernel clean

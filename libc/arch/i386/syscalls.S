@@ -4,6 +4,7 @@
 .global write
 .global fork
 .global execv
+.global _exit
 
 read:
     mov $0, %eax       # syscall number

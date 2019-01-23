@@ -182,8 +182,6 @@ void kfree(void *ptr)
 
 void heap_initialize(uint32_t *heap_start_v)
 {
-	kdebug("initializing kernel heap...");
-
 	HEAP_START = heap_start_v;
 
     kernel_base = (meta_t*)HEAP_START;

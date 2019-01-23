@@ -212,10 +212,8 @@ void mmu_pf_handler(uint32_t error)
             kprint("\t%s flag set\n", flags[i].str);
         }
     }
-
     mmu_list_pde();
-    mmu_list_pte(1023);
-    
+
     for (;;);
 }
 
@@ -272,7 +270,6 @@ void mmu_init(multiboot_info_t *mbinfo)
     kpdir[KSTART]      = ((uint32_t)mmu_v_to_p(&kpgtab))  | MM_PRESENT | MM_READWRITE;
     kpdir[1023]        = ((uint32_t)mmu_v_to_p(&kpdir))   | MM_PRESENT | MM_READWRITE;
 
-    kdebug("changing to pdir located at address: 0x%x...", mmu_v_to_p(&kpdir));
     mmu_change_pdir((uint32_t)mmu_v_to_p(&kpdir));
 
     /* initialize heap meta data etc. */
