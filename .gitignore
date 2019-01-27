@@ -11,5 +11,6 @@ toolchain/programs
 toolchain/mkinitrd
 toolchain/verify
 toolchain/initrd.bin
+toolchain/generate_initrd.sh
 .todo.list
 .todo

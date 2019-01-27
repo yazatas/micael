@@ -33,22 +33,41 @@
 #define MAX_DIRS      5
 
 typedef struct disk_header {
-    uint8_t  file_count;
-    uint32_t disk_size;
+    /* how much is the total size of initrd */
+    uint32_t size;
+
+    /* directory magic number (for verification) */
     uint32_t magic;
+
+    /* how many directories initrd has */
+    uint32_t num_dir;
+
+    /* directory offsets (relative to disk's address) */
+    uint32_t dir_offsets[MAX_DIRS];
 } disk_header_t;
 
 typedef struct dir_header {
-    char dir_name[NAME_MAXLEN];
-    uint32_t item_count;
-    uint32_t bytes_len;
+    char name[NAME_MAXLEN];
+
+    /* how many bytes directory takes in total:
+     *  sizeof(dir_header_t) + num_files * sizeof(file_header_t) + file sizes */
+    uint32_t size;
+
+    /* how many files the directory has (1 <= num_files <= 5) */
+    uint32_t num_files;
+
     uint32_t inode;
     uint32_t magic;
+
+    uint32_t file_offsets[MAX_FILES];
 } dir_header_t;
 
 typedef struct file_header {
-    char file_name[NAME_MAXLEN];
-    uint32_t file_size;
+    char name[NAME_MAXLEN];
+
+    /* file size in bytes (header size excluded) */
+    uint32_t size;
+
     uint32_t inode;
     uint32_t magic;
 } file_header_t;
@@ -59,14 +78,16 @@ typedef struct fs_private {
 } fs_private_t;
 
 typedef struct file_private {
-    off_t offset;
-    uint32_t phys_start;
+    bool mapped;
+    uint32_t offset; /* file offset from initrd start */
+    void *data_ptr;  /* used to read/write from/to initrd */
 } f_private_t;
 
 #define GET_HEADER(fs)            (((fs_private_t *)fs->private)->d_header)
 #define GET_PHYS_START(fs)        (((fs_private_t *)fs->private)->phys_start)
 #define SET_HEADER(fs, dh)        (((fs_private_t *)fs->private)->d_header = (dh))
 #define SET_PHYS_START(fs, start) (((fs_private_t *)fs->private)->phys_start = (start))
+#define GET_F_PRIVATE(file)       ((f_private_t *)file->private)
 
 static inode_t *initrd_alloc_inode(fs_t *fs);
 static int initrd_seek_file(file_t *file, off_t offset);
@@ -76,7 +97,7 @@ static ssize_t initrd_read_file(file_t *file, off_t offset, size_t len, void *bu
     int ret = -1;
     file_header_t *fh = file->private;
 
-    if (len > fh->file_size)
+    if (len > fh->size)
         return -E2BIG;
 
     if (offset != 0) {
@@ -84,10 +105,10 @@ static ssize_t initrd_read_file(file_t *file, off_t offset, size_t len, void *bu
             return ret;
     }
 
-    if (fh->file_size < len + file->offset)
+    if (fh->size < len + file->offset)
         return -E2BIG;
 
-    void *ptr = (uint8_t *)fh + sizeof(file_header_t) + file->offset;
+    void *ptr = (uint8_t *)GET_F_PRIVATE(file)->data_ptr + file->offset;
 
     memcpy(buf, ptr, len);
     file->offset += len;
@@ -104,6 +125,8 @@ static void initrd_close_file(file_t *file)
         errno = EBUSY;
         return;
     }
+
+    /* TODO: free allocated address space (f_priv->data_ptr) */
 
     kfree(file->f_dentry);
     kfree(file);
@@ -141,7 +164,7 @@ static file_t *initrd_open_file(dentry_t *dntr, uint8_t mode)
     if (!fp)
         return NULL;
 
-    if ((fp->f_ops  = kmalloc(sizeof(struct file_ops))) == NULL) {
+    if ((fp->f_ops = kmalloc(sizeof(struct file_ops))) == NULL) {
         kfree(fp);
         return NULL;
     }
@@ -181,29 +204,62 @@ static inode_t *initrd_lookup_inode(fs_t *fs, void *param)
 static dentry_t *initrd_lookup_dentry(fs_t *fs, dentry_t *haystack, const char *needle)
 {
     /* first check if the haystack's children hashmap has been created already. If it has been,
-     * jump straight to searching the needle. Otherwise build the hashmap for before searching */
+     * jump straight to searching the needle. Otherwise build the hashmap before searching */
     if (hm_get_size(haystack->children) > 0)
         goto search;
 
-    dentry_t *dntr      = NULL;
-    dir_header_t *dir   = (dir_header_t *)haystack->private;
-    file_header_t *file = (file_header_t *)((uint8_t *)dir + sizeof(dir_header_t));
+    dir_header_t *dir   = haystack->private;
+    file_header_t *file = NULL;
 
-    for (size_t i = 0; i < dir->item_count; ++i) {
-        dntr = dentry_alloc(file->file_name);
-        dntr->d_inode = initrd_alloc_inode(fs);
+    /* if the hasmap hasn't been built, it means that this directory hasn't been accessed yet
+     * which in turn means that the directory contents may not be fully in memory and we
+     * must allocate the needed space for it */
+    uint32_t NUM_PAGES  = ROUND_UP(dir->size, PAGE_SIZE) / PAGE_SIZE + 1;
+    uint32_t PHYS_START = ROUND_DOWN(((uint32_t)mmu_v_to_p(dir)), PAGE_SIZE);
+    off_t offset        = sizeof(dir_header_t);
+
+    void *data_ptr = mmu_alloc_addr(NUM_PAGES);
+    mmu_map_range(mmu_v_to_p(dir), data_ptr, NUM_PAGES, MM_PRESENT | MM_READWRITE);
+
+    /* reset haystack's dir pointer to poin to newly mapped memory */
+    haystack->private = (uint8_t *)data_ptr + ((uint32_t)mmu_v_to_p(dir) - PHYS_START);
+
+    dir  = haystack->private;
+    file = (file_header_t *)((uint8_t *)dir + sizeof(dir_header_t));
+
+    for (size_t i = 0; i < dir->num_files; ++i) {
+        dentry_t *dntr = dentry_alloc(file->name);
+        dntr->d_inode  = initrd_alloc_inode(fs);
 
         dntr->d_inode->i_ino  = file->inode;
-        dntr->d_inode->i_size = file->file_size;
+        dntr->d_inode->i_size = file->size;
         dntr->d_inode->flags  = VFS_TYPE_FILE;
-        dntr->private         = file;
+        dntr->private         = kmalloc(sizeof(f_private_t));
 
-        hm_insert(haystack->children, file->file_name, dntr);
+        kprint("file info:\n"
+               "\tname:   %s\n"
+               "\tsize:   %u\n"
+               "\tinode:  %u\n"
+               "\toffset: %u\n", file->name, file->size,
+               file->inode, dir->file_offsets[i]);
 
-        file = (file_header_t *)((uint8_t *)file + file->file_size + sizeof(file_header_t));
+        /* file offset can be calculated from directory offset and there's no need to
+         * to map files to memory because all space consumed by this directory is 
+         * already in the usable memory.
+         *
+         * This is actually one of the biggest short comings of current initrd design and
+         * it may be addressed in the future. File meta data and actual data
+         * must be stored separately */
+        ((f_private_t *)dntr->private)->mapped   = true;
+        ((f_private_t *)dntr->private)->data_ptr = (uint8_t *)dir + offset + sizeof(file_header_t);
+
+        offset += file->size + sizeof(file_header_t);
+
+        hm_insert(haystack->children, file->name, dntr);
+        file = (file_header_t *)((uint8_t *)file + file->size + sizeof(file_header_t));
     }
 
-search:
+search:;
     return hm_get(haystack->children, (void *)needle);
 }
 
@@ -285,22 +341,21 @@ fs_t *initrd_create(void *args)
     SET_HEADER(fs, dh);
     SET_PHYS_START(fs, (void *)mod->mod_start);
 
-    kdebug("file count: %u | disk size: %u", 
-            GET_HEADER(fs)->file_count, GET_HEADER(fs)->disk_size);
+    kdebug("disk size: %u", GET_HEADER(fs)->size);
 
     /* initialize root's children */
     fs->root->private  = (void *)((uint32_t)dh + sizeof(disk_header_t));
     dir_header_t *iter = (dir_header_t *)((uint8_t *)fs->root->private + sizeof(dir_header_t));
 
-    for (size_t i = 0; i < ((dir_header_t *)fs->root->private)->item_count; ++i) {
-        dentry_t *dntr = dentry_alloc(iter->dir_name);
+    for (size_t i = 0; i < ((dir_header_t *)fs->root->private)->num_files; ++i) {
+        dentry_t *dntr = dentry_alloc(iter->name);
         dntr->d_inode  = initrd_alloc_inode(fs);
 
         dntr->d_inode->i_ino  = iter->inode;
-        dntr->d_inode->i_size = iter->bytes_len;
+        dntr->d_inode->i_size = iter->size;
         dntr->private         = (void *)iter;
 
-        iter = (dir_header_t *)((uint8_t *)iter + sizeof(dir_header_t) + iter->bytes_len);
+        iter = (dir_header_t *)((uint8_t *)iter + sizeof(dir_header_t) + iter->size);
     }
 
     vmm_free_addr(mbi, 1);

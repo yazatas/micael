@@ -19,26 +19,41 @@
 #define MAX_DIRS      5
 
 typedef struct disk_header {
-    uint8_t  file_count;
-    uint32_t disk_size;
+    /* how much is the total size of initrd */
+    uint32_t size;
+
+    /* directory magic number (for verification) */
     uint32_t magic;
+
+    /* how many directories initrd has */
+    uint32_t num_dir;
+
+    /* directory offsets (relative to disk's address) */
+    uint32_t dir_offsets[MAX_DIRS];
 } disk_header_t;
 
 typedef struct dir_header {
-    char dir_name[NAME_MAXLEN];
-    uint32_t item_count;
+    char name[NAME_MAXLEN];
 
-    /* how many bytes the directory items take in total 
-     * Useful for skipping directories */
-    uint32_t bytes_len;
+    /* how many bytes directory takes in total:
+     *  sizeof(dir_header_t) + num_files * sizeof(file_header_t) + file sizes */
+    uint32_t size;
+
+    /* how many files the directory has (1 <= num_files <= 5) */
+    uint32_t num_files;
 
     uint32_t inode;
     uint32_t magic;
+
+    uint32_t file_offsets[MAX_FILES];
 } dir_header_t;
 
 typedef struct file_header {
-    char file_name[NAME_MAXLEN];
-    uint32_t file_size;
+    char name[NAME_MAXLEN];
+
+    /* file size in bytes (header size excluded) */
+    uint32_t size;
+
     uint32_t inode;
     uint32_t magic;
 } file_header_t;
@@ -67,10 +82,10 @@ int main(int argc, char **argv)
 
     fread(&disk_header, sizeof(disk_header_t), 1, disk_fp);
 
-    printf("file_count: %u\n"
-           "disk_size:  %u\n"
-           "magic:      0x%x\n", disk_header.file_count,
-           disk_header.disk_size, disk_header.magic);
+    printf("disk_size:  %u\n"
+           "num_dir:    %u\n"
+           "magic:      0x%x\n", disk_header.size,
+           disk_header.num_dir, disk_header.magic);
 
     puts("\n------------");
 
@@ -79,33 +94,46 @@ int main(int argc, char **argv)
     printf("name:       %s\n"
            "item count: %u\n"
            "num bytes:  %u\n"
-           "inode:      %u\n"
-           "\ndirectory contents:\n",
-           root_header.dir_name,  root_header.item_count,
-           root_header.bytes_len, root_header.inode);
+           "inode:      %u\n\n",
+           root_header.name, root_header.num_files,
+           root_header.size, root_header.inode);
+
+    printf("file/dir offsets:\n");
+    for (int i = 0; i < root_header.num_files; ++i) {
+        printf("\t%d. item offset: %u\n", i + 1, root_header.file_offsets[i]);
+    }
+
+    printf("\ndirectory contents:\n");
 
     dir_header_t dir;
     file_header_t file;
 
-    for (int dir_iter = 0; dir_iter < root_header.item_count; ++dir_iter) {
+    for (int dir_iter = 0; dir_iter < root_header.num_files; ++dir_iter) {
         fread(&dir, sizeof(dir_header_t), 1, disk_fp);
 
-        printf("name:       %s\n"
+        printf("\n------------\n"
+               "name:       %s\n"
                "item count: %u\n"
                "num bytes:  %u\n"
-               "inode:      %u\n"
-               "\ndirectory contents:\n",
-               dir.dir_name,  dir.item_count,
-               dir.bytes_len, dir.inode);
+               "inode:      %u\n",
+               dir.name, dir.num_files,
+               dir.size, dir.inode);
 
-        for (int file_iter = 0; file_iter < dir.item_count; ++file_iter) {
+        printf("\nfile/dir offsets:\n");
+        for (int i = 0; i < root_header.num_files; ++i) {
+            printf("\t%d. item offset: %u\n", i + 1, dir.file_offsets[i]);
+        }
+
+        printf("\ndirectory contents:\n");
+
+        for (int file_iter = 0; file_iter < dir.num_files; ++file_iter) {
             fread(&file, sizeof(file_header_t), 1, disk_fp);
             printf("\tname:  %s\n"
                    "\tsize:  %u\n"
                    "\tinode: %u\n\n",
-                file.file_name, file.file_size,
+                file.name, file.size,
                 file.inode, file.magic);
-            fseek(disk_fp, file.file_size, SEEK_CUR);
+            fseek(disk_fp, file.size, SEEK_CUR);
         }
     }
 
