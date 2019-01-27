@@ -33,22 +33,26 @@ void kmain(multiboot_info_t *mbinfo)
 
     /* create init and idle tasks */
     sched_init();
-    
+
     fs_t *fs = vfs_register_fs("initrd", "/mnt", mbinfo);
 
-    sched_start();
-
-    for (;;);
-#if 0
-
-    file_t *file   = NULL;
-    dentry_t *dntr = NULL;
+    file_t *file    = NULL;
+    dentry_t *dntr  = NULL;
+    uint8_t arr[100] = { 0 };
 
     if ((dntr = vfs_lookup("/mnt/bin/echo")) == NULL)
         kpanic("failed to find init script from file system");
 
-    /* if ((file = vfs_open_file(dntr)) == NULL) */
-    /*     kpanic("failed to open file /sbin/init"); */
+    if ((file = vfs_open_file(dntr)) == NULL)
+        kpanic("failed to open file /sbin/init");
 
-#endif
+    if (vfs_read(file, 0, 100, arr) < 0) {
+        kdebug("failed to read from memroy");
+    }
+
+    hex_dump(arr, 100);
+
+    sched_start();
+
+    for (;;);
 }

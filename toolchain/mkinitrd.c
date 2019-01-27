@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -47,26 +48,41 @@
 #define MAX_DIRS      5
 
 typedef struct disk_header {
-    uint8_t  file_count;
-    uint32_t disk_size;
+    /* how much is the total size of initrd */
+    uint32_t size;
+
+    /* directory magic number (for verification) */
     uint32_t magic;
+
+    /* how many directories initrd has */
+    uint32_t num_dir;
+
+    /* directory offsets (relative to disk's address) */
+    uint32_t dir_offsets[MAX_DIRS];
 } disk_header_t;
 
 typedef struct dir_header {
-    char dir_name[NAME_MAXLEN];
-    uint32_t item_count;
+    char name[NAME_MAXLEN];
 
-    /* how many bytes the directory items take in total 
-     * Useful for skipping directories */
-    uint32_t bytes_len;
+    /* how many bytes directory takes in total:
+     *  sizeof(dir_header_t) + num_files * sizeof(file_header_t) + file sizes */
+    uint32_t size;
+
+    /* how many files the directory has (1 <= num_files <= 5) */
+    uint32_t num_files;
 
     uint32_t inode;
     uint32_t magic;
+
+    uint32_t file_offsets[MAX_FILES];
 } dir_header_t;
 
 typedef struct file_header {
-    char file_name[NAME_MAXLEN];
-    uint32_t file_size;
+    char name[NAME_MAXLEN];
+
+    /* file size in bytes (header size excluded) */
+    uint32_t size;
+
     uint32_t inode;
     uint32_t magic;
 } file_header_t;
@@ -114,20 +130,25 @@ int main(int argc, char **argv)
     FILE *disk_fp = fopen("initrd.bin", "w"), *tmp;
     char *fname;
     int c, dir_count = 0, dir_ptr = 0;
+    uint32_t cur_offset = sizeof(disk_header_t) + sizeof(dir_header_t); /* root dir */
 
     disk_header_t disk_header = {
-        .file_count = 0,
-        .disk_size  = 0,
-        .magic      = HEADER_MAGIC
+        .size    = 0,
+        .num_dir = 0,
+        .magic   = HEADER_MAGIC
     };
 
+    memset(disk_header.dir_offsets, 0, sizeof(disk_header.dir_offsets));
+
     dir_header_t root = {
-        .dir_name   = "/",
-        .item_count = 0,
-        .bytes_len  = 0,
-        .inode      = alloc_inode(),
-        .magic      = DIR_MAGIC
+        .name      = "/",
+        .num_files = 0,
+        .size      = 0,
+        .inode     = alloc_inode(),
+        .magic     = DIR_MAGIC
     };
+
+    memset(root.file_offsets, 0, sizeof(root.file_offsets));
 
     char prev_dir[NAME_MAXLEN], cur_dir[NAME_MAXLEN];
 
@@ -159,7 +180,7 @@ int main(int argc, char **argv)
 
                 /* check if dir already exists */
                 for (int i = 0; i < MAX_DIRS; ++i) {
-                    if (strcmp(cur_dir, data[i].dir.dir_name) == 0) {
+                    if (strcmp(cur_dir, data[i].dir.name) == 0) {
 #ifdef __DEBUG__
                         printf("dir already exists\n");
 #endif
@@ -181,8 +202,8 @@ int main(int argc, char **argv)
                 dir_ptr = dir_count++;
                 data[dir_ptr].dir.inode = alloc_inode();
                 data[dir_ptr].dir.magic = DIR_MAGIC;
-                data[dir_ptr].dir.item_count = 0;
-                strncpy(data[dir_ptr].dir.dir_name, cur_dir, NAME_MAXLEN);
+                data[dir_ptr].dir.num_files = 0;
+                strncpy(data[dir_ptr].dir.name, cur_dir, NAME_MAXLEN);
             }
 
 save_dir_data:
@@ -192,18 +213,18 @@ save_dir_data:
 
 #ifdef __DEBUG__
             printf("save file %s (%u) to dir %s %s\n", fname, nwritten,
-                    data[dir_ptr].dir.dir_name, argv[optind - 1]);
+                    data[dir_ptr].dir.name, argv[optind - 1]);
 #endif
 
-            data[dir_ptr].dir.bytes_len += nwritten + sizeof(file_header_t);
-            data[dir_ptr].dir.item_count++;
+            data[dir_ptr].dir.size += nwritten + sizeof(file_header_t);
+            data[dir_ptr].dir.num_files++;
 
             size_t fcount = data[dir_ptr].file_count,
                    fptr   = data[dir_ptr].file_ptr;
 
             for (int i = 0; i < MAX_FILES; ++i) {
-                if (strncmp(fname, data[dir_ptr].files[i].file.file_name, NAME_MAXLEN) == 0) {
-                    printf("%s already exists in dir %s\n", fname, data[dir_ptr].dir.dir_name);
+                if (strncmp(fname, data[dir_ptr].files[i].file.name, NAME_MAXLEN) == 0) {
+                    printf("%s already exists in dir %s\n", fname, data[dir_ptr].dir.name);
                     goto end;
                 }
             } 
@@ -214,11 +235,31 @@ save_dir_data:
             }
 
             fptr = fcount++;
-            data[dir_ptr].files[fptr].file_path      = argv[optind - 1];
-            data[dir_ptr].files[fptr].file.file_size = nwritten;
-            data[dir_ptr].files[fptr].file.inode     = alloc_inode();
-            data[dir_ptr].files[fptr].file.magic     = FILE_MAGIC;
-            strncpy(data[dir_ptr].files[fptr].file.file_name, fname, NAME_MAXLEN);
+            data[dir_ptr].files[fptr].file_path  = argv[optind - 1];
+            data[dir_ptr].files[fptr].file.size  = nwritten;
+            data[dir_ptr].files[fptr].file.inode = alloc_inode();
+            data[dir_ptr].files[fptr].file.magic = FILE_MAGIC;
+
+            /* for the first file the offset is sizeof(dir_header_t)
+             *
+             * for all subsequent files it's sizeof(file_header_t) + 
+             * previous file's offset and its size */
+            /* TODO: explain all this better */
+            if (fptr == 0) {
+                if (dir_ptr != 0) {
+                    dir_header_t prev_dir = data[dir_ptr - 1].dir;
+                    cur_offset += sizeof(file_header_t)
+                               +  data[dir_ptr - 1].files[prev_dir.num_files - 1].file.size;
+                }
+
+                cur_offset += sizeof(dir_header_t);
+            } else {
+                cur_offset += sizeof(file_header_t)
+                           +  data[dir_ptr].files[fptr - 1].file.size;
+            }
+
+            strncpy(data[dir_ptr].files[fptr].file.name, fname, NAME_MAXLEN);
+            data[dir_ptr].dir.file_offsets[fptr] = cur_offset;
 
             data[dir_ptr].file_count++;
             data[dir_ptr].file_ptr++;
@@ -244,20 +285,29 @@ end:
 #ifdef __DEBUG__
         puts("--------");
 
+        for (int i = 0; i < data[dir_iter].dir.num_files; ++i) {
+            printf("%d. file's offset: %d\n", i, data[dir_iter].dir.file_offsets[i]);
+        }
+
+        printf("disk: %zu\n", sizeof(disk_header_t));
+        printf("dir:  %zu\n", sizeof(dir_header_t));
+        printf("file: %zu\n", sizeof(file_header_t));
+
         printf("name:       %s\n"
                "item count: %u\n"
                "num bytes:  %u\n"
                "inode:      %u\n"
                "\ndirectory contents:\n",
-               data[dir_iter].dir.dir_name,  data[dir_iter].dir.item_count,
-               data[dir_iter].dir.bytes_len, data[dir_iter].dir.inode);
+               data[dir_iter].dir.name, data[dir_iter].dir.num_files,
+               data[dir_iter].dir.size, data[dir_iter].dir.inode);
+
 #endif
         fwrite(&data[dir_iter].dir, sizeof(dir_header_t), 1, disk_fp);
-        disk_header.disk_size += data[dir_iter].dir.bytes_len;
+        disk_header.size += data[dir_iter].dir.size;
 
-        for (int file_iter = 0; file_iter < data[dir_iter].dir.item_count; ++file_iter) {
+        for (int file_iter = 0; file_iter < data[dir_iter].dir.num_files; ++file_iter) {
 
-            disk_header.file_count++;
+            /* disk_header.file_count++; */
             fwrite(&data[dir_iter].files[file_iter].file, sizeof(file_header_t), 1, disk_fp);
             tmp = fopen(data[dir_iter].files[file_iter].file_path, "r");
 
@@ -268,20 +318,34 @@ end:
             fclose(tmp);
 
 #if __DEBUG__
-            printf("\tpath:  %s\n"
-                   "\tname:  %s\n"
-                   "\tsize:  %u\n"
-                   "\tinode: %u\n\n",
+            printf("\tpath:   %s\n"
+                   "\tname:   %s\n"
+                   "\tsize:   %u\n"
+                   "\tinode:  %u\n\n",
                 data[dir_iter].files[file_iter].file_path,
-                data[dir_iter].files[file_iter].file.file_name,
-                data[dir_iter].files[file_iter].file.file_size,
-                data[dir_iter].files[file_iter].file.inode, data[dir_iter].files[file_iter].file.magic);
+                data[dir_iter].files[file_iter].file.name,
+                data[dir_iter].files[file_iter].file.size,
+                data[dir_iter].files[file_iter].file.inode,
+                data[dir_iter].files[file_iter].file.magic);
 #endif
         }
     }
 
-    root.item_count = dir_count;
-    root.bytes_len  = sizeof(dir_header_t) * dir_count;
+    root.num_files = dir_count;
+    root.size      = sizeof(dir_header_t) * dir_count;
+
+    root.file_offsets[0] = sizeof(disk_header_t) + sizeof(dir_header_t);
+
+    for (size_t i = 1; i < dir_count; ++i) {
+        root.file_offsets[i] = data[dir_ptr].dir.file_offsets[0] - sizeof(dir_header_t);
+    }
+
+#if __DEBUG__
+    printf("root dir offsets:\n");
+    for (size_t i = 0; i < dir_count; ++i) {
+        printf("\t%d. dir offset: %u\n", i + 1, root.file_offsets[i]);
+    }
+#endif
 
     fseek(disk_fp, 0L, SEEK_SET);
     fwrite(&disk_header, sizeof(disk_header_t), 1, disk_fp);

@@ -57,8 +57,6 @@ void vfs_init(void *args)
 {
     (void)args;
 
-    kdebug("initializing VFS...");
-
     root_fs.mountpoint = kmalloc(sizeof(dentry_t));
     root_fs.fs         = NULL;
     root_fs.dev_id     = 0;
