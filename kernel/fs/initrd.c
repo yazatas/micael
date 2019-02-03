@@ -95,7 +95,7 @@ static int initrd_seek_file(file_t *file, off_t offset);
 static ssize_t initrd_read_file(file_t *file, off_t offset, size_t len, void *buf)
 {
     int ret = -1;
-    file_header_t *fh = file->private;
+    file_header_t *fh = ((f_private_t *)file->private)->data_ptr;
 
     if (len > fh->size)
         return -E2BIG;
@@ -108,7 +108,7 @@ static ssize_t initrd_read_file(file_t *file, off_t offset, size_t len, void *bu
     if (fh->size < len + file->offset)
         return -E2BIG;
 
-    void *ptr = (uint8_t *)GET_F_PRIVATE(file)->data_ptr + file->offset;
+    void *ptr = (void *)((uint8_t *)fh + sizeof(file_header_t));
 
     memcpy(buf, ptr, len);
     file->offset += len;
@@ -219,7 +219,7 @@ static dentry_t *initrd_lookup_dentry(fs_t *fs, dentry_t *haystack, const char *
     off_t offset        = sizeof(dir_header_t);
 
     void *data_ptr = mmu_alloc_addr(NUM_PAGES);
-    mmu_map_range(mmu_v_to_p(dir), data_ptr, NUM_PAGES, MM_PRESENT | MM_READWRITE);
+    mmu_map_range(mmu_v_to_p(dir), data_ptr, NUM_PAGES, MM_PRESENT | MM_READONLY);
 
     /* reset haystack's dir pointer to poin to newly mapped memory */
     haystack->private = (uint8_t *)data_ptr + ((uint32_t)mmu_v_to_p(dir) - PHYS_START);
@@ -251,7 +251,7 @@ static dentry_t *initrd_lookup_dentry(fs_t *fs, dentry_t *haystack, const char *
          * it may be addressed in the future. File meta data and actual data
          * must be stored separately */
         ((f_private_t *)dntr->private)->mapped   = true;
-        ((f_private_t *)dntr->private)->data_ptr = (uint8_t *)dir + offset + sizeof(file_header_t);
+        ((f_private_t *)dntr->private)->data_ptr = (uint8_t *)dir + offset;
 
         offset += file->size + sizeof(file_header_t);
 
