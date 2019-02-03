@@ -33,7 +33,7 @@ void  cache_dealloc_page(void *ptr, uint32_t flags);
 
 /* create cache for fixed size elements (used for inodes, dentries, threads etc)
  * cache_create returns cache object on success and NULL on error & and sets errno */
- cache_t *cache_create(size_t size, uint32_t flags);
+cache_t *cache_create(size_t size, uint32_t flags);
 
 /* destroy cache (release all used memory back to page cache)
  * return 0 on success and -errno on error */

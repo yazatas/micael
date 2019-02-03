@@ -6,7 +6,7 @@ void *memchr(const void *s, int c, size_t n)
 
 	for (size_t i = 0; i < n; ++i) {
 		if (ptr[i] == (uint8_t)c)
-			return ptr + i;
+			return (void *)ptr + i;
 	}
 	return NULL;
 }

@@ -30,6 +30,8 @@ int sched_task_init(void)
 
 thread_t *sched_thread_create(void *(*func)(void *), void *arg)
 {
+    (void)arg;
+
     thread_t *t = cache_alloc_entry(thread_cache, C_NOFLAGS);
 
     t->state         = T_READY;
@@ -99,6 +101,7 @@ task_t *sched_task_create(const char *name)
 
 void sched_task_destroy(task_t *task)
 {
+    (void)task;
 }
 
 task_t *sched_task_fork(task_t *parent)
