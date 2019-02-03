@@ -52,4 +52,5 @@ size_t multiboot_load_modules(multiboot_info_t *mbi)
                 (unsigned) mod->mod_end,
                 (char *) mod->cmdline);
 
+    return 0;
 }

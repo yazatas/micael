@@ -102,6 +102,8 @@ int dcache_init(void)
 
     dcache.free_list = NULL;
     dcache.used_list = NULL;
+
+    return 0;
 }
 
 /* TODO: rewrite to use the allocated page directly 

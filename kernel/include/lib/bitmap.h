@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-typedef struct fs fs_t;
-
 enum {
     BM_BIT_SET            =  1,
     BM_BIT_NOT_SET        =  0,
