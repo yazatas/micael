@@ -3,9 +3,8 @@
 #include <mm/heap.h>
 #include <mm/cache.h>
 #include <sched/task.h>
-
+#include <kernel/util.h>
 #include <errno.h>
-#include <string.h>
 
 static cache_t *task_cache = NULL;
 static cache_t *thread_cache = NULL;

@@ -1,8 +1,7 @@
 #include <kernel/kprint.h>
+#include <kernel/util.h>
 #include <drivers/tty.h>
-
 #include <stdarg.h>
-#include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
 

@@ -11,7 +11,7 @@ include $(DIR_LIB)/make.config
 DESTDIR=$(realpath $(shell pwd)/../sysroot)
 
 CFLAGS:=$(CFLAGS) --sysroot=$(DESTDIR) -D__is_kernel $(KERNEL_ARCH_CFLAGS)
-LDFLAGS:=$(LDFLAGS) -nostdlib -lk -lgcc $(KERNEL_ARCH_LDFLAGS)
+LDFLAGS:=$(LDFLAGS) -nostdlib -lgcc $(KERNEL_ARCH_LDFLAGS)
 
 
 KERNEL_OBJS=\
@@ -26,6 +26,7 @@ kernel/kmain.o \
 kernel/isr.o \
 kernel/kprint.o \
 kernel/kpanic.o \
+kernel/util.o
 
 OBJS=$(KERNEL_OBJS)
 LINK_LIST=$(KERNEL_OBJS) $(LDFLAGS)

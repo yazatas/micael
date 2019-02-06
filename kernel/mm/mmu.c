@@ -9,8 +9,6 @@
 #include <lib/bitmap.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <string.h>
-
 #include <sched/sched.h>
 
 #define NUM_FLAGS                5

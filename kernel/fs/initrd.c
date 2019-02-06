@@ -1,7 +1,3 @@
-#include <errno.h>
-#include <string.h>
-#include <stdbool.h>
-
 #include <fs/fs.h>
 #include <fs/initrd.h>
 #include <mm/heap.h>
@@ -10,6 +6,9 @@
 #include <fs/multiboot.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/util.h>
+#include <errno.h>
+#include <stdbool.h>
 
 /* This implementation of the initrd is very naive.
  * It only supports the most necessary features,

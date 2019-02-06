@@ -1,9 +1,8 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/util.h>
 #include <mm/mmu.h>
 #include <mm/heap.h>
-
-#include <string.h>
 
 typedef struct meta {
     size_t size;

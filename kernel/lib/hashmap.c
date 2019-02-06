@@ -1,6 +1,6 @@
+#include <kernel/util.h>
 #include <errno.h>
 #include <stdbool.h>
-#include <string.h>
 
 #include <lib/hashmap.h>
 #include <mm/heap.h>

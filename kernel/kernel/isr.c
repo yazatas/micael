@@ -3,9 +3,7 @@
 #include <kernel/common.h>
 #include <mm/mmu.h>
 #include <sched/syscall.h>
-
 #include <stdint.h>
-#include <stdio.h>
 
 #define ISR_SYSCALL    0x80
 #define ISR_PAGE_FAULT 0x0e

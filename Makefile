@@ -1,20 +1,16 @@
 ROOTDIR?=$(shell pwd)
 include $(ROOTDIR)/Makefile.config
 
-.PHONY: all kernel libc iso clean copy-headers
+.PHONY: all kernel iso clean copy-headers
 
-all: copy-headers libc kernel iso
+all: copy-headers kernel iso
 
 copy-headers:
 	@mkdir -p $(SYSROOT)
-	$(MAKE) --directory=libc copy-headers
 	$(MAKE) --directory=kernel copy-headers
 
 kernel:
 	$(MAKE) --directory=kernel install
-
-libc:
-	$(MAKE) --directory=libc install
 
 iso:
 	@mkdir -p isodir/boot/grub
@@ -34,5 +30,4 @@ debug:
 
 clean:
 	$(MAKE) --directory=kernel clean
-	$(MAKE) --directory=libc clean
 	@rm -rf sysroot isodir micael.iso kernel.sym

@@ -1,8 +1,6 @@
 #include <kernel/gdt.h>
 #include <kernel/kprint.h>
-
-#include <string.h>
-#include <stdio.h>
+#include <kernel/util.h>
 
 extern uint32_t stack_bottom;
 

@@ -2,8 +2,7 @@
 #include <lib/hashmap.h>
 #include <lib/list.h>
 #include <mm/cache.h>
-
-#include <string.h>
+#include <kernel/util.h>
 
 #define DCACHE_MAX_SIZE   512
 #define DENTRIES_PER_PAGE  22

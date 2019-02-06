@@ -13,6 +13,9 @@ typedef struct isr_regs {
     uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
 } isr_regs_t;
 
+typedef int ssize_t;
+typedef int gid_t;
+
 #define MIN(v1, v2) (((v1) < (v2)) ? (v1) : (v2))
 #define MAX(v1, v2) (((v1) < (v2)) ? (v2) : (v1))
 

@@ -3,8 +3,7 @@
 #include <mm/mmu.h>
 #include <kernel/io.h>
 #include <kernel/kprint.h>
-#include <string.h>
-
+#include <kernel/util.h>
 #include <kernel/kpanic.h>
 
 #define DISPLAY_WIDTH     1024
