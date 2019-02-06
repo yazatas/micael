@@ -1,10 +1,9 @@
 #include <errno.h>
-#include <string.h>
-
 #include <fs/binfmt.h>
 #include <fs/fs.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/util.h>
 #include <mm/mmu.h>
 #include <mm/heap.h>
 #include <sched/sched.h>
@@ -81,10 +80,14 @@ int32_t sys_exit(isr_regs_t *cpu)
     /* free all used memory (all memory that can be freed) */
     vfs_free_fs_context(current->fs_ctx);
     sched_free_threads(current);
+
     mmu_unmap_pages(0, KSTART - 1);
+
 
     current->threads->state = T_ZOMBIE;
 
+
+    /* for (;;); */
     sched_switch();
 }
 

@@ -1,9 +1,7 @@
 #include <kernel/idt.h>
 #include <kernel/kprint.h>
-
+#include <kernel/util.h>
 #include <stdint.h>
-#include <string.h>
-#include <stdio.h>
 
 /* defined in arch/i386/interrupts.s */
 extern void isr0();
