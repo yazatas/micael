@@ -59,23 +59,6 @@ static struct dcache {
 
 } dcache;
 
-/*  http://www.cse.yorku.ca/~oz/hash.html */
-static uint32_t dcache_hash(void *key)
-{
-    if (key == NULL)
-        return UINT32_MAX;
-
-    uint32_t hash = 5381;
-    char *str     = key;
-    int c;
-
-    while ((c = *str++) != '\0') {
-        hash = ((hash << 5) + hash) + c;
-    }
-
-    return hash;
-}
-
 static struct dcache_entry *dcache_alloc_entry(void)
 {
     struct dcache_entry *de = cache_alloc_page(C_NOFLAGS);
@@ -95,7 +78,7 @@ static struct dcache_entry *dcache_alloc_entry(void)
  * it doesn't support dynamic sizing */
 int dcache_init(void)
 {
-    dcache.dentries = hm_alloc_hashmap(DCACHE_MAX_SIZE, dcache_hash);
+    dcache.dentries = hm_alloc_hashmap(DCACHE_MAX_SIZE, HM_KEY_TYPE_STR);
     dcache.capacity = DCACHE_MAX_SIZE;
     dcache.len      = 0;
 
@@ -138,7 +121,7 @@ dentry_t *dentry_alloc(const char *name)
     }
 
     /* allocate hashmap for dentry's children */
-    tmp->dntr.children = hm_alloc_hashmap(DENTRY_HM_LEN, dcache_hash);
+    tmp->dntr.children = hm_alloc_hashmap(DENTRY_HM_LEN, HM_KEY_TYPE_STR);
 
     return &tmp->dntr;
 }

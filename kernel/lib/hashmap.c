@@ -30,7 +30,7 @@ struct hashmap {
  *  "double hash" the key to prevent collicions as much as
  *  possible. Key gotten from block cache should be pretty unique 
  *  as there won't be that many devices running concurrently */
-static uint32_t hm_rehash(void *key)
+static uint32_t hm_hash_num(void *key)
 {
     if (key == NULL)
         return UINT32_MAX;
@@ -44,9 +44,26 @@ static uint32_t hm_rehash(void *key)
     return tmp;
 }
 
+/*  http://www.cse.yorku.ca/~oz/hash.html */
+static uint32_t hm_hash_str(void *key)
+{
+    if (key == NULL)
+        return UINT32_MAX;
+
+    uint32_t hash = 5381;
+    char *str     = key;
+    int c;
+
+    while ((c = *str++) != '\0') {
+        hash = ((hash << 5) + hash) + c;
+    }
+
+    return hash;
+}
+
 /* "size" should be large enough so that rehashing
  * needn't to be performed as it's very expensive */
-hashmap_t *hm_alloc_hashmap(size_t size, uint32_t (*hm_hash_func)(void *))
+hashmap_t *hm_alloc_hashmap(size_t size, hm_key_type_t type)
 {
     hashmap_t *hm;
 
@@ -59,10 +76,14 @@ hashmap_t *hm_alloc_hashmap(size_t size, uint32_t (*hm_hash_func)(void *))
     hm->len = 0;
     hm->cap = size;
 
-    if (hm_hash_func != NULL)
-        hm->hm_hash = hm_hash_func;
-    else
-        hm->hm_hash = hm_rehash;
+    if (type == HM_KEY_TYPE_NUM) {
+        hm->hm_hash = hm_hash_num;
+    } else if (type == HM_KEY_TYPE_STR) {
+        hm->hm_hash = hm_hash_str;
+    } else {
+        errno = EINVAL;
+        return NULL;
+    }
 
     return hm;
 }
@@ -191,4 +212,14 @@ size_t hm_get_size(hashmap_t *hm)
 size_t hm_get_capacity(hashmap_t *hm)
 {
     return hm ? hm->cap : 0;
+}
+
+void hm_add_hash_func(hashmap_t *hm, uint32_t (*hm_hash_func)(void *))
+{
+    if (!hm || !hm_hash_func) {
+        errno = EINVAL;
+        return;
+    }
+
+    hm->hm_hash = hm_hash_func;
 }
