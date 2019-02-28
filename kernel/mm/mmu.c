@@ -161,6 +161,7 @@ void mmu_pf_handler(uint32_t error)
     uint32_t pti = (cr2 >> 12) & 0x3ff;
     uint32_t *pd = (uint32_t *)0xfffff000;
     uint32_t *pt = ((uint32_t *)0xffc00000) + (0x400 * pdi);
+    task_t *cur  = NULL;
 
     if (MM_TEST_FLAG(pt[pti], MM_READWRITE) == 0 &&
         MM_TEST_FLAG(pt[pti], MM_COW)       != 0)
@@ -202,9 +203,11 @@ void mmu_pf_handler(uint32_t error)
         { MM_COW,       "CoW"     }
     };
 
-    task_t *current = sched_get_current();
-    kprint("\t%s 0x%x\n", current->name, current->cr3);
+    if ((cur = sched_get_current()) != NULL)
+        kprint("\t%s 0x%x\n", cur->name, cur->cr3);
+
     kdebug("Page flags:");
+
     for (int i = 0; i < NUM_FLAGS; ++i) {
         if (MM_TEST_FLAG(pt[pti], flags[i].flag)) {
             kprint("\t%s flag set\n", flags[i].str);
