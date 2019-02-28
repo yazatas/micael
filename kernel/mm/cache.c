@@ -333,7 +333,7 @@ cache_t *cache_create(size_t size, uint32_t flags)
 
     cache_t *c = NULL;
 
-    if (size > PAGE_SIZE) {
+    if (size > PAGE_SIZE || size == 0) {
         errno = EINVAL;
         return NULL;
     }
