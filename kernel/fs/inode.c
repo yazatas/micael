@@ -1,4 +1,5 @@
 #include <fs/inode.h>
+#include <stddef.h>
 
 inode_t *inode_alloc()
 {

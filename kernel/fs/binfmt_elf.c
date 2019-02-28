@@ -1,10 +1,10 @@
 #include <fs/elf.h>
-#include <fs/fs.h>
 #include <fs/file.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
 #include <mm/mmu.h>
 #include <sched/sched.h>
+#include <stdbool.h>
 
 #define USER_STACK_START ((((KSTART - 1) << 22) | (1023 << 12)) | 0xfee)
 

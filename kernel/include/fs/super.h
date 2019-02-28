@@ -3,12 +3,9 @@
 
 #include <lib/list.h>
 #include <fs/block.h>
-
-/* TODO: remove and include proper files */
-typedef struct fs_type fs_type_t;
-typedef struct inode inode_t;
-typedef struct dentry dentry_t;
-typedef uint32_t dev_t;
+#include <fs/dentry.h>
+#include <fs/inode.h>
+#include <sys/types.h>
 
 typedef struct superblock superblock_t;
 typedef struct super_ops  super_ops_t;
@@ -31,7 +28,7 @@ struct super_ops {
 struct superblock {
     list_head_t s_list;
     dev_t s_dev;
-    fs_type_t *s_type;
+    struct fs_type *s_type;
 
     uint32_t s_blocksize;
 
@@ -59,22 +56,22 @@ struct superblock {
 
 /* for pseudo filesystems with no mountpoint (pipefs)*/
 superblock_t *
-super_get_sb_pseudo(fs_type_t *type, char *dev, int flags,
+super_get_sb_pseudo(struct fs_type *type, char *dev, int flags,
                     void *data, int (*fill_super)(superblock_t *));
 
 /* for pseudo filesystems with a single mountpoint (procfs, devfs) */
 superblock_t *
-super_get_sb_single(fs_type_t *type, char *dev, int flags,
+super_get_sb_single(struct fs_type *type, char *dev, int flags,
                     void *data, int(*fill_super)(superblock_t *));
 
 /* for pseudo filesystesms with multiple mounpoints (tmpfs) */
 superblock_t *
-super_get_sb_nodev(fs_type_t *type, char *dev, int flags,
+super_get_sb_nodev(struct fs_type *type, char *dev, int flags,
                    void *data, int (*fill_super)(superblock_t *));
 
 /* for normal block-based filesystems */
 superblock_t *
-super_get_sb_bdev(fs_type_t *type, char *dev, int flags,
+super_get_sb_bdev(struct fs_type *type, char *dev, int flags,
                   void *data, int (*fill_super)(superblock_t *));
 
 #endif /* __SUPER_H__ */

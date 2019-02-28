@@ -1,7 +1,6 @@
 #ifndef __INODE_H__
 #define __INODE_H__
 
-#include <fs/file.h>
 #include <stdint.h>
 
 typedef struct inode     inode_t;
