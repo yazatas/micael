@@ -1,4 +1,5 @@
 #include <kernel/util.h>
+#include <mm/heap.h>
 #include <stdbool.h>
 
 size_t strlen(const char *str)
@@ -89,6 +90,12 @@ int strcmp(const char *s1, const char *s2)
             return 1;
     }
     return 0;
+}
+
+int strscmp(const char *s1, const char *s2)
+{
+    size_t len = strlen(s1);
+    return strncmp(s1, s2, len);
 }
 
 char *strncpy(char *restrict dest, const char *restrict src, size_t n)
