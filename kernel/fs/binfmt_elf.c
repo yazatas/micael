@@ -1,5 +1,6 @@
 #include <fs/elf.h>
 #include <fs/fs.h>
+#include <fs/file.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
 #include <mm/mmu.h>
