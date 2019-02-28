@@ -15,7 +15,7 @@ file_t *vfs_open_file(dentry_t *dntr)
         return NULL;
     }
 
-    return dntr->d_inode->f_ops->open(dntr, VFS_READ);
+    return dntr->d_inode->f_ops->open(dntr, O_RDWR);
 }
 
 void vfs_close_file(file_t *file)

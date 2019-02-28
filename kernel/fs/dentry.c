@@ -7,6 +7,7 @@
 #include <lib/list.h>
 #include <mm/cache.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #define DENTRY_HM_LEN 32
 

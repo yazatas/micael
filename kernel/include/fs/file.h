@@ -1,14 +1,14 @@
 #ifndef __FILE_H__
 #define __FILE_H__
 
-
-#include <fs/dentry.h>
 #include <kernel/common.h>
 #include <sys/types.h>
 
-typedef struct file_ops file_ops_t;
-typedef struct dentry dentry_t;
 typedef struct file file_t;
+typedef struct dentry dentry_t;
+typedef struct fs_context fs_ctx_t;
+typedef struct file_ops file_ops_t;
+typedef struct file_context file_ctx_t;
 
 struct file_ops {
     ssize_t  (*read)(file_t  *, off_t, size_t, void *);
@@ -21,9 +21,9 @@ struct file_ops {
 struct file {
     dentry_t *f_dentry;
 
-    void *private;
-    size_t refcount;
-    off_t offset;
+    void *f_private;
+    size_t f_count;
+    off_t f_off;
 
     struct file_ops *f_ops;
 };

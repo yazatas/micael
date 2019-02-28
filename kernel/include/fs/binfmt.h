@@ -1,8 +1,9 @@
 #ifndef __BIMFMT_H__
 #define __BIMFMT_H__
 
-#include <fs/fs.h>
+#include <fs/file.h>
 #include <lib/list.h>
+#include <stdbool.h>
 
 typedef bool (*binfmt_loader_t)(file_t *, int, char **);
 
