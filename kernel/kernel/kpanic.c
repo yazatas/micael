@@ -44,8 +44,8 @@ kpanic(const char *error)
            "\tcr3: 0x%08x %8u\n\n\n", REG(eax), REG(ebx), REG(ecx), 
 		   REG(edx), REG(edi),    REG(cr2), REG(cr3));
 
-    vmm_print_memory_map();
-	vmm_list_pde();
+    mmu_print_memory_map();
+	mmu_list_pde();
 
     while (1) { }
     __builtin_unreachable();

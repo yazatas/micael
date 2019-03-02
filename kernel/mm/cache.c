@@ -132,8 +132,8 @@ static struct cache_entry *alloc_entry(void)
     static int i = 1337;
 
     ce->ref_count = 0;
-    ce->phys_addr = vmm_alloc_page();
-    ce->mem       = vmm_alloc_addr(1);
+    ce->phys_addr = mmu_alloc_page();
+    ce->mem       = mmu_alloc_addr(1);
     ce->uniq      = i++;
 
     cache.len++;
@@ -144,7 +144,7 @@ static struct cache_entry *alloc_entry(void)
         return NULL;
     }
 
-    vmm_map_page((void *)ce->phys_addr, ce->mem, MM_PRESENT | MM_READWRITE);
+    mmu_map_page((void *)ce->phys_addr, ce->mem, MM_PRESENT | MM_READWRITE);
     list_init_null(&ce->list);
 
     return ce;
@@ -178,8 +178,8 @@ static void dealloc_entry(struct cache_entry *entry)
     }
 
     list_remove(&entry->list);
-    vmm_free_addr(entry->mem, 1);
-    vmm_free_page(entry->phys_addr);
+    mmu_free_addr(entry->mem, 1);
+    mmu_free_page(entry->phys_addr);
     kfree(entry);
 }
 

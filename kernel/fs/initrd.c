@@ -1,8 +1,9 @@
 #include <fs/fs.h>
+#include <fs/file.h>
 #include <fs/initrd.h>
 #include <mm/heap.h>
 #include <mm/mmu.h>
-#include <fs/dcache.h>
+#include <fs/dentry.h>
 #include <fs/multiboot.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
@@ -300,27 +301,27 @@ fs_t *initrd_create(void *args)
     disk_header_t *dh;
 
     /* first check did we actually get any modules */
-    mbi = vmm_alloc_addr(1);
-    vmm_map_page(args, mbi, MM_PRESENT | MM_READWRITE);
+    mbi = mmu_alloc_addr(1);
+    mmu_map_page(args, mbi, MM_PRESENT | MM_READWRITE);
 
     if (mbi->mods_count == 0) {
         kdebug("trying to init initrd, module count 0!");
-        vmm_free_addr(mbi, 1);
+        mmu_free_addr(mbi, 1);
         return NULL;
     }
 
     kdebug("mbi->mods_count %u mbi->mods_addr 0x%x", mbi->mods_count, mbi->mods_addr);
 
     /* then check that header was loaded correctly */
-    mod = vmm_alloc_addr(1);
-    vmm_map_page((void *)mbi->mods_addr, mod, MM_PRESENT | MM_READWRITE);
+    mod = mmu_alloc_addr(1);
+    mmu_map_page((void *)mbi->mods_addr, mod, MM_PRESENT | MM_READWRITE);
     mod = (multiboot_module_t *)((uint32_t)mod + 0x9c);
 
     kdebug("start 0x%x | end 0x%x | size %u", mod->mod_start, mod->mod_end,
             mod->mod_end - mod->mod_start);
 
-    dh = vmm_alloc_addr(1);
-    vmm_map_page((void *)mod->mod_start, dh, MM_PRESENT | MM_READWRITE);
+    dh = mmu_alloc_addr(1);
+    mmu_map_page((void *)mod->mod_start, dh, MM_PRESENT | MM_READWRITE);
 
     if (dh->magic != HEADER_MAGIC) {
         kdebug("invalid header magic: 0x%x", dh->magic);
@@ -357,8 +358,8 @@ fs_t *initrd_create(void *args)
         iter = (dir_header_t *)((uint8_t *)iter + sizeof(dir_header_t) + iter->size);
     }
 
-    vmm_free_addr(mbi, 1);
-    vmm_free_addr(mod, 1);
+    mmu_free_addr(mbi, 1);
+    mmu_free_addr(mod, 1);
 
     return fs;
 }
@@ -367,7 +368,7 @@ void initrd_destroy(fs_t *fs)
 {
     fs_private_t *fs_priv = fs->private;
 
-    vmm_free_addr(fs_priv->d_header, 1);
+    mmu_free_addr(fs_priv->d_header, 1);
     kfree(fs->root->d_inode);
     kfree(fs->root);
     kfree(fs->private);
