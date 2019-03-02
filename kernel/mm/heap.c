@@ -23,23 +23,23 @@ static uint32_t *HEAP_BREAK;
 
 /* TODO: this needs a rewrite!!! 
  *
- * kernel page directory structures and the whole vmm 
+ * kernel page directory structures and the whole mmu 
  * has changes a lot since this was written so update
- * it to make compatible with today's vmm */
+ * it to make compatible with today's mmu */
 
 /* 4MB of initial memory is allocated on system startup, if that memory has run out
- * we must allocate new page table. I think this kind of abstraction should be vmm's
- * job to provide so don't write PT allocation here. Instead call vmm_alloc_pt */
+ * we must allocate new page table. I think this kind of abstraction should be mmu's
+ * job to provide so don't write PT allocation here. Instead call mmu_alloc_pt */
 static meta_t *morecore(size_t size)
 {
     size_t pgcount = size / 0x1000 + 1;
     meta_t *tmp = (meta_t*)HEAP_BREAK;
 
     for (size_t i = 0; i < pgcount; ++i) {
-        vmm_map_page((void *)vmm_alloc_page(), HEAP_BREAK, MM_PRESENT | MM_READWRITE);
+        mmu_map_page((void *)mmu_alloc_page(), HEAP_BREAK, MM_PRESENT | MM_READWRITE);
         HEAP_BREAK = (uint32_t *)((uint8_t *)HEAP_BREAK + 0x1000);
     }
-    vmm_flush_TLB();
+    mmu_flush_TLB();
 
     /* place the new block at the beginning of block list */
     tmp->size = pgcount * 0x1000 - META_SIZE;
@@ -176,7 +176,7 @@ void kfree(void *ptr)
     if (b->next != NULL && IS_FREE(b->next))
         merge_blocks(b, b->next);
 
-    /* TODO: call vmm_kfree_frame */
+    /* TODO: call mmu_kfree_frame */
 }
 
 void heap_initialize(uint32_t *heap_start_v)

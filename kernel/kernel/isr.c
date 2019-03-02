@@ -35,7 +35,7 @@ extern void interrupt_handler(isr_regs_t *cpu_state)
             break;
 
         case ISR_PAGE_FAULT:
-            vmm_pf_handler(cpu_state->err_num);
+            mmu_pf_handler(cpu_state->err_num);
             break;
 
         case ISR_SYSCALL:

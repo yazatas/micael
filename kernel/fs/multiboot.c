@@ -22,7 +22,7 @@ size_t multiboot_map_memory(multiboot_info_t *mbinfo)
             kprint("\t\tend address:   0x%x\n", end);
 
             for (cur = start; cur <= end; cur += 0x1000) {
-                vmm_claim_page(cur);
+                mmu_claim_page(cur);
                 numpages++;
             }
             kprint("\t\tmaps:          %u pages\n", numpages);

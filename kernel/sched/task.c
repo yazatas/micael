@@ -93,7 +93,7 @@ task_t *sched_task_create(const char *name)
     list_init(&t->list);
 
     t->dir = mmu_build_pagedir();
-    t->cr3 = (uint32_t)vmm_v_to_p(t->dir);
+    t->cr3 = (uint32_t)mmu_v_to_p(t->dir);
 
     return t;
 }
@@ -134,7 +134,7 @@ task_t *sched_task_fork(task_t *parent)
     list_init(&child->list);
 
     child->dir = mmu_duplicate_pdir();
-    child->cr3 = (uint32_t)vmm_v_to_p(child->dir);
+    child->cr3 = (uint32_t)mmu_v_to_p(child->dir);
 
     return child;
 }

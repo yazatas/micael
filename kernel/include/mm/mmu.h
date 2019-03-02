@@ -30,30 +30,6 @@ typedef uint32_t page_t;
 typedef uint32_t ptbl_t;
 typedef uint32_t pdir_t;
 
-#define mmu_get_temporary vmm_get_temporary
-#define mmu_get_kheap_pdir vmm_get_kheap_pdir
-#define mmu_get_kernel_pdir vmm_get_kernel_pdir
-#define mmu_flush_TLB vmm_flush_TLB
-#define mmu_change_pdir vmm_change_pdir
-#define mmu_get_cr3 vmm_get_cr3
-#define mmu_init vmm_init
-#define mmu_pf_handler vmm_pf_handler
-#define mmu_claim_page vmm_claim_page
-#define mmu_v_to_p vmm_v_to_p
-#define mmu_map_page vmm_map_page
-#define mmu_alloc_addr vmm_alloc_addr
-#define mmu_map_range vmm_map_range
-#define mmu_map_range vmm_map_range
-#define mmu_alloc_page vmm_alloc_page
-#define mmu_alloc_addr vmm_alloc_addr
-#define mmu_free_addr vmm_free_addr
-#define mmu_alloc_addr vmm_alloc_addr
-#define mmu_free_page vmm_free_page
-#define mmu_free_addr vmm_free_addr
-#define mmu_list_pde vmm_list_pde
-#define mmu_list_pte vmm_list_pte
-#define mmu_print_memory_map vmm_print_memory_map
-
 /* TODO: remove */
 static inline void *mmu_get_temporary(void)
 {

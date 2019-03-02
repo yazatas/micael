@@ -2,6 +2,7 @@
 #include <kernel/kpanic.h>
 #include <kernel/compiler.h>
 #include <kernel/common.h>
+#include <kernel/util.h>
 #include <mm/cache.h>
 #include <mm/heap.h>
 #include <mm/mmu.h>
@@ -444,7 +445,7 @@ void mmu_unmap_pages(size_t start, size_t end)
 {
     uint32_t *dir = (uint32_t *)0xfffff000;
     uint32_t *tbl = NULL;
-    kdebug("0%x", vmm_v_to_p(dir));
+    kdebug("0%x", mmu_v_to_p(dir));
 
     for (size_t di = start; di <= end; ++di) {
         if (dir[di] & MM_PRESENT) {
