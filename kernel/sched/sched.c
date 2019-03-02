@@ -263,7 +263,7 @@ void sched_print_tasks(void)
     kprint("-------\nlist of items:\n");
     task_t *task  = NULL;
 
-    for (list_head_t *t = run_queue.next; t != &run_queue; t = t->next) {
+    FOREACH(run_queue, t) {
         task = container_of(t, task_t, list);
         kprint("\t%s\n", task->name);
     }

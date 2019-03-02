@@ -8,8 +8,8 @@ typedef struct list_head {
 	struct list_head *prev;
 } list_head_t;
 
-#define FOREACH(list_head, iter) \
-    for (iter = list_head; iter != NULL; iter = iter->next)
+#define FOREACH(list, __i) \
+    for (list_head_t *__i = list.next; __i != &list; __i = __i->next)
 
 #define LIST_EMPTY(l) (l.next == NULL && l.prev == NULL)
 
