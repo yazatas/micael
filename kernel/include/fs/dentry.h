@@ -12,6 +12,10 @@ typedef struct inode      inode_t;
 typedef struct dentry     dentry_t;
 typedef struct dentry_ops dentry_ops_t;
 
+enum DENTRY_FLAGS {
+    DNTR_NO_CACHE = 1 << 7,
+};
+
 struct dentry_ops {
 
 };
@@ -33,6 +37,7 @@ struct dentry {
 int dentry_init(void);
 
 dentry_t *dentry_alloc(dentry_t *parent, char *name, uint32_t flags);
+dentry_t *dentry_alloc_orphan(char *name, uint32_t flags);
 int       dentry_dealloc(dentry_t *dntr);
 
 dentry_t *dentry_lookup(dentry_t *parent, char *name);
