@@ -10,9 +10,7 @@
 * Initial ramdisk
 * VFS
    * devfs
-   * tmpfs??
-   * sysfs??
-   * procfs??
+* System Console
 
 ## v0.2.0: Hyperion
 
@@ -20,6 +18,7 @@
 * 64-bit support (x86_64 port)
 * Better memory handling for processes
 * IPC
+   * pipefs
 
 ## v0.3.0: Pandora
 
@@ -36,6 +35,11 @@ Drivers
 
 File system stuff
 
+* Block Device Subsystem
+* Pseudo filesystems
+   * tmpfs
+   * procfs
+   * sysfs
 * ext2
 * dkmFS
 * Custom boot loader
