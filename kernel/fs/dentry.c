@@ -10,6 +10,7 @@
 #include <stdbool.h>
 
 #define DENTRY_HM_LEN 32
+#define USE_CACHE(flags) (!((bool)(flags & DNTR_NO_CACHE)))
 
 static cache_t *dentry_cache = NULL;
 
@@ -42,7 +43,7 @@ static dentry_t *__dentry_alloc(char *name, bool cache)
 }
 
 /* alloc and initialize empty dentry */
-static dentry_t *dentry_alloc_empty(dentry_t *parent, char *name, bool cache)
+static dentry_t *__dentry_alloc_empty(dentry_t *parent, char *name, bool cache)
 {
     dentry_t *dntr = NULL;
     size_t len     = strlen(name);
@@ -93,46 +94,86 @@ static dentry_t *dentry_alloc_empty(dentry_t *parent, char *name, bool cache)
     return dntr;
 }
 
-/* TODO: add inode as paramter?? */
-/* TODO: or allocate new inode here? */
-dentry_t *dentry_alloc(dentry_t *parent, char *name, uint32_t flags)
+static int __dentry_init_children(dentry_t *parent, dentry_t *dntr)
 {
-    dentry_t *dntr = dentry_alloc_empty(parent, name, true),
-             *this = NULL,
+    dentry_t *this = NULL,
              *prnt = NULL;
 
     /* initialize the child hashmap and create . and .. dentries pointing 
      * to dntr and parent if the caller wants to allocate a directory */
-    if (flags & T_IFDIR) {
-        dntr->d_flags = flags;
+    if ((dntr->d_children = hm_alloc_hashmap(DENTRY_HM_LEN, HM_KEY_TYPE_STR)) == NULL)
+        goto error;
 
-        if ((dntr->d_children = hm_alloc_hashmap(DENTRY_HM_LEN, HM_KEY_TYPE_STR)) == NULL)
-            goto error;
+    if ((this = __dentry_alloc_empty(dntr, ".", false)) == NULL)
+        goto error;
 
-        if ((this = dentry_alloc_empty(dntr, ".", false)) == NULL)
-            goto error;
+    this->d_parent = NULL;
+    this->d_flags  = T_IFREG;
 
-        this->d_parent = NULL;
-        this->d_flags  = T_IFREG;
+    if ((prnt = __dentry_alloc_empty(dntr, "..", false)) == NULL)
+        goto error_dealloc;
 
-        if ((prnt = dentry_alloc_empty(dntr, "..", false)) == NULL)
-            goto error_dot;
+    prnt->d_parent = parent;
+    prnt->d_flags  = T_IFREG;
 
-        prnt->d_parent = parent;
-        prnt->d_flags  = T_IFREG;
+    if (parent)
         prnt->d_inode  = parent->d_inode;
 
-        /* TODO: make d_inode point to correct place! */
+    /* TODO: make d_inode point to correct place! */
+
+    return 0;
+
+error_dealloc:
+    (void)dentry_dealloc(this);
+
+error:
+    return NULL;
+}
+
+/* TODO: add inode as paramter?? */
+/* TODO: or allocate new inode here? */
+dentry_t *dentry_alloc(dentry_t *parent, char *name, uint32_t flags)
+{
+    int ret        = 0;
+    dentry_t *dntr = __dentry_alloc_empty(parent, name, USE_CACHE(flags));
+
+    if ((ret = __dentry_init_children(parent, dntr)) < 0) {
+        if (dentry_dealloc(dntr))
+            kdebug("failed to deallocate dentry!");
+
+        errno = -ret;
+        return NULL;
     }
 
     return dntr;
+}
 
-error_dot:
-    dentry_dealloc(this);
+dentry_t *dentry_alloc_orphan(char *name, uint32_t flags)
+{
+    int ret        = 0;
+    dentry_t *dntr = NULL;
 
-error:
-    dentry_dealloc(dntr);
-    return NULL;
+    if ((dntr = __dentry_alloc(name, USE_CACHE(flags))) == NULL) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    dntr->d_count  = 1;
+    dntr->d_flags  = flags;
+    dntr->d_parent = NULL;
+    dntr->d_inode  = NULL;
+
+    if (flags & T_IFDIR) {
+        if ((ret = __dentry_init_children(NULL, dntr)) < 0) {
+            if (dentry_dealloc(dntr) < 0)
+                kdebug("failed to deallocate dentry!");
+
+            errno = -ret;
+            return NULL;
+        }
+    }
+
+    return dntr;
 }
 
 int dentry_dealloc(dentry_t *dntr)
