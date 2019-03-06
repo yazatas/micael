@@ -127,7 +127,7 @@ error_dealloc:
     (void)dentry_dealloc(this);
 
 error:
-    return NULL;
+    return -errno;
 }
 
 /* TODO: add inode as paramter?? */
@@ -135,7 +135,22 @@ error:
 dentry_t *dentry_alloc(dentry_t *parent, char *name, uint32_t flags)
 {
     int ret        = 0;
-    dentry_t *dntr = __dentry_alloc_empty(parent, name, USE_CACHE(flags));
+    dentry_t *dntr = NULL;
+
+    if (!parent) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if (hm_get(parent->d_children, name) != NULL) {
+        errno = EEXIST;
+        return NULL;
+    }
+
+    if ((dntr = __dentry_alloc_empty(parent, name, USE_CACHE(flags))) == NULL) {
+        errno = ENOMEM;
+        return NULL;
+    }
 
     if ((ret = __dentry_init_children(parent, dntr)) < 0) {
         if (dentry_dealloc(dntr))
