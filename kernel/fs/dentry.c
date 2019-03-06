@@ -94,10 +94,13 @@ static dentry_t *__dentry_alloc_empty(dentry_t *parent, char *name, bool cache)
     return dntr;
 }
 
-static int __dentry_init_children(dentry_t *parent, dentry_t *dntr)
+static int __dentry_init_children(dentry_t *parent, dentry_t *dntr, uint32_t flags)
 {
     dentry_t *this = NULL,
              *prnt = NULL;
+
+    if (((dntr->d_flags = flags) & T_IFDIR) == 0)
+        return -ENOTDIR;
 
     /* initialize the child hashmap and create . and .. dentries pointing 
      * to dntr and parent if the caller wants to allocate a directory */
@@ -152,7 +155,7 @@ dentry_t *dentry_alloc(dentry_t *parent, char *name, uint32_t flags)
         return NULL;
     }
 
-    if ((ret = __dentry_init_children(parent, dntr)) < 0) {
+    if ((ret = __dentry_init_children(parent, dntr, flags)) < 0) {
         if (dentry_dealloc(dntr))
             kdebug("failed to deallocate dentry!");
 
@@ -179,7 +182,7 @@ dentry_t *dentry_alloc_orphan(char *name, uint32_t flags)
     dntr->d_inode  = NULL;
 
     if (flags & T_IFDIR) {
-        if ((ret = __dentry_init_children(NULL, dntr)) < 0) {
+        if ((ret = __dentry_init_children(NULL, dntr, flags)) < 0) {
             if (dentry_dealloc(dntr) < 0)
                 kdebug("failed to deallocate dentry!");
 
