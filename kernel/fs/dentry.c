@@ -201,10 +201,13 @@ int dentry_dealloc(dentry_t *dntr)
     if (dntr->d_count > 1)
         return -EBUSY;
 
-    if ((ret = hm_remove(dntr->d_parent->d_children, dntr->d_name)) < 0)
-        return ret;
+    if (dntr->d_parent) {
+        if ((ret = hm_remove(dntr->d_parent->d_children, dntr->d_name)) < 0)
+            return ret;
+    }
 
-    dntr->d_inode->i_count--;
+    if (dntr->d_inode)
+        dntr->d_inode->i_count--;
 
     list_remove(&dntr->d_list);
     hm_dealloc_hashmap(dntr->d_children);
