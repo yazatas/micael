@@ -13,9 +13,9 @@ typedef struct file_context file_ctx_t;
 struct file_ops {
     ssize_t  (*read)(file_t  *, off_t, size_t, void *);
     ssize_t  (*write)(file_t *, off_t, size_t, void *);
-    file_t  *(*open)(dentry_t *, uint8_t);
-    void     (*close)(file_t *);
-    int      (*seek)(file_t *, off_t);
+    file_t  *(*open)(dentry_t *, int);
+    int      (*close)(file_t *);
+    off_t    (*seek)(file_t *, off_t);
 };
 
 struct file {
@@ -40,28 +40,31 @@ struct file_context {
     struct file **fd; /* pointer to an array of file objects */
 };
 
+file_t *file_alloc_empty(void);
+int file_dealloc(file_t *file);
+
 file_t *vfs_fget(int fd);
 int vfs_fput(file_t *file);
 
 file_t *vfs_fget_light(int fd);
 int vfs_fput_light(file_t *file);
 
-file_t   *vfs_open_file(dentry_t *dentry);
+file_t *vfs_open_file(dentry_t *dentry);
 
 /* TODO: comment */
-void     vfs_close_file(file_t *file);
+void vfs_close_file(file_t *file);
 
 /* read "size" bytes from file to "buffer" starting at "offset"
  *
  * return number of bytes read on success and -errno on error */
-ssize_t  vfs_read(file_t  *file, off_t offset, size_t size, void *buffer);
+ssize_t vfs_read(file_t  *file, off_t offset, size_t size, void *buffer);
 
 /* write "size" bytes to "file" from "buffer" starting at "offset"
  *
  * return number of bytes written on success and -errno on error */
-ssize_t  vfs_write(file_t *file, off_t offset, size_t size, void *buffer);
+ssize_t vfs_write(file_t *file, off_t offset, size_t size, void *buffer);
 
 /* TODO: comment */
-int      vfs_seek(file_t  *file, off_t off);
+int vfs_seek(file_t  *file, off_t off);
 
 #endif /* __FILE_H__ */
