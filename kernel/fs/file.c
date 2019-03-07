@@ -1,6 +1,54 @@
 #include <fs/file.h>
 #include <fs/fs.h>
+#include <kernel/kpanic.h>
+#include <mm/cache.h>
 #include <errno.h>
+
+static cache_t *file_cache     = NULL;
+static cache_t *file_ops_cache = NULL;
+
+void file_init(void)
+{
+    if ((file_cache = cache_create(sizeof(file_t), C_NOFLAGS)) == NULL)
+        kpanic("failed to initialize slab cache for file objects!");
+
+    if ((file_ops_cache = cache_create(sizeof(file_ops_t), C_NOFLAGS)) == NULL)
+        kpanic("failed to initialize slab cache for file ops!");
+}
+
+file_t *file_alloc_empty(void)
+{
+    file_t *file = NULL;
+
+    if (((file        = cache_alloc_entry(file_cache,     C_NOFLAGS)) == NULL) ||
+        ((file->f_ops = cache_alloc_entry(file_ops_cache, C_NOFLAGS)) == NULL))
+    {
+        if (file)
+            cache_dealloc_entry(file_cache, file, C_NOFLAGS);
+
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    file->f_count = 1;
+    file->f_off   = 0;
+
+    return file;
+}
+
+int file_dealloc(file_t *file)
+{
+    if (!file)
+        return -EINVAL;
+
+    if (file->f_count > 1)
+        return -EBUSY;
+
+    cache_dealloc_entry(file_ops_cache, file->f_ops, C_NOFLAGS);
+    cache_dealloc_entry(file_cache,     file,        C_NOFLAGS);
+
+    return 0;
+}
 
 /* TODO: move these to file.c?? */
 file_t *vfs_open_file(dentry_t *dntr)
