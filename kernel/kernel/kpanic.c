@@ -1,9 +1,9 @@
-#include <stdint.h>
-
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/common.h>
 #include <mm/mmu.h>
+#include <errno.h>
+#include <stdint.h>
 
 #define REG(reg) reg, reg
 
@@ -23,6 +23,7 @@ kpanic(const char *error)
 
 	kdebug("error number: %d %x", tmp->err_num, tmp->err_num);
 	kdebug("'%s'", error);
+    kdebug("%s", kstrerror(errno));
 
     uint32_t eax, ebx, ecx, edx, edi, cr3, cr2;
 

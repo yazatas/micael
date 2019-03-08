@@ -4,6 +4,29 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <errno.h>
+
+static const char *errors[EMAX] = {
+    "Success",
+    "No space left on device",
+    "No such file or directory",
+    "Invalid value",
+    "File exists",
+    "Out of memory",
+    "Device busy",
+    "Argument list too long",
+    "Illegal seek",
+    "Funcion not implemented",
+    "Not a directory",
+    "Operation not supported",
+};
+
+const char *kstrerror(int error)
+{
+    if (error >= EMAX || error <= 0)
+        return errors[0];
+    return errors[error];
+}
 
 static void print_integer(uint32_t value, int width, int sign, bool zp)
 {
