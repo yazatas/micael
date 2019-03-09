@@ -181,6 +181,9 @@ dentry_t *dentry_alloc_orphan(char *name, uint32_t flags)
     dntr->d_parent = NULL;
     dntr->d_inode  = NULL;
 
+    strncpy(dntr->d_name, name, strlen(name));
+    list_init(&dntr->d_list);
+
     if (flags & T_IFDIR) {
         if ((ret = __dentry_init_children(NULL, dntr, flags)) < 0) {
             if (dentry_dealloc(dntr) < 0)
