@@ -197,6 +197,26 @@ dentry_t *dentry_alloc_orphan(char *name, uint32_t flags)
     return dntr;
 }
 
+dentry_t *dentry_alloc_ino(dentry_t *parent, char *name, inode_t *ino, uint32_t flags)
+{
+    dentry_t *dntr = NULL;
+
+    if ((dntr = dentry_alloc(parent, name, flags)) != NULL)
+        dntr->d_inode = ino;
+
+    return dntr;
+}
+
+dentry_t *dentry_alloc_orphan_ino(char *name, inode_t *ino, uint32_t flags)
+{
+    dentry_t *dntr = NULL;
+
+    if ((dntr = dentry_alloc_orphan(name, flags)) != NULL)
+        dntr->d_inode = ino;
+
+    return NULL;
+}
+
 int dentry_dealloc(dentry_t *dntr)
 {
     int ret = 0;

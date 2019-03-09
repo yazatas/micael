@@ -38,6 +38,8 @@ int dentry_init(void);
 
 dentry_t *dentry_alloc(dentry_t *parent, char *name, uint32_t flags);
 dentry_t *dentry_alloc_orphan(char *name, uint32_t flags);
+dentry_t *dentry_alloc_ino(dentry_t *parent, char *name, inode_t *ino, uint32_t flags);
+dentry_t *dentry_alloc_orphan_ino(char *name, inode_t *ino, uint32_t flags);
 int       dentry_dealloc(dentry_t *dntr);
 
 dentry_t *dentry_lookup(dentry_t *parent, char *name);
