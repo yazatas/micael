@@ -2,26 +2,36 @@
 #define __INODE_H__
 
 #include <stdint.h>
+#include <sys/types.h>
 
-typedef struct inode     inode_t;
-typedef struct inode_ops inode_ops_t;
-typedef struct file_ops  file_ops_t;
+typedef struct path       path_t;
+typedef struct inode      inode_t;
+typedef struct dentry     dentry_t;
+typedef struct file_ops   file_ops_t;
+typedef struct inode_ops  inode_ops_t;
+typedef struct superblock superblock_t;
 
 struct inode_ops {
-    /* inode_t *(*alloc_inode)(fs_t *fs); */
-    /* inode_t *(*lookup_inode)(fs_t *fs, void *); /1* TODO:  *1/ */
-    /* dentry_t *(*lookup_dentry)(fs_t *fs, dentry_t *, const char *); /1* TODO: relocate this?? *1/ */
-    /* void (*free_inode)(fs_t *fs, inode_t *ino); */
-    /* void (*write_inode)(fs_t *fs, inode_t *ino); */
-    /* void (*read_inode)(fs_t *fs, inode_t *ino); /1* TODO: ??? *1/ */
-    int value;
+    int (*create)(dentry_t *parent, dentry_t *dntr, int mode, path_t *path);
+    inode_t *(*lookup)(dentry_t *parent, char *name);
+    int (*link)(dentry_t *, dentry_t *, dentry_t *);
+    int (*unlink)(dentry_t *dir, dentry_t *dntr);
+    int (*symlink)(dentry_t *dir, dentry_t *dntr, char *symname);
+    int (*mkdir)(dentry_t *dir, dentry_t *dentry, int mode);
+    int (*rmdir)(dentry_t *dir, dentry_t *dentry);
+    int (*mknod)(dentry_t *dir, dentry_t *dntr, int mode, dev_t rdev);
+    int (*rename)(dentry_t *old_dir, dentry_t *old_dentry, dentry_t *new_dir, dentry_t *new_dentry);
+    int (*follow_link)(inode_t *ino, path_t *path);
+    int (*put_link)(dentry_t *dntr, path_t *path);
+    int (*truncate)(inode_t *ino);
+    int (*permission)(inode_t *ino, int mask, path_t *path);
 };
 
 struct inode {
-    uint32_t i_uid;
-    uint32_t i_gid;
-    uint32_t i_ino;
-    uint32_t i_size;
+    int i_uid;
+    int i_gid;
+    int i_ino;
+    int i_size;
 
     int i_count;        /* reference counter */
 
@@ -29,11 +39,16 @@ struct inode {
     uint32_t i_mask;    /* permissions */
     void *i_private;    /* implementation-specific data */
 
+    superblock_t *i_sb; /* pointer to superblock */
+
     inode_ops_t *i_ops;
     file_ops_t  *f_ops;
 };
 
-inode_t *inode_alloc();
+int inode_init(void);
+
+/* allocate empty inode object */
+inode_t *inode_alloc_empty(uint32_t flags);
 int      inode_dealloc(inode_t *ino);
 
 #endif /* __INODE_H__ */
