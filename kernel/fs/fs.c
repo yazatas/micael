@@ -1,215 +1,301 @@
 #include <fs/binfmt.h>
-#include <fs/dcache.h>
-#include <fs/initrd.h>
+#include <fs/block.h>
+#include <fs/char.h>
+#include <fs/dentry.h>
+#include <fs/devfs.h>
 #include <fs/fs.h>
+#include <fs/initrd.h>
+#include <lib/hashmap.h>
+#include <lib/list.h>
 #include <kernel/kprint.h>
+#include <kernel/kpanic.h>
+#include <kernel/util.h>
+#include <mm/cache.h>
 #include <mm/heap.h>
-
+#include <sched/sched.h>
 #include <errno.h>
-#include <string.h>
+#include <stdbool.h>
 
-#define NUM_FS      1
-#define NUM_LOADERS 1
+#define NUM_FS_TYPES 2
+#define NUM_FS 1
 
-static mount_t root_fs;
+static cache_t *path_cache;
 
-static binfmt_loader_t loaders[NUM_LOADERS] = {
-    binfmt_elf_loader
+static list_head_t mountpoints;
+static list_head_t superblocks;
+
+static mount_t *root_fs;
+static hashmap_t *fs_types;
+
+/* array of "static" file systems (known at compile time)
+ * that kernel needs in order to work. Keeping them here
+ * makes the initialization code much cleaner.
+ * (same thing with the mountpoint array below) */
+static fs_type_t fs_arr[NUM_FS_TYPES] = {
+    {
+        .fs_name = "devfs",
+        .get_sb  = devfs_get_sb,
+        .kill_sb = devfs_kill_sb
+    },
+    {
+        .fs_name = "initramfs",
+        .get_sb  = initramfs_get_sb,
+        .kill_sb = initramfs_kill_sb
+    }
 };
 
-static fs_type_t fs_types[NUM_FS] = {
+/* TODO: explain this struct */
+static struct {
+    char *type;
+    char *target;
+    dentry_t *mount;
+} file_systems[NUM_FS] = {
     {
-        .fs_dev_id  = 0x1338,
-        .fs_name    = "initrd",
-        .fs_create  = initrd_create,
-        .fs_destroy = initrd_destroy,
+        .type   = "devfs",
+        .target = "dev",
+        .mount  = NULL
     },
 };
 
-static fs_type_t *vfs_find_fs(const char *fs_name)
+static mount_t *alloc_empty_mount(void)
 {
-    for (int i = 0; i < NUM_FS; ++i) {
-        if (strcmp(fs_name, fs_types[i].fs_name) == 0) {
-            kdebug("fs found: '%s' %u", fs_types[i].fs_name, fs_types[i].fs_dev_id);
-            return &fs_types[i];
-        }
-    }
-
-    return NULL;
-}
-
-/* vfs_get_mountpoint expects full path f.ex /usr/bin/cat */
-static char *vfs_get_mountpoint(const char *path)
-{
-    const char *start = path + 1;
-    const char *end   = strchr(start, '/');
-    const size_t len  = (uint32_t)(end - start);
-
-    char *res = kmalloc(len + 1);
-
-    memcpy(res, start, (uint32_t)(end - start));
-    res[len] = '\0';
-
-    return res;
-}
-
-void vfs_init(void *args)
-{
-    (void)args;
-
-    root_fs.mountpoint = kmalloc(sizeof(dentry_t));
-    root_fs.fs         = NULL;
-    root_fs.dev_id     = 0;
-
-    dentry_t *tmp  = root_fs.mountpoint;
-    tmp->d_flags   = 0;
-    tmp->d_parent  = NULL; /* FIXME: ??? */
-    tmp->d_inode   = NULL; /* FIXME: ??? */
-    tmp->d_name[0] = '/';
-    tmp->d_name[1] = '\0';
-
-    list_init_null(&root_fs.mountpoints);
-
-    dcache_init();
-    binfmt_init();
-
-    for (int i = 0; i < NUM_LOADERS; ++i) {
-        binfmt_add_loader(loaders[i]);
-    }
-}
-
-fs_t *vfs_register_fs(const char *fs_name, const char *mnt, void *arg)
-{
-    kdebug("registering file system '%s', mount point '%s'", fs_name, mnt);
-
-    mount_t *mount;
-    list_head_t *iter;
-    fs_type_t *fs_type;
-
-    FOREACH(&root_fs.mountpoints, iter) {
-        mount_t *tmp = container_of(iter, mount_t, mountpoints);
-        kdebug("'%s'", tmp->mountpoint->d_name);
-
-        /* mountpoint already exists, check if it points to valid file system */
-        if (strcmp(tmp->mountpoint->d_name, mnt + 1) == 0) {
-            if (tmp->fs != NULL) {
-                kdebug("'%s' already exists and has file system installed on it!");
-                errno = EEXIST;
-                return NULL;
-            }
-        }
-    }
-
-    if ((fs_type = vfs_find_fs(fs_name)) == NULL)
+    mount_t *mnt = kmalloc(sizeof(mount_t));
+    
+    if (!mnt)
         return NULL;
 
-    mount = kmalloc(sizeof(mount_t));
+    mnt->mnt_sb         = NULL;
+    mnt->mnt_root       = NULL;
+    mnt->mnt_devname    = NULL;
+    mnt->mnt_type       = NULL;
+    mnt->mnt_mount = NULL;
 
-    mount->dev_id = fs_type->fs_dev_id;
-    mount->fs     = fs_type->fs_create(arg);
-    mount->fs->fs = fs_type;
+    list_init(&mnt->mnt_list);
 
-    char *tmp = strdup(mnt);
-    
-    mount->mountpoint = dentry_alloc(mnt + 1); /* discard '/' */
-    mount->mountpoint->d_parent = root_fs.mountpoint;
-    mount->mountpoint->d_inode  = mount->fs->root->d_inode;
-
-    kdebug("allocated dentry name %s", mount->mountpoint->d_name);
-
-    list_append(&root_fs.mountpoints, &mount->mountpoints);
-
-    return mount->fs;
+    return mnt;
 }
 
-int vfs_unregister_fs(fs_t *fs)
+/* TODO: explain why this is static instead of public */
+static int vfs_mount_pseudo(char *target, char *type, dentry_t *mountpoint)
 {
-    if (!fs)
+    mount_t *mnt  = NULL;
+    fs_type_t *fs = NULL;
+
+    if (!target || !type || !mountpoint)
         return -EINVAL;
 
-    if (fs->fs->fs_destroy)
-        fs->fs->fs_destroy(fs);
+    if ((fs = hm_get(fs_types, (char *)type)) == NULL) {
+        kdebug("filesystem type %s has not been registered!", type);
+        return -ENOSYS;
+    }
 
-    list_head_t *iter;
-    FOREACH(&root_fs.mountpoints, iter) {
-        mount_t *mount = container_of(iter, mount_t, mountpoints);
+    if ((mnt = alloc_empty_mount()) == NULL) {
+        kdebug("failed to allocate mountpoint for %s", type);
+        return -ENOMEM;
+    }
 
-        if (mount->fs == fs) {
-            kdebug("mount point found! %s", mount->mountpoint->d_name);
+    mnt->mnt_sb      = fs->get_sb(fs, NULL, 0, NULL);
+    mnt->mnt_type    = type;
+    mnt->mnt_devname = NULL;
+    mnt->mnt_mount   = mountpoint;
 
-            list_remove(&mount->mountpoints);
-            kfree(mount->mountpoint);
-            kfree(mount->fs);
-            kfree(mount);
+    mountpoint->d_count++;
+    mnt->mnt_root = NULL; /* TODO: how to get this from the filesystem??? */
 
-            return 0;
+    list_append(&mountpoints, &mnt->mnt_list);
+
+    return 0;
+}
+
+void vfs_init(void)
+{
+    fs_types   = hm_alloc_hashmap(16, HM_KEY_TYPE_STR);
+    path_cache = cache_create(sizeof(path_t), C_NOFLAGS);
+
+    list_init(&mountpoints);
+    list_init(&superblocks);
+
+    dentry_init();
+    inode_init();
+    cdev_init();
+    bdev_init();
+
+    binfmt_init();
+    binfmt_add_loader(binfmt_elf_loader);
+
+    /* register all known filesystems that might be needed */
+    for (int i = 0; i < NUM_FS_TYPES; ++i) {
+        if (vfs_register_fs(&fs_arr[i]) < 0)
+            kdebug("failed to register %s", fs_arr[i].fs_name);
+    }
+
+    /* create empty root (no mounted filesystem [yet]) */
+    root_fs            = alloc_empty_mount();
+    root_fs->mnt_mount = dentry_alloc_orphan("/", T_IFDIR);
+    root_fs->mnt_type  = "rootfs";
+
+    list_append(&mountpoints, &root_fs->mnt_list);
+
+    /* mount the pseudo filesystems, we must use vfs_mount_pseudo()
+     * to mount these special file systems which skips most of the error 
+     * checks and path look ups.
+     *
+     * This is done because scheduler hasn't been initialized and
+     * vfs_path_lookup() uses "current" to determine the path. */
+    for (int i = 0; i < NUM_FS; ++i) {
+        file_systems[i].mount = dentry_alloc(root_fs->mnt_mount,
+                                             file_systems[i].target, T_IFDIR);
+
+        if (file_systems[i].mount == NULL) {
+            kdebug("failed to dentry for /%s", file_systems[i].target);
+            continue;
+        }
+
+        if (vfs_mount_pseudo(file_systems[i].target, file_systems[i].type,
+                             file_systems[i].mount) < 0)
+        {
+            kdebug("failed to mount %s to /%s!", file_systems[i].type, file_systems[i].target);
+        }
+    }
+}
+
+int vfs_install_rootfs(char *type, void *data)
+{
+    fs_type_t *fs = hm_get(fs_types, type);
+
+    if (fs == NULL)
+        return -ENOTSUP;
+
+    if (root_fs->mnt_sb != NULL)
+        return -EBUSY;
+
+    if ((root_fs->mnt_sb = initramfs_get_sb(fs, NULL, 0, data)) == NULL)
+        return -errno;
+
+    root_fs->mnt_root    = root_fs->mnt_sb->s_root;
+    root_fs->mnt_type    = "initramfs";
+    root_fs->mnt_devname = NULL;
+
+    list_append(&superblocks, &root_fs->mnt_sb->s_list);
+
+    return 0;
+}
+
+int vfs_register_fs(fs_type_t *fs)
+{
+    if (!fs || !fs->get_sb || !fs->kill_sb)
+        return -EINVAL;
+
+    if (hm_get(fs_types, (char *)fs->fs_name) != NULL)
+        return -EEXIST;
+
+    return hm_insert(fs_types, (char *)fs->fs_name, fs);
+}
+
+int vfs_unregister_fs(char *type)
+{
+    if (!type || hm_get(fs_types, type) == NULL)
+        return -EINVAL;
+
+    FOREACH(mountpoints, m) {
+        mount_t *mnt = container_of(m, mount_t, mnt_list);
+
+        if (strscmp(type, mnt->mnt_type) == 0)
+            return -EBUSY;
+    }
+
+    return hm_remove(fs_types, type);
+}
+
+int vfs_mount(char *source, char *target,
+              char *type,   uint32_t flags)
+{
+    (void)flags;
+
+    fs_type_t *fs   = NULL;
+    path_t    *path = NULL;
+    mount_t   *mnt  = NULL;
+    dentry_t  *src  = NULL,
+              *dst  = NULL;
+
+    if (!target || !type)
+        return -EINVAL;
+
+    if ((fs = hm_get(fs_types, (char *)type)) == NULL) {
+        kdebug("file system '%s' has not been registered!", type);
+        return -ENOTSUP;
+    }
+
+    /* devfs, sysfs and procfs can be mounted only once */
+    if (strscmp(type, "devfs")  == 0 ||
+        strscmp(type, "sysfs")  == 0 ||
+        strscmp(type, "procfs") == 0)
+    {
+        if (source != NULL) {
+            kdebug("%s doesn't take source!", type);
+            return -EINVAL;
+        }
+
+        /* go through the mounted filesystems and check if filesystem
+         * of "type" has already been mounted -> return error */
+        FOREACH(mountpoints, m) {
+            mnt = container_of(m, mount_t, mnt_list);
+            
+            if (strscmp(mnt->mnt_type, type) == 0) {
+                kdebug("%s has already been mounted to %s", type, target);
+                return -EEXIST;
+            }
+        }    
+
+        goto check_dest;
+    }
+
+    /* if source is NULL, the only possible (valid) filesystem is tmpfs */
+    if (source == NULL) {
+        if (strscmp(type, "tmpfs") != 0) {
+            kdebug("source can't be NULL for %s", type);
+            return -EINVAL;
+        }
+    } else {
+        if ((path = vfs_path_lookup(source, 0))->p_dentry == NULL) {
+            kdebug("'%s' does not exist!", source);
+            return -ENOENT;
         }
     }
 
-    return -ENOENT;
-}
-
-void vfs_list_mountpoints(void)
-{
-    list_head_t *iter;
-    FOREACH(&root_fs.mountpoints, iter) {
-        mount_t *tmp = container_of(iter, mount_t, mountpoints);
-        kprint("'%s' | ", tmp->mountpoint->d_name);
-    }
-    kprint("\n");
-}
-
-dentry_t *vfs_lookup(const char *path)
-{
-    mount_t *mnt    = NULL;
-    dentry_t *dntr  = NULL,
-             *tmp   = NULL;
-    char *mnt_point = vfs_get_mountpoint(path);
-
-    kdebug("potential mount point is %s", mnt_point);
-
-    list_head_t *iter;
-    FOREACH(&root_fs.mountpoints, iter) {
-        mnt = container_of(iter, mount_t, mountpoints);
-
-        if (strncmp(mnt->mountpoint->d_name, mnt_point, VFS_NAME_MAX_LEN) == 0)
-            break;
-
-        mnt = NULL;
+check_dest:
+    /* now check that "target" exist and it doesn't have a filesystem installed on it */
+    if ((path = vfs_path_lookup(target, 0))->p_dentry == NULL) {
+        kdebug("mountpoint %s does not exist!", target);
+        return -ENOENT;
     }
 
-    if (mnt == NULL) {
-        mnt = &root_fs;
-        mnt_point[0] = '/';
-        mnt_point[1] = '\0';
-    }
-
-    if (mnt->fs == NULL) {
-        kdebug("mountpoint '%s' doesn't have file system!", mnt_point);
-        kfree(mnt_point);
-        return NULL;
-    }
-
-    char *to_free, *r_path, *tok;
-    inode_t *ret, *ino;
-
-    to_free = r_path = strdup(path + strlen(mnt_point) + 1);
-    ino  = mnt->mountpoint->d_inode;
-    dntr = mnt->mountpoint;
-
-    while ((tok = strsep(&r_path, "/")) != NULL) {
-        /* dentry not found from the cache, use the actual file system to find it */
-        if ((tmp = dentry_lookup(tok)) == NULL) {
-            if ((dntr = tmp = ino->i_ops->lookup_dentry(mnt->fs, dntr, tok)) == NULL)
-                break;
+    /* TODO: there must a better way to do this */
+    FOREACH(mountpoints, m) {
+        mnt = container_of(m, mount_t, mnt_list);
+        
+        if (strscmp(mnt->mnt_type, type) == 0) {
+            kdebug("%s has already been mounted to %s", type, target);
+            return -EEXIST;
         }
-        dntr = tmp;
     }
-    kfree(to_free);
 
-    if (!dntr)
-        errno = ENOENT;
-    return dntr;
+    if ((mnt = alloc_empty_mount()) == NULL) {
+        kdebug("failed to allocate mountpoint for %s", type);
+        return -ENOMEM;
+    }
+
+    mnt->mnt_sb      = fs->get_sb(fs, source, 0, NULL);
+    mnt->mnt_type    = type;
+    mnt->mnt_devname = source;
+    mnt->mnt_mount   = dst;
+
+    dst->d_count++;
+    mnt->mnt_root = NULL; /* TODO: how to get this from the filesystem??? */
+
+    list_append(&mountpoints, &mnt->mnt_list);
+
+    return 0;
 }
 
 file_t *vfs_open_file(dentry_t *dntr)

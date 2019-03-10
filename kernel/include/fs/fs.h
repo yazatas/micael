@@ -25,11 +25,15 @@ enum FILE_ACCESS_MODES {
     O_TRUNC  = 1 << 6
 };
 
+enum LOOKUP_FLAGS {
+    LOOKUP_PARENT = 1 << 0,
+};
+
 typedef struct fs_type {
     char *fs_name;
 
     superblock_t *(*get_sb)(struct fs_type *, char *, int, void *);
-    void  (*kill_sb)(superblock_t *);
+    int (*kill_sb)(superblock_t *);
 } fs_type_t;
 
 typedef struct mount {
@@ -44,6 +48,8 @@ typedef struct mount {
 } mount_t;
 
 typedef struct path {
+    /* TODO: what all should this struct have */
+    dentry_t *p_dentry;
     int size;
 } path_t;
 
@@ -75,13 +81,13 @@ int vfs_register_fs(fs_type_t *fs);
  * return -EBUSY if the filesystem is in use (mounted) */
 int vfs_unregister_fs(char *type);
 
-/* mount filesystem of type "type" to "target" from "source" using "mount_flags" 
+/* mount filesystem of type "type" to "target" from "source" using "flags" 
  *
  * @param source: points to devfs (f.ex. /dev/sda1)
  * @param target: points to the mount point of file system
  *                target must NOT contain any filesystem when vfs_mount() is called
  * @param type:   name of the mounted filesystem
- * @mount_flags:  flags used for mounting (such as VFS_REMOUNT) 
+ * @flags:        flags used for mounting (such as VFS_REMOUNT) 
  *
  * return 0 on success
  * return -EINVAL if some of the given parameters are invalid
@@ -89,15 +95,39 @@ int vfs_unregister_fs(char *type);
  * return -EEXIST if "target" already has a filesystem mounted on it
  * return -ENOENT if "target" or "source" does not exist
  * return -ENOMEM if allocating mount_t object failed */
-int vfs_mount(char *source, char *target, char *type, uint32_t mount_flags);
+int vfs_mount(char *source, char *target, char *type, uint32_t flags);
 
-path_t *vfs_path_lookup(char *path);
+/* install new root file system of type "type" 
+ * for now this is just a temporary hack to get initrd to work
+ * Release Calypso adds support for real block devices and that
+ * release will remove this hack and give support for proper initrd too
+ *
+ * Basically this function just installs filesystem "initramfs" to current 
+ * root (root_fs). After that user can execute programs from f.ex. /sbin/init
+ *
+ * return 0 on success 
+ * return -ENOSYS if filesystem has not been registered 
+ * return -EBUSY if root_fs already has a filesystem installed on it 
+ * (see what initramfs_get_sb sets as errno to get the full list of possible return values) */
+int vfs_install_rootfs(char *type, void *data);
+
+/* blablabla 
+ *
+ *
+ * NOTE: returned path must be explicitly freed by calling vfs_path_release()
+ *
+ * vfs_path_lookup() always returns a path_t object but on error or if the path 
+ * did not resolve to anything (e.g. nothing was found) nthe path_t->p_dentry
+ * is NULL and errno is set.
+ *
+ * If something was indeed found, path->p_dentry points to the object in question */
+path_t *vfs_path_lookup(char *path, int flags);
+
+/* 
+ * return 0 on success 
+ * return -EINVAL on error */
 int vfs_path_release(path_t *path);
 
-dentry_t *vfs_lookup_old(char *path);
-
 void vfs_free_fs_context(fs_ctx_t *ctx);
-
-void vfs_list(void);
 
 #endif /* end of include guard: __VFS_H__ */
