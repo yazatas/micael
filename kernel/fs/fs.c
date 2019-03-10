@@ -4,7 +4,7 @@
 #include <fs/dentry.h>
 #include <fs/devfs.h>
 #include <fs/fs.h>
-#include <fs/initrd.h>
+#include <fs/initramfs.h>
 #include <lib/hashmap.h>
 #include <lib/list.h>
 #include <kernel/kprint.h>
