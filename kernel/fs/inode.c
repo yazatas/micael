@@ -1,3 +1,4 @@
+#include <fs/dentry.h>
 #include <fs/file.h>
 #include <fs/inode.h>
 #include <kernel/kpanic.h>
@@ -66,4 +67,19 @@ int inode_dealloc(inode_t *ino)
     cache_dealloc_entry(inode_cache,     ino,        C_NOFLAGS);
 
     return 0;
+}
+
+inode_t *inode_lookup(dentry_t *dntr, char *name)
+{
+    if (!dntr || !dntr->d_inode || !dntr->d_inode->i_ops || !name) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if (!dntr->d_inode->i_ops->lookup) {
+        errno = ENOSYS;
+        return NULL;
+    }
+
+    return dntr->d_inode->i_ops->lookup(dntr, name);
 }

@@ -298,75 +298,142 @@ check_dest:
     return 0;
 }
 
-file_t *vfs_open_file(dentry_t *dntr)
+static char *vfs_extract_child(char **path)
 {
-    if (!dntr) {
+    char *start = *path,
+         *ptr   = *path;
+    size_t len  = strlen(*path);
+    size_t i    = 0;
+
+    for (i = 0; i < len && ptr[i] != '/' && ptr[i] != '\0'; ++i) {
+        (*path)++;
+    }
+
+    /* there are more dentries left, add null byte to mark next start */
+    if (i != len) {
+        (*path)++;
+        ptr[i] = '\0';
+    } else {
+        /* we're at the end
+         * set path to NULL so vfs_walk_path() knows to end the path lookup */
+        *path = NULL;
+    }
+
+    if (len == 0)
+        return NULL;
+
+    return start;
+}
+
+static dentry_t *vfs_walk_path(dentry_t *parent, char *path, int flags)
+{
+    if (!parent || !path) {
         errno = EINVAL;
         return NULL;
     }
 
-    if (!dntr->d_inode->f_ops->open) {
-        errno = ENOSYS;
+    dentry_t *dntr = NULL;
+    inode_t *ino   = NULL;
+    char *next     = vfs_extract_child(&path);
+
+    if (path == NULL) {
+        if (flags & LOOKUP_PARENT)
+            return parent;
+
+        /* return dentry if found from parent's hashmap  */
+        if ((dntr = hm_get(parent->d_children, next)) != NULL)
+            return dntr;
+
+        if ((ino = inode_lookup(parent, next)) == NULL)
+            return NULL;
+
+        if ((dntr = dentry_alloc_ino(parent, next, ino, ino->i_flags)) == NULL)
+            return NULL;
+
+        return dntr;
+    }
+
+    if (!parent->d_children) {
+        kdebug("parent ('%s') doesn't have a valid children hashmap!", parent->d_name);
+        errno = EINVAL;
         return NULL;
     }
 
-    return dntr->d_inode->f_ops->open(dntr, VFS_READ);
+    /* check if parent has this dentry already cached, continue immediately if so */
+    if ((dntr = hm_get(parent->d_children, next)) != NULL)
+        return vfs_walk_path(dntr, path, flags);
+
+    /* not found from the parent hashmap, do filesystem-specific search */
+    if ((ino = inode_lookup(parent, next)) == NULL)
+        return NULL;
+
+    if ((dntr = dentry_alloc_ino(parent, next, ino, ino->i_flags)) == NULL)
+        return NULL;
+
+    return vfs_walk_path(dntr, path, flags);
 }
 
-void vfs_close_file(file_t *file)
+path_t *vfs_path_lookup(char *path, int flags)
 {
-    if (!file) {
+    if (!path) {
         errno = EINVAL;
-        return;
+        return NULL;
     }
 
-    if (!file->f_ops->close) {
-        errno = ENOSYS;
-        return;
+    path_t *retpath = NULL;
+    task_t *current = NULL;
+    dentry_t *start = NULL,
+             *dntr  = NULL;
+    char *_path_ptr = NULL,
+         *_path     = NULL;
+
+    _path_ptr = _path = strdup(path);
+    retpath   = kmalloc(sizeof(path_t));
+
+    if (_path[0] == '/') {
+        _path = _path + 1; /* skip '/' */
+        start = root_fs->mnt_root;
+    } else {
+        if ((current = sched_get_current()) == NULL) {
+            kdebug("scheduler has not been started, but relative path was given!");
+            errno = ENOTSUP;
+            goto end;
+        }
+
+        if (!current->fs_ctx) {
+            kdebug("running task doesn't have file system context!");
+            errno = EINVAL;
+            goto end;
+        }
+
+        start = current->fs_ctx->pwd;
     }
 
-    file->f_ops->close(file);
-}
-
-int vfs_seek(file_t *file, off_t off)
-{
-    if (!file) {
+    if (start == NULL) {
+        kdebug("bootstrap dentry is NULL!");
         errno = EINVAL;
-        return -1;
+        goto end;
     }
 
-    if (!file->f_ops->seek) {
-        errno = ENOSYS;
-        return -1;
-    }
+    if ((retpath->p_dentry = vfs_walk_path(start, _path, flags)) != NULL)
+        retpath->p_dentry->d_count++;
 
-    return file->f_ops->seek(file, off);
+    retpath->p_flags = flags;
+
+end:
+    kfree(_path_ptr);
+    return retpath;
 }
 
-ssize_t vfs_read(file_t *file, off_t offset, size_t size, void *buffer)
+int vfs_path_release(path_t *path)
 {
-    if (!file || !buffer)
+    if (!path || !path->p_dentry)
         return -EINVAL;
 
-    if (!file->f_ops->read)
-        return -ENOSYS;
+    if (--path->p_dentry->d_count == 1)
+        dentry_dealloc(path->p_dentry);
 
-    return file->f_ops->read(file, offset, size, buffer);
-}
+    kfree(path);
 
-ssize_t vfs_write(file_t *file, off_t offset, size_t size, void *buffer)
-{
-    if (!file || !buffer)
-        return -EINVAL;
-
-    if (!file->f_ops->write)
-        return -ENOSYS;
-
-    return file->f_ops->write(file, offset, size, buffer);
-}
-
-void vfs_free_fs_context(fs_context_t *ctx)
-{
-    if (!ctx)
-        return;
+    return 0;
 }

@@ -1,8 +1,9 @@
 #ifndef __INODE_H__
 #define __INODE_H__
 
-#include <stdint.h>
+#include <lib/list.h>
 #include <sys/types.h>
+#include <stdint.h>
 
 typedef struct path       path_t;
 typedef struct inode      inode_t;
@@ -43,6 +44,9 @@ struct inode {
 
     inode_ops_t *i_ops;
     file_ops_t  *f_ops;
+
+    list_head_t i_list;  /* list of all inodes */
+    list_head_t i_dirty; /* list of dirty inodes */
 };
 
 int inode_init(void);
@@ -50,5 +54,7 @@ int inode_init(void);
 /* allocate empty inode object */
 inode_t *inode_alloc_empty(uint32_t flags);
 int      inode_dealloc(inode_t *ino);
+
+inode_t *inode_lookup(dentry_t *ino, char *name);
 
 #endif /* __INODE_H__ */

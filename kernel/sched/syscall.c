@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fs/binfmt.h>
 #include <fs/fs.h>
+#include <fs/file.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
@@ -35,16 +36,18 @@ int32_t sys_fork(isr_regs_t *cpu)
 
 int32_t sys_execv(isr_regs_t *cpu)
 {
-    const char *path = (const char *)cpu->ebx;
+    char *p = (char *)cpu->ebx;
 
     file_t *file   = NULL;
-    dentry_t *dntr = NULL;
+    path_t *path   = NULL;
 
-    if ((dntr = vfs_lookup(path)) == NULL)
+    if ((path = vfs_path_lookup(p, 0)) == NULL)
         return -1;
 
-    if ((file = vfs_open_file(dntr)) == NULL)
+    if ((file = vfs_open_file(path->p_dentry)) == NULL)
         return -1;
+
+    vfs_path_release(path);
 
     /* clear page tables of current process:
      * mark all user page tables as not present and try to free
@@ -78,7 +81,7 @@ int32_t sys_exit(isr_regs_t *cpu)
     /* TODO: signal parent (SIGCHLD) */
 
     /* free all used memory (all memory that can be freed) */
-    vfs_free_fs_context(current->fs_ctx);
+    /* vfs_free_fs_context(current->fs_ctx); */
     sched_free_threads(current);
 
     mmu_unmap_pages(0, KSTART - 1);

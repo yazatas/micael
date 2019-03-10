@@ -1,11 +1,10 @@
-#include <stdint.h>
-#include <string.h>
 #include <drivers/vbe.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
 #include <kernel/irq.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/util.h>
 #include <mm/cache.h>
 #include <mm/heap.h>
 #include <mm/mmu.h>
@@ -15,6 +14,8 @@
 #include <sched/sched.h>
 #include <drivers/timer.h>
 #include <drivers/keyboard.h>
+#include <errno.h>
+#include <stdint.h>
 
 void kmain(multiboot_info_t *mbinfo)
 {
@@ -28,31 +29,29 @@ void kmain(multiboot_info_t *mbinfo)
      * mmu functions to get the from from VGA memory */
     vbe_init();
 
-    /* initrd initialization requires multiboot info */
-    vfs_init(mbinfo);
+    /* initialize inode and dentry caches, mount pseudo rootfs and devfs */
+    vfs_init();
 
-    /* create init and idle tasks */
-    sched_init();
+    if (vfs_install_rootfs("initramfs", mbinfo) < 0)
+        kpanic("failed to install rootfs!");
 
-    fs_t *fs = vfs_register_fs("initrd", "/mnt", mbinfo);
+    path_t *path = NULL;
+    char *paths[8] = {
+        "/sbin/init", "/sbin/test", "/sbin/dsh",
+        "/usr/bin/echo",  "/bin/usr/cat", "/bin/echo",
+        "/usr/bin/cat", "/bin/cat"
+    };
 
-    file_t *file    = NULL;
-    dentry_t *dntr  = NULL;
-    uint8_t arr[100] = { 0 };
-
-    if ((dntr = vfs_lookup("/mnt/bin/echo")) == NULL)
-        kpanic("failed to find init script from file system");
-
-    if ((file = vfs_open_file(dntr)) == NULL)
-        kpanic("failed to open file /sbin/init");
-
-    if (vfs_read(file, 0, 100, arr) < 0) {
-        kdebug("failed to read from memroy");
+    for (int i = 0; i < 8; ++i) {
+        if ((path = vfs_path_lookup(paths[i], 0))->p_dentry == NULL)
+            kprint("\t%s NOT FOUND!\n", paths[i]);
+        else
+            kprint("\t%s FOUND!\n", paths[i]);
     }
 
-    hex_dump(arr, 100);
-
-    sched_start();
+    /* create init and idle tasks and start the scheduler */
+    /* sched_init(); */
+    /* sched_start(); */
 
     for (;;);
 }

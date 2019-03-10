@@ -27,6 +27,8 @@ enum FILE_ACCESS_MODES {
 
 enum LOOKUP_FLAGS {
     LOOKUP_PARENT = 1 << 0,
+    LOOKUP_CREATE = 1 << 1,
+    LOOKUP_OPEN   = 1 << 2,
 };
 
 typedef struct fs_type {
@@ -50,7 +52,7 @@ typedef struct mount {
 typedef struct path {
     /* TODO: what all should this struct have */
     dentry_t *p_dentry;
-    int size;
+    int p_flags;
 } path_t;
 
 /* - initialize emptry rootfs
@@ -111,7 +113,7 @@ int vfs_mount(char *source, char *target, char *type, uint32_t flags);
  * (see what initramfs_get_sb sets as errno to get the full list of possible return values) */
 int vfs_install_rootfs(char *type, void *data);
 
-/* blablabla 
+/* Do a path lookup
  *
  *
  * NOTE: returned path must be explicitly freed by calling vfs_path_release()
