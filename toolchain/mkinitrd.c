@@ -123,14 +123,13 @@ void parse_path(char *path, char *dir, char **fname)
 
 int main(int argc, char **argv)
 {
-    if (argc == 1) {
+    if (argc == 1)
         return -1;
-    }
 
     FILE *disk_fp = fopen("initrd.bin", "w"), *tmp;
     char *fname;
     int c, dir_count = 0, dir_ptr = 0;
-    uint32_t cur_offset = sizeof(disk_header_t) + sizeof(dir_header_t); /* root dir */
+    uint32_t cur_offset = 0;
 
     disk_header_t disk_header = {
         .size    = 0,
@@ -240,25 +239,31 @@ save_dir_data:
             data[dir_ptr].files[fptr].file.inode = alloc_inode();
             data[dir_ptr].files[fptr].file.magic = FILE_MAGIC;
 
-            /* for the first file the offset is sizeof(dir_header_t)
-             *
-             * for all subsequent files it's sizeof(file_header_t) + 
-             * previous file's offset and its size */
-            /* TODO: explain all this better */
             if (fptr == 0) {
-                if (dir_ptr != 0) {
-                    dir_header_t prev_dir = data[dir_ptr - 1].dir;
-                    cur_offset += sizeof(file_header_t)
-                               +  data[dir_ptr - 1].files[prev_dir.num_files - 1].file.size;
-                }
-
-                cur_offset += sizeof(dir_header_t);
+                cur_offset = sizeof(dir_header_t);
             } else {
                 cur_offset += sizeof(file_header_t)
                            +  data[dir_ptr].files[fptr - 1].file.size;
             }
 
+            /* for the first file the offset is sizeof(dir_header_t)
+             *
+             * for all subsequent files it's sizeof(file_header_t) + 
+             * previous file's offset and its size */
+            /* TODO: explain all this better */
+            /* if (fptr == 0) { */
+            /*     if (dir_ptr != 0) { */
+            /*         dir_header_t prev_dir = data[dir_ptr - 1].dir; */
+            /*         cur_offset += sizeof(file_header_t) */
+            /*                    +  data[dir_ptr - 1].files[prev_dir.num_files - 1].file.size; */
+            /*     } */
+
+            /*     cur_offset += sizeof(dir_header_t); */
+            /* } else { */
+            /* } */
+
             strncpy(data[dir_ptr].files[fptr].file.name, fname, NAME_MAXLEN);
+            data[dir_ptr].dir.file_offsets[fptr] = 0;
             data[dir_ptr].dir.file_offsets[fptr] = cur_offset;
 
             data[dir_ptr].file_count++;
@@ -334,10 +339,13 @@ end:
     root.num_files = dir_count;
     root.size      = sizeof(dir_header_t) * dir_count;
 
-    root.file_offsets[0] = sizeof(disk_header_t) + sizeof(dir_header_t);
+    root.file_offsets[0] = sizeof(dir_header_t);
 
     for (size_t i = 1; i < dir_count; ++i) {
-        root.file_offsets[i] = data[dir_ptr].dir.file_offsets[0] - sizeof(dir_header_t);
+        root.file_offsets[i] =
+            root.file_offsets[i - 1] 
+            + sizeof(dir_header_t)
+            + data[dir_ptr - 1].dir.size;
     }
 
 #if __DEBUG__
