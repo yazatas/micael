@@ -1,5 +1,5 @@
 #include <drivers/timer.h>
-#include <fs/fs.h>
+#include <fs/file.h>
 #include <fs/binfmt.h>
 #include <kernel/common.h>
 #include <kernel/gdt.h>
@@ -48,13 +48,15 @@ static void *init_task_func(void *arg)
     kdebug("starting init task...");
 
     file_t *file   = NULL;
-    dentry_t *dntr = NULL;
+    path_t *path   = NULL;
 
-    if ((dntr = vfs_lookup("/mnt/sbin/init")) == NULL)
+    if ((path = vfs_path_lookup("/sbin/init", 0))->p_dentry == NULL)
         kpanic("failed to find init script from file system");
 
-    if ((file = vfs_open_file(dntr)) == NULL)
+    if ((file = vfs_open_file(path->p_dentry)) == NULL)
         kpanic("failed to open file /sbin/init");
+
+    vfs_path_release(path);
 
     binfmt_load(file, 0, NULL);
 

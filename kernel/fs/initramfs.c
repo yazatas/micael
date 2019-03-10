@@ -95,6 +95,8 @@ static file_t *initramfs_file_open(dentry_t *dntr, int mode)
         return NULL;
     }
 
+    errno = ENOENT;
+
     (void)dntr, (void)mode;
     return NULL;
 }
