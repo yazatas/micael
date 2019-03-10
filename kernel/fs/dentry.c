@@ -58,11 +58,6 @@ static dentry_t *__dentry_alloc_empty(dentry_t *parent, char *name, bool cache)
         return NULL;
     }
 
-    if ((parent->d_flags & T_IFDIR) == 0) {
-        errno = ENOTDIR;
-        return NULL;
-    }
-
     if (hm_get(parent->d_children, name) != NULL) {
         errno = EEXIST;
         return NULL;
@@ -99,9 +94,6 @@ static int __dentry_init_children(dentry_t *parent, dentry_t *dntr, uint32_t fla
     dentry_t *this = NULL,
              *prnt = NULL;
 
-    if (((dntr->d_flags = flags) & T_IFDIR) == 0)
-        return -ENOTDIR;
-
     /* initialize the child hashmap and create . and .. dentries pointing 
      * to dntr and parent if the caller wants to allocate a directory */
     if ((dntr->d_children = hm_alloc_hashmap(DENTRY_HM_LEN, HM_KEY_TYPE_STR)) == NULL)
@@ -133,8 +125,6 @@ error:
     return -errno;
 }
 
-/* TODO: add inode as paramter?? */
-/* TODO: or allocate new inode here? */
 dentry_t *dentry_alloc(dentry_t *parent, char *name, uint32_t flags)
 {
     int ret        = 0;
@@ -155,12 +145,14 @@ dentry_t *dentry_alloc(dentry_t *parent, char *name, uint32_t flags)
         return NULL;
     }
 
-    if ((ret = __dentry_init_children(parent, dntr, flags)) < 0) {
-        if (dentry_dealloc(dntr))
-            kdebug("failed to deallocate dentry!");
+    if (((dntr->d_flags = flags) & T_IFDIR)) {
+        if ((ret = __dentry_init_children(parent, dntr, flags)) < 0) {
+            if (dentry_dealloc(dntr))
+                kdebug("failed to deallocate dentry!");
 
-        errno = -ret;
-        return NULL;
+            errno = -ret;
+            return NULL;
+        }
     }
 
     return dntr;
