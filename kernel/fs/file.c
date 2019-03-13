@@ -16,7 +16,7 @@ void file_init(void)
         kpanic("failed to initialize slab cache for file ops!");
 }
 
-file_t *file_alloc_empty(void)
+file_t *file_generic_alloc(void)
 {
     file_t *file = NULL;
 
@@ -36,13 +36,16 @@ file_t *file_alloc_empty(void)
     return file;
 }
 
-int file_dealloc(file_t *file)
+int file_generic_dealloc(file_t *file)
 {
     if (!file)
         return -EINVAL;
 
     if (file->f_count > 1)
         return -EBUSY;
+
+    if (file->f_dentry)
+        file->f_dentry->d_count--;
 
     cache_dealloc_entry(file_ops_cache, file->f_ops, C_NOFLAGS);
     cache_dealloc_entry(file_cache,     file,        C_NOFLAGS);

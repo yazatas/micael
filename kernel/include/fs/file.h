@@ -23,7 +23,8 @@ struct file {
 
     void *f_private;
     size_t f_count;
-    off_t f_off;
+    off_t f_pos;
+    int f_mode; /* TODO: mode_t? */
 
     struct file_ops *f_ops;
 };
@@ -40,8 +41,8 @@ struct file_context {
     struct file **fd; /* pointer to an array of file objects */
 };
 
-file_t *file_alloc_empty(void);
-int file_dealloc(file_t *file);
+file_t *file_generic_alloc(void);
+int file_generic_dealloc(file_t *file);
 
 file_t *vfs_fget(int fd);
 int vfs_fput(file_t *file);
