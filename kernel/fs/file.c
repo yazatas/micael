@@ -53,6 +53,20 @@ int file_generic_dealloc(file_t *file)
     return 0;
 }
 
+int file_generic_seek(file_t *file, off_t off)
+{
+    if (!file || !file->f_dentry || !file->f_dentry->d_inode)
+        return -EINVAL;
+
+    const uint32_t FILE_SIZE = file->f_dentry->d_inode->i_size;
+
+    if (file->f_pos < -off || file->f_pos + off > (off_t)FILE_SIZE)
+        return -ESPIPE;
+
+    file->f_pos = file->f_pos + off;
+    return 0;
+}
+
 /* TODO: move these to file.c?? */
 file_t *vfs_open_file(dentry_t *dntr)
 {
