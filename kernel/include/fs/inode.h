@@ -57,8 +57,8 @@ struct inode {
 int inode_init(void);
 
 /* allocate empty inode object */
-inode_t *inode_alloc_empty(uint32_t flags);
-int      inode_dealloc(inode_t *ino);
+inode_t *inode_generic_alloc(uint32_t flags);
+int      inode_generic_dealloc(inode_t *ino);
 
 inode_t *inode_lookup(dentry_t *ino, char *name);
 
