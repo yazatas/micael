@@ -31,7 +31,7 @@ file_t *file_alloc_empty(void)
     }
 
     file->f_count = 1;
-    file->f_off   = 0;
+    file->f_pos   = 0;
 
     return file;
 }
@@ -58,12 +58,12 @@ file_t *vfs_open_file(dentry_t *dntr)
         return NULL;
     }
 
-    if (!dntr->d_inode->f_ops->open) {
+    if (!dntr->d_inode->i_fops->open) {
         errno = ENOSYS;
         return NULL;
     }
 
-    return dntr->d_inode->f_ops->open(dntr, O_RDWR);
+    return dntr->d_inode->i_fops->open(dntr, O_RDWR);
 }
 
 void vfs_close_file(file_t *file)

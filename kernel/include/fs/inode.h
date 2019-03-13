@@ -5,6 +5,8 @@
 #include <sys/types.h>
 #include <stdint.h>
 
+typedef struct cdev       cdev_t;
+typedef struct bdev       bdev_t;
 typedef struct path       path_t;
 typedef struct inode      inode_t;
 typedef struct dentry     dentry_t;
@@ -42,8 +44,11 @@ struct inode {
 
     superblock_t *i_sb; /* pointer to superblock */
 
-    inode_ops_t *i_ops;
-    file_ops_t  *f_ops;
+    inode_ops_t *i_iops; /* pointer to inode operations */
+    file_ops_t  *i_fops; /* pointer to file operations */
+
+    cdev_t *i_cdev;     /* pointer to cdev if inode is a char device */
+    bdev_t *i_bdev;     /* pointer to bdev if inode is a block device */
 
     list_head_t i_list;  /* list of all inodes */
     list_head_t i_dirty; /* list of dirty inodes */

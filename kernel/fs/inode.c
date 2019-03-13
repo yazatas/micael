@@ -27,13 +27,13 @@ inode_t *inode_alloc_empty(uint32_t flags)
 {
     inode_t *ino = NULL;
 
-    if (((ino        = cache_alloc_entry(inode_cache,     C_NOFLAGS)) == NULL) ||
-        ((ino->f_ops = cache_alloc_entry(file_ops_cache,  C_NOFLAGS)) == NULL) ||
-        ((ino->i_ops = cache_alloc_entry(inode_ops_cache, C_NOFLAGS)) == NULL))
+    if (((ino         = cache_alloc_entry(inode_cache,     C_NOFLAGS)) == NULL) ||
+        ((ino->i_fops = cache_alloc_entry(file_ops_cache,  C_NOFLAGS)) == NULL) ||
+        ((ino->i_iops = cache_alloc_entry(inode_ops_cache, C_NOFLAGS)) == NULL))
     {
         if (ino) {
-            if (ino->i_ops)
-                cache_dealloc_entry(inode_ops_cache, ino->i_ops, C_NOFLAGS);
+            if (ino->i_iops)
+                cache_dealloc_entry(inode_ops_cache, ino->i_iops, C_NOFLAGS);
             cache_dealloc_entry(inode_cache, ino, C_NOFLAGS);
         }
 
@@ -62,24 +62,24 @@ int inode_dealloc(inode_t *ino)
     if (ino->i_count > 1)
         return -EBUSY;
 
-    cache_dealloc_entry(inode_ops_cache, ino->i_ops, C_NOFLAGS);
-    cache_dealloc_entry(file_ops_cache,  ino->f_ops, C_NOFLAGS);
-    cache_dealloc_entry(inode_cache,     ino,        C_NOFLAGS);
+    cache_dealloc_entry(inode_ops_cache, ino->i_iops, C_NOFLAGS);
+    cache_dealloc_entry(file_ops_cache,  ino->i_fops, C_NOFLAGS);
+    cache_dealloc_entry(inode_cache,     ino,         C_NOFLAGS);
 
     return 0;
 }
 
 inode_t *inode_lookup(dentry_t *dntr, char *name)
 {
-    if (!dntr || !dntr->d_inode || !dntr->d_inode->i_ops || !name) {
+    if (!dntr || !dntr->d_inode || !dntr->d_inode->i_iops || !name) {
         errno = EINVAL;
         return NULL;
     }
 
-    if (!dntr->d_inode->i_ops->lookup) {
+    if (!dntr->d_inode->i_iops->lookup) {
         errno = ENOSYS;
         return NULL;
     }
 
-    return dntr->d_inode->i_ops->lookup(dntr, name);
+    return dntr->d_inode->i_iops->lookup(dntr, name);
 }
