@@ -53,28 +53,28 @@ int file_generic_dealloc(file_t *file);
  * return -ESPIPE if the seek is illegal (off bounds) */
 int file_generic_seek(file_t *file, off_t off);
 
-file_t *vfs_fget(int fd);
-int vfs_fput(file_t *file);
-
-file_t *vfs_fget_light(int fd);
-int vfs_fput_light(file_t *file);
-
-file_t *vfs_open_file(dentry_t *dentry);
+/* TODO: comment */
+file_t *file_fget(int fd);
 
 /* TODO: comment */
-void vfs_close_file(file_t *file);
-
-/* read "size" bytes from file to "buffer" starting at "offset"
- *
- * return number of bytes read on success and -errno on error */
-ssize_t vfs_read(file_t  *file, off_t offset, size_t size, void *buffer);
-
-/* write "size" bytes to "file" from "buffer" starting at "offset"
- *
- * return number of bytes written on success and -errno on error */
-ssize_t vfs_write(file_t *file, off_t offset, size_t size, void *buffer);
+int file_fput(file_t *file);
 
 /* TODO: comment */
-int vfs_seek(file_t  *file, off_t off);
+file_t *file_fget_light(int fd);
+
+/* TODO: comment */
+int file_fput_light(file_t *file);
+
+/* TODO: comment */
+file_t *file_open(dentry_t *dentry);
+
+/* TODO: comment */
+void file_close(file_t *file);
+
+/* TODO: comment */
+ssize_t file_read(file_t  *file, off_t offset, size_t size, void *buffer);
+
+/* TODO: comment */
+ssize_t file_write(file_t *file, off_t offset, size_t size, void *buffer);
 
 #endif /* __FILE_H__ */

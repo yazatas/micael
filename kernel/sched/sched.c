@@ -53,7 +53,7 @@ static void *init_task_func(void *arg)
     if ((path = vfs_path_lookup("/sbin/init", 0))->p_dentry == NULL)
         kpanic("failed to find init script from file system");
 
-    if ((file = vfs_open_file(path->p_dentry)) == NULL)
+    if ((file = file_open(path->p_dentry)) == NULL)
         kpanic("failed to open file /sbin/init");
 
     vfs_path_release(path);
