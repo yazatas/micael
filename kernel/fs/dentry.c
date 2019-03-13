@@ -206,7 +206,7 @@ dentry_t *dentry_alloc_orphan_ino(char *name, inode_t *ino, uint32_t flags)
     if ((dntr = dentry_alloc_orphan(name, flags)) != NULL)
         dntr->d_inode = ino;
 
-    return NULL;
+    return dntr;
 }
 
 int dentry_dealloc(dentry_t *dntr)
