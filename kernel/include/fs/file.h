@@ -15,7 +15,7 @@ struct file_ops {
     ssize_t  (*write)(file_t *, off_t, size_t, void *);
     file_t  *(*open)(dentry_t *, int);
     int      (*close)(file_t *);
-    off_t    (*seek)(file_t *, off_t);
+    int      (*seek)(file_t *, off_t);
 };
 
 struct file {
@@ -43,6 +43,15 @@ struct file_context {
 
 file_t *file_generic_alloc(void);
 int file_generic_dealloc(file_t *file);
+
+/* generic seek operation. Filesystems can use this
+ * if the file seeking doesn't require more than
+ * than updating the "f_pos" field of the file object
+ *
+ * return 0 on success
+ * return -EINVAL if "file" is NULL
+ * return -ESPIPE if the seek is illegal (off bounds) */
+int file_generic_seek(file_t *file, off_t off);
 
 file_t *vfs_fget(int fd);
 int vfs_fput(file_t *file);
