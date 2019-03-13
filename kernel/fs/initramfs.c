@@ -90,14 +90,12 @@ static ssize_t initramfs_file_read(file_t *file, off_t offset, size_t count, voi
 
 static file_t *initramfs_file_open(dentry_t *dntr, int mode)
 {
-    if (!dntr) {
+    if (!dntr || !dntr->d_inode) {
         errno = EINVAL;
         return NULL;
     }
 
-    errno = ENOENT;
-
-    (void)dntr, (void)mode;
+    (void)mode;
     return NULL;
 }
 
@@ -191,17 +189,17 @@ static inode_t *initramfs_inode_alloc(superblock_t *sb)
     ino->i_size = 0;
     ino->i_sb   = sb;
 
-    ino->i_ops->lookup = initramfs_inode_lookup;
-    ino->f_ops->read   = initramfs_file_read;
-    ino->f_ops->open   = initramfs_file_open;
-    ino->f_ops->close  = initramfs_file_close;
-    ino->f_ops->seek   = initramfs_file_seek;
+    ino->i_iops->lookup = initramfs_inode_lookup;
+    ino->i_fops->read   = initramfs_file_read;
+    ino->i_fops->open   = initramfs_file_open;
+    ino->i_fops->close  = initramfs_file_close;
+    ino->i_fops->seek   = initramfs_file_seek;
 
-    ino->i_ops->create   = NULL; ino->i_ops->link     = NULL; ino->i_ops->unlink      = NULL;
-    ino->i_ops->symlink  = NULL; ino->i_ops->mkdir    = NULL; ino->i_ops->rmdir       = NULL;
-    ino->i_ops->mknod    = NULL; ino->i_ops->rename   = NULL; ino->i_ops->follow_link = NULL;
-    ino->i_ops->put_link = NULL; ino->i_ops->truncate = NULL; ino->i_ops->permission  = NULL;
-    ino->f_ops->write    = NULL;
+    ino->i_iops->create   = NULL; ino->i_iops->link     = NULL; ino->i_iops->unlink      = NULL;
+    ino->i_iops->symlink  = NULL; ino->i_iops->mkdir    = NULL; ino->i_iops->rmdir       = NULL;
+    ino->i_iops->mknod    = NULL; ino->i_iops->rename   = NULL; ino->i_iops->follow_link = NULL;
+    ino->i_iops->put_link = NULL; ino->i_iops->truncate = NULL; ino->i_iops->permission  = NULL;
+    ino->i_fops->write    = NULL;
 
     list_append(&ino->i_sb->s_ino, &ino->i_list);
 
@@ -226,7 +224,7 @@ static int initramfs_init(superblock_t *sb, void *args)
     if (mbi->mods_count == 0) {
         kdebug("trying to init initrd, module count 0!");
         mmu_free_addr(mbi, 1);
-        return -1; /* TODO: proper errno */
+        return -ENXIO;
     }
 
     /* kdebug("mbi->mods_count %u mbi->mods_addr 0x%x", mbi->mods_count, mbi->mods_addr); */
@@ -315,6 +313,8 @@ int initramfs_kill_sb(superblock_t *sb)
         return -EBUSY;
 
     kfree(sb->s_ops);
+    kfree(sb->s_private);
+    /* TODO: release allocated addreses and pages */
     kfree(sb);
 
     return 0;
