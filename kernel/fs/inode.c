@@ -23,7 +23,7 @@ int inode_init(void)
     return 0;
 }
 
-inode_t *inode_alloc_empty(uint32_t flags)
+inode_t *inode_generic_alloc(uint32_t flags)
 {
     inode_t *ino = NULL;
 
@@ -54,7 +54,7 @@ inode_t *inode_alloc_empty(uint32_t flags)
     return ino;
 }
 
-int inode_dealloc(inode_t *ino)
+int inode_generic_dealloc(inode_t *ino)
 {
     if (!ino)
         return -EINVAL;
