@@ -59,7 +59,7 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
         ptr = (uint8_t *)ptr + PAGE_SIZE;
     }
 
-    if (vfs_read(file, 0, fsize, addr) < 0) {
+    if (file_read(file, 0, fsize, addr) < 0) {
         kdebug("Failed to read data from file!");
         return false;
     }
