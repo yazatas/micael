@@ -117,6 +117,7 @@ void vfs_init(void)
 
     dentry_init();
     inode_init();
+    file_init();
     cdev_init();
     bdev_init();
 
