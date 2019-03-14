@@ -44,7 +44,7 @@ int32_t sys_execv(isr_regs_t *cpu)
     if ((path = vfs_path_lookup(p, 0)) == NULL)
         return -1;
 
-    if ((file = file_open(path->p_dentry)) == NULL)
+    if ((file = file_open(path->p_dentry, O_RDONLY)) == NULL)
         return -1;
 
     vfs_path_release(path);

@@ -67,7 +67,7 @@ int file_generic_seek(file_t *file, off_t off)
     return 0;
 }
 
-file_t *file_open(dentry_t *dntr)
+file_t *file_open(dentry_t *dntr, int mode)
 {
     if (!dntr) {
         errno = EINVAL;
@@ -79,7 +79,7 @@ file_t *file_open(dentry_t *dntr)
         return NULL;
     }
 
-    return dntr->d_inode->i_fops->open(dntr, O_RDWR);
+    return dntr->d_inode->i_fops->open(dntr, mode);
 }
 
 void file_close(file_t *file)

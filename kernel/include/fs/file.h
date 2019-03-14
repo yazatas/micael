@@ -66,7 +66,7 @@ file_t *file_fget_light(int fd);
 int file_fput_light(file_t *file);
 
 /* TODO: comment */
-file_t *file_open(dentry_t *dentry);
+file_t *file_open(dentry_t *dentry, int mode);
 
 /* TODO: comment */
 void file_close(file_t *file);
