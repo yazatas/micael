@@ -41,6 +41,8 @@ struct file_context {
     struct file **fd; /* pointer to an array of file objects */
 };
 
+void file_init(void);
+
 file_t *file_generic_alloc(void);
 int file_generic_dealloc(file_t *file);
 
