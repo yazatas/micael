@@ -74,18 +74,61 @@ typedef struct fs_private {
     void *phys_start;
 } fs_private_t;
 
+typedef struct inode_private_t {
+    void *pstart;
+    void *vstart;
+    int num_mapped;
+} i_private_t;
+
 typedef struct file_private {
     bool mapped;
-    uint32_t offset; /* file offset from initrd start */
-    void *data_ptr;  /* used to read/write from/to initrd */
+    int num_mapped;
+    void *pstart; /* points to physical memory */
+    void *vstart; /* points to allocated virtual memory (this must be released) */
 } f_private_t;
 
+#define GET_FILE_PRIVATE(f) ((f_private_t *)(f->f_private))
+#define GET_INO_PRIVATE(i)  ((i_private_t *)(i->i_private))
+
+static inode_t *initramfs_inode_lookup(dentry_t *parent, char *name);
 static inode_t *initramfs_inode_alloc(superblock_t *sb);
+static int      initramfs_inode_destroy(inode_t *ino);
+
+static int     initramfs_file_close(file_t *file);
+static int     initramfs_file_seek(file_t *file, off_t offset);
+static file_t *initramfs_file_open(dentry_t *dntr, int mode);
+
 
 static ssize_t initramfs_file_read(file_t *file, off_t offset, size_t count, void *buf)
 {
-    (void)file, (void)offset, (void)count, (void)buf;
-    return -1;
+    if (!file || !buf)
+        return -EINVAL;
+
+    /* allocate address space for file and map the bytes there */
+    if (GET_FILE_PRIVATE(file)->mapped == false) {
+        size_t range = (file->f_dentry->d_inode->i_size / 4096) + 1;
+        void *vaddr  = mmu_alloc_addr(range);
+        void *paddr  = GET_FILE_PRIVATE(file)->pstart;
+        size_t off   = (uint32_t)paddr - ROUND_DOWN(((uint32_t)paddr), PAGE_SIZE);
+
+        mmu_map_range(paddr, vaddr, range, MM_PRESENT | MM_READONLY);
+
+        GET_FILE_PRIVATE(file)->mapped     = true;
+        GET_FILE_PRIVATE(file)->num_mapped = range;
+        GET_FILE_PRIVATE(file)->vstart     = (char *)((uint32_t)vaddr + off);
+    }
+
+    int ret    = initramfs_file_seek(file, offset);
+    char *addr = ((char *)GET_FILE_PRIVATE(file)->vstart) + sizeof(file_header_t);
+
+    if (ret < 0)
+        return ret;
+
+    if (((off_t)count + file->f_pos) > file->f_dentry->d_inode->i_size)
+        return -E2BIG;
+
+    memcpy(buf, addr + file->f_pos, count);
+    return count;
 }
 
 static file_t *initramfs_file_open(dentry_t *dntr, int mode)
@@ -95,20 +138,60 @@ static file_t *initramfs_file_open(dentry_t *dntr, int mode)
         return NULL;
     }
 
-    (void)mode;
-    return NULL;
+	/* initramfs is a read-only filesystem */
+    if (mode != O_RDONLY) {
+        errno = ENOTSUP;
+        return NULL;
+    }
+
+    if ((dntr->d_inode->i_flags & T_IFREG) == 0) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    file_t *file = file_generic_alloc();
+
+    if (file == NULL)
+        return NULL;
+
+    file->f_pos     = 0;
+    file->f_count   = 1;
+    file->f_mode    = mode;
+    file->f_dentry  = dntr;
+    file->f_ops     = dntr->d_inode->i_fops;
+    dntr->d_count++;
+
+    if ((file->f_private = kmalloc(sizeof(f_private_t))) == NULL) {
+        (void)file_generic_dealloc(file);
+        return NULL;
+    }
+
+    GET_FILE_PRIVATE(file)->mapped = false;
+    GET_FILE_PRIVATE(file)->vstart = NULL;
+    GET_FILE_PRIVATE(file)->pstart = GET_INO_PRIVATE(dntr->d_inode)->pstart;
+
+    return file;
 }
 
 static int initramfs_file_close(file_t *file)
 {
-    (void)file;
-    return -1;
+    if (!file)
+        return -EINVAL;
+
+    if (file->f_count == 1 &&
+        GET_FILE_PRIVATE(file)->mapped &&
+        GET_FILE_PRIVATE(file)->vstart != NULL)
+    {
+        mmu_free_addr(GET_FILE_PRIVATE(file)->vstart, GET_FILE_PRIVATE(file)->num_mapped);
+    }
+
+    kfree(file->f_private);
+    return file_generic_dealloc(file);
 }
 
-static off_t initramfs_file_seek(file_t *file, off_t offset)
+static int initramfs_file_seek(file_t *file, off_t offset)
 {
-    (void)file, (void)offset;
-    return -1;
+    return file_generic_seek(file, offset);
 }
 
 static inode_t *initramfs_inode_lookup(dentry_t *parent, char *name)
@@ -126,30 +209,31 @@ static inode_t *initramfs_inode_lookup(dentry_t *parent, char *name)
     uint32_t i_ino    = 0;
     uint32_t i_size   = 0;
     uint32_t i_flags  = 0;
-    void *i_private   = NULL;
+    uint32_t i_offset = 0;
     inode_t *inode    = NULL;
-    dir_header_t *dh  = (dir_header_t *)parent->d_inode->i_private;
+
+    i_private_t *ip   = ((i_private_t *)parent->d_inode->i_private);
+    dir_header_t *dh  = (dir_header_t *)ip->vstart;
 
     for (size_t i = 0; i < dh->num_files; ++i) {
-        dir_header_t *dir   = (dir_header_t  *)((uint8_t *)dh + dh->file_offsets[i]);
-        file_header_t *file = (file_header_t *)((uint8_t *)dh + dh->file_offsets[i]);
+        i_offset            = dh->file_offsets[i];
+        dir_header_t *dir   = (dir_header_t  *)((char *)dh + i_offset);
+        file_header_t *file = (file_header_t *)((char *)dh + i_offset);
 
         if (dir->magic == DIR_MAGIC) {
             if (strscmp(dir->name, name) == 0) {
-                i_ino     = dir->inode;
-                i_size    = dir->size;
-                i_flags   = T_IFDIR;
-                i_private = dir;
+                i_ino   = dir->inode;
+                i_size  = dir->size;
+                i_flags = T_IFDIR;
                 goto found;
             }
         }
 
         if (file->magic == FILE_MAGIC) {
             if (strscmp(file->name, name) == 0) {
-                i_ino     = file->inode;
-                i_size    = file->size;
-                i_flags   = T_IFREG;
-                i_private = file;
+                i_ino   = file->inode;
+                i_size  = file->size;
+                i_flags = T_IFREG;
                 goto found;
             }
         }
@@ -165,23 +249,42 @@ found:
     inode->i_ino     = i_ino;
     inode->i_size    = i_size;
     inode->i_flags   = i_flags;
-    inode->i_private = i_private;
+
+    /* if the item found was directory, check whether its children fit into 
+     * the memory area allocated by the parent.
+     *
+     * If they do, make i_private->vstart point to parent->...->i_private->vstart + offset.
+     * If, however, the children occupies more memory than currently has been mapped,
+     * we must map the whole directory to memory and make i_private->vstart
+     * point to this new area
+     *
+     * if the item was file, no need allocate any memory/address space yet */
+    inode->i_private      = kmalloc(sizeof(i_private_t));
+    uint32_t parent_start = (uint32_t)ip->pstart;
+    uint32_t parent_size  = parent->d_inode->i_size;
+    uint32_t boundary     = ROUND_DOWN(parent_start, PAGE_SIZE);
+
+    if ((i_flags & T_IFDIR) && ((parent_start - boundary) + parent_size + i_size) > PAGE_SIZE) {
+        /* if the directory contents cross page boundaries, we must allocate both pages */
+        /* TODO:  */
+    } else {
+        if (i_flags & T_IFDIR) {
+            GET_INO_PRIVATE(inode)->vstart = (char *)ip->vstart + i_offset;
+        } else {
+            GET_INO_PRIVATE(inode)->vstart = NULL;
+        }
+
+        GET_INO_PRIVATE(inode)->pstart = (char *)ip->pstart + i_offset;
+    }
 
     return inode;
-}
-
-static int initramfs_inode_read(inode_t *ino)
-{
-    (void)ino;
-    /* TODO: read size and inode number from disk */
-    return 0;
 }
 
 static inode_t *initramfs_inode_alloc(superblock_t *sb)
 {
     inode_t *ino = NULL;
 
-    if ((ino = inode_alloc_empty(0)) == NULL)
+    if ((ino = inode_generic_alloc(0)) == NULL)
         return NULL;
 
     ino->i_uid  = 0;
@@ -208,7 +311,8 @@ static inode_t *initramfs_inode_alloc(superblock_t *sb)
 
 static int initramfs_inode_destroy(inode_t *ino)
 {
-    return inode_dealloc(ino);
+    /* TODO: free i_private */
+    return inode_generic_dealloc(ino);
 }
 
 static int initramfs_init(superblock_t *sb, void *args)
@@ -252,9 +356,18 @@ static int initramfs_init(superblock_t *sb, void *args)
     ((fs_private_t *)sb->s_private)->d_header   = dh;
     ((fs_private_t *)sb->s_private)->phys_start = (char *)mod->mod_start;
 
-    sb->s_root->d_inode->i_private = (char *)((uint32_t)dh + sizeof(disk_header_t));
-    sb->s_root->d_inode->i_flags   = T_IFDIR;
     sb->s_root->d_inode->i_ino     = 1;
+    sb->s_root->d_inode->i_flags   = T_IFDIR;
+
+    sb->s_root->d_inode->i_private = kmalloc(sizeof(i_private_t));
+    
+    /* physical start address of '/' */
+    ((i_private_t *)sb->s_root->d_inode->i_private)->pstart =
+        ((char *)mod->mod_start) + sizeof(disk_header_t);
+
+    /* virtual (mapped) start of '/' */
+    ((i_private_t *)sb->s_root->d_inode->i_private)->vstart =
+        ((char *)dh)            + sizeof(disk_header_t);
 
     mmu_free_addr(mbi, 1);
     mmu_free_addr(mod, 1);
@@ -285,8 +398,8 @@ superblock_t *initramfs_get_sb(fs_type_t *type, char *dev, int flags, void *data
 
     sb->s_ops->destroy_inode = initramfs_inode_destroy;
     sb->s_ops->alloc_inode   = initramfs_inode_alloc;
-    sb->s_ops->read_inode    = initramfs_inode_read;
 
+    sb->s_ops->read_inode    = NULL;
     sb->s_ops->delete_inode  = NULL;
     sb->s_ops->write_super   = NULL;
     sb->s_ops->dirty_inode   = NULL;
