@@ -161,3 +161,27 @@ char *strsep(char **str, const char *delim)
     *str = NULL;
     return tok;
 }
+
+char *strncat(char *s1, char *s2, size_t len)
+{
+    char *ret = NULL, *rptr = NULL;
+    char *ptr = s1;
+
+    ret = rptr = kmalloc(len + 1);
+
+    while (*ptr != '\0')
+        *rptr = *ptr, rptr++, ptr++;
+
+    ptr = s2;
+    while (*ptr != '\0')
+        *rptr = *ptr, rptr++, ptr++;
+
+    return ret;
+}
+
+char *strscat(char *s1, char *s2)
+{
+    size_t len = strlen(s1) + strlen(s2);
+
+    return strncat(s1, s2, len);
+}

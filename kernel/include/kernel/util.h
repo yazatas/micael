@@ -11,6 +11,8 @@ char *strdup(const char *s);
 char *strchr(const char *s, int c);
 char *strsep(char **str, const char *delim);
 char *strncpy(char *restrict dest, const char *restrict src, size_t n);
+char *strncat(char *s1, char *s2, size_t len);
+char *strscat(char *s1, char *s2);
 
 int strcmp(const char *s1, const char *s2);
 int strscmp(const char *s1, const char *s2);
