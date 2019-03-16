@@ -31,6 +31,12 @@ enum LOOKUP_FLAGS {
     LOOKUP_OPEN   = 1 << 2,
 };
 
+enum LOOKUP_STATUS_FLAGS {
+    LOOKUP_STAT_SUCCESS = 0 << 0, /* successful path lookup */
+    LOOKUP_STAT_ENOENT  = 1 << 0, /* intention was to open file */
+    LOOKUP_STAT_EEXISTS = 1 << 1, /* intention was to create file */
+};
+
 typedef struct fs_type {
     char *fs_name;
 
@@ -50,9 +56,9 @@ typedef struct mount {
 } mount_t;
 
 typedef struct path {
-    /* TODO: what all should this struct have */
-    dentry_t *p_dentry;
-    int p_flags;
+    dentry_t *p_dentry; /* set to NULL if nothing was found */
+    int p_flags;        /* copy of the flags used for path lookup */
+    int p_status;       /* status of the path lookup (see LOOKUP_STATUS_FLAGS) */
 } path_t;
 
 /* - initialize emptry rootfs
@@ -114,7 +120,6 @@ int vfs_mount(char *source, char *target, char *type, uint32_t flags);
 int vfs_install_rootfs(char *type, void *data);
 
 /* Do a path lookup
- *
  *
  * NOTE: returned path must be explicitly freed by calling vfs_path_release()
  *
