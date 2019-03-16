@@ -337,6 +337,7 @@ static dentry_t *vfs_walk_path(dentry_t *parent, char *path, int flags)
     inode_t *ino   = NULL;
     char *next     = vfs_extract_child(&path);
 
+    /* we're at the end of path */
     if (path == NULL) {
         if (flags & LOOKUP_PARENT)
             return parent;
@@ -391,6 +392,9 @@ path_t *vfs_path_lookup(char *path, int flags)
     _path_ptr = _path = strdup(path);
     retpath   = kmalloc(sizeof(path_t));
 
+    retpath->p_status = LOOKUP_STAT_SUCCESS;
+    retpath->p_flags  = flags;
+
     if (_path[0] == '/') {
         _path = _path + 1; /* skip '/' */
         start = root_fs->mnt_root;
@@ -416,10 +420,18 @@ path_t *vfs_path_lookup(char *path, int flags)
         goto end;
     }
 
-    if ((retpath->p_dentry = vfs_walk_path(start, _path, flags)) != NULL)
-        retpath->p_dentry->d_count++;
+    if ((retpath->p_dentry = vfs_walk_path(start, _path, flags)) == NULL) {
+        /* intention was to open file but it doesn't exist -> path lookup "failed" */
+        if (flags & LOOKUP_OPEN)
+            retpath->p_status = LOOKUP_STAT_ENOENT;
+        goto end;
+    }
 
-    retpath->p_flags = flags;
+    /* intention was to create file but it already exists -> path lookup "failed" */
+    if (flags & LOOKUP_CREATE)
+        retpath->p_status = LOOKUP_STAT_EEXISTS;
+
+    retpath->p_dentry->d_count++;
 
 end:
     kfree(_path_ptr);
