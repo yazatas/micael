@@ -118,8 +118,6 @@ void vfs_init(void)
     dentry_init();
     inode_init();
     file_init();
-    cdev_init();
-    bdev_init();
 
     binfmt_init();
     binfmt_add_loader(binfmt_elf_loader);
@@ -157,6 +155,21 @@ void vfs_init(void)
         {
             kdebug("failed to mount %s to /%s!", file_systems[i].type, file_systems[i].target);
         }
+    }
+
+    /* initialize character and block drivers
+     *
+     * these must be initialized after mounting the pseudo filesystems
+     * (mainly devfs) because /dev/char and /dev/block directories
+     * will be created during initialization */
+    if ((errno = cdev_init()) < 0) {
+        kdebug("error: %s", kstrerror(-errno));
+        kpanic("cdev_init() failed!");
+    }
+
+    if ((errno = bdev_init()) < 0) {
+        kdebug("error: %s", kstrerror(-errno));
+        kpanic("bdev_init() failed!");
     }
 }
 
@@ -459,8 +472,8 @@ path_t *vfs_path_lookup(char *path, int flags)
     }
 
     /* intention was to create file but it already exists -> path lookup "failed" */
-    if (flags & LOOKUP_CREATE)
-        retpath->p_status = LOOKUP_STAT_EEXISTS;
+    /* if (flags & LOOKUP_CREATE) */
+    /*     retpath->p_status = LOOKUP_STAT_EEXISTS; */
 
     retpath->p_dentry->d_count++;
 
