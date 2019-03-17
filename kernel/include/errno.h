@@ -14,7 +14,8 @@ int errno;
 #define ENOSYS   9 /* Funcion not implemented */
 #define ENOTDIR 10 /* Not a directory */
 #define ENOTSUP 11 /* Operation not supported */
+#define ENXIO   12 /* No such device or address */
 
-#define EMAX    12 /* Used by the kstrerror() */
+#define EMAX    13 /* Used by the kstrerror() */
 
 #endif /* __ERRNO_H__ */

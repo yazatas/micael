@@ -2,6 +2,7 @@
 #define __CACHE_H__
 
 #include <stdint.h>
+#include <stddef.h>
 
 enum {
     C_NOFLAGS = 0 << 0,
