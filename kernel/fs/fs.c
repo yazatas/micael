@@ -388,6 +388,40 @@ static dentry_t *vfs_walk_path(dentry_t *parent, char *path, int flags)
     return vfs_walk_path(dntr, path, flags);
 }
 
+static dentry_t *vfs_find_bootstrap(char **path)
+{
+    char *orig     = NULL,
+         *tmp      = NULL,
+         *mount    = NULL;
+    dentry_t *dntr = NULL;
+
+    /* skip '/' */
+    (*path)++;
+
+    orig  = tmp = strdup(*path);
+    mount = vfs_extract_child(&tmp);
+
+    FOREACH(mountpoints, m) {
+        mount_t *mnt = container_of(m, mount_t, mnt_list);
+
+        if (strscmp(mnt->mnt_mount->d_name, mount) == 0) {
+            dntr     = mnt->mnt_root;
+            (*path) += strlen(mount);
+
+            if (**path == '\0')
+                *path = NULL;
+            else
+                (*path)++;
+
+            goto end;
+        }
+    }
+
+end:
+    /* kfree(orig); */
+    return dntr;
+}
+
 path_t *vfs_path_lookup(char *path, int flags)
 {
     if (!path) {
@@ -400,8 +434,7 @@ path_t *vfs_path_lookup(char *path, int flags)
     dentry_t *start = NULL,
              *dntr  = NULL;
     char *_path_ptr = NULL,
-         *_path     = NULL,
-         *mount     = NULL;
+         *_path     = NULL;
 
     _path_ptr = _path = strdup(path);
     retpath   = kmalloc(sizeof(path_t));
@@ -410,21 +443,8 @@ path_t *vfs_path_lookup(char *path, int flags)
     retpath->p_flags  = flags;
 
     if (_path[0] == '/') {
-        _path = _path + 1; /* skip '/' */
-
-        start = root_fs->mnt_root;
-        mount = vfs_extract_child(&_path);
-
-        FOREACH(mountpoints, m) {
-            mount_t *mnt = container_of(m, mount_t, mnt_list);
-
-            if (strscmp(mnt->mnt_mount->d_name, mount) == 0) {
-                start = mnt->mnt_root;
-                break;
-            }
-        }
-
-        /* end of lookup, path most likely resulted to  */
+        start = vfs_find_bootstrap(&_path);
+        
         if (_path == NULL) {
             if (flags & LOOKUP_PARENT)
                 retpath->p_dentry = root_fs->mnt_root;
@@ -438,10 +458,16 @@ path_t *vfs_path_lookup(char *path, int flags)
                 retpath->p_status = LOOKUP_STAT_ENOENT;
 
             goto end;
-        } else if (start == NULL) {
-            /* default bootstrap dentry is the '/' */
-            start = root_fs->mnt_root;
         }
+
+        /* we got here so path is not NULL meaning there's more elements
+         * to process in the path 
+         *
+         * check if the bootstrap dentry is NULL.
+         * if it is means that the first element after first '/' wasn't a mountpoint
+         * and we must default to root_fs */
+        if (start == NULL)
+            start = root_fs->mnt_root;
     } else {
         if ((current = sched_get_current()) == NULL) {
             kdebug("scheduler has not been started, but relative path was given!");
@@ -459,7 +485,7 @@ path_t *vfs_path_lookup(char *path, int flags)
     }
 
     if (start == NULL) {
-        kdebug("bootstrap dentry is NULL!");
+        kdebug("bootstrap dentry is NULL for %s!", _path_ptr);
         errno = EINVAL;
         goto end;
     }
@@ -478,7 +504,7 @@ path_t *vfs_path_lookup(char *path, int flags)
     retpath->p_dentry->d_count++;
 
 end:
-    kfree(_path_ptr);
+    /* kfree(_path_ptr); */
     return retpath;
 }
 
