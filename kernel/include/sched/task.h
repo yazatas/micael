@@ -4,7 +4,7 @@
 #include <fs/fs.h>
 #include <lib/list.h>
 #include <mm/mmu.h>
-#include <sys/types.h>
+#include <kernel/common.h>
 
 #define MAX_THREADS 16
 #define KSTACK_SIZE 0x400 /* 1024 bytes */
@@ -57,7 +57,8 @@ typedef struct task {
     int exit_status;
 
     /* open files, devices etc. */
-    fs_context_t *fs_ctx;
+    fs_ctx_t   *fs_ctx;
+    file_ctx_t *file_ctx;
 
     list_head_t list;
     list_head_t children;
