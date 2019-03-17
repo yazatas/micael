@@ -98,9 +98,9 @@ static int vfs_mount_pseudo(char *target, char *type, dentry_t *mountpoint)
     mnt->mnt_type    = type;
     mnt->mnt_devname = NULL;
     mnt->mnt_mount   = mountpoint;
+    mnt->mnt_root    = mnt->mnt_sb->s_root;
 
     mountpoint->d_count++;
-    mnt->mnt_root = NULL; /* TODO: how to get this from the filesystem??? */
 
     list_append(&mountpoints, &mnt->mnt_list);
 
@@ -387,7 +387,8 @@ path_t *vfs_path_lookup(char *path, int flags)
     dentry_t *start = NULL,
              *dntr  = NULL;
     char *_path_ptr = NULL,
-         *_path     = NULL;
+         *_path     = NULL,
+         *mount     = NULL;
 
     _path_ptr = _path = strdup(path);
     retpath   = kmalloc(sizeof(path_t));
@@ -397,7 +398,37 @@ path_t *vfs_path_lookup(char *path, int flags)
 
     if (_path[0] == '/') {
         _path = _path + 1; /* skip '/' */
+
         start = root_fs->mnt_root;
+        mount = vfs_extract_child(&_path);
+
+        FOREACH(mountpoints, m) {
+            mount_t *mnt = container_of(m, mount_t, mnt_list);
+
+            if (strscmp(mnt->mnt_mount->d_name, mount) == 0) {
+                start = mnt->mnt_root;
+                break;
+            }
+        }
+
+        /* end of lookup, path most likely resulted to  */
+        if (_path == NULL) {
+            if (flags & LOOKUP_PARENT)
+                retpath->p_dentry = root_fs->mnt_root;
+            else
+                retpath->p_dentry = start;
+
+            if ((flags & LOOKUP_CREATE) && (start != NULL))
+                retpath->p_status = LOOKUP_STAT_EEXISTS;
+
+            if (start == NULL)
+                retpath->p_status = LOOKUP_STAT_ENOENT;
+
+            goto end;
+        } else if (start == NULL) {
+            /* default bootstrap dentry is the '/' */
+            start = root_fs->mnt_root;
+        }
     } else {
         if ((current = sched_get_current()) == NULL) {
             kdebug("scheduler has not been started, but relative path was given!");

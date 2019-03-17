@@ -32,9 +32,10 @@ enum LOOKUP_FLAGS {
 };
 
 enum LOOKUP_STATUS_FLAGS {
-    LOOKUP_STAT_SUCCESS = 0 << 0, /* successful path lookup */
-    LOOKUP_STAT_ENOENT  = 1 << 0, /* intention was to open file */
-    LOOKUP_STAT_EEXISTS = 1 << 1, /* intention was to create file */
+    LOOKUP_STAT_SUCCESS       = 0 << 0, /* successful path lookup */
+    LOOKUP_STAT_ENOENT        = 1 << 0, /* intention was to open file */
+    LOOKUP_STAT_EEXISTS       = 1 << 1, /* intention was to create file */
+    LOOKUP_STAT_INV_BOOTSTRAP = 1 << 2, /* bootstrap dentry is invalid */
 };
 
 typedef struct fs_type {
