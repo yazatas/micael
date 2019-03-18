@@ -338,7 +338,7 @@ cache_t *cache_create(size_t size, uint32_t flags)
         return NULL;
     }
 
-    if ((c = kmalloc(sizeof(cache_t))) == NULL)
+    if ((c = kcalloc(1, sizeof(cache_t))) == NULL)
         return NULL;
 
     c->item_size = MULTIPLE_OF_2(size);
