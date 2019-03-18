@@ -418,7 +418,7 @@ static dentry_t *vfs_find_bootstrap(char **path)
     }
 
 end:
-    /* kfree(orig); */
+    kfree(orig);
     return dntr;
 }
 
@@ -504,7 +504,7 @@ path_t *vfs_path_lookup(char *path, int flags)
     retpath->p_dentry->d_count++;
 
 end:
-    /* kfree(_path_ptr); */
+    kfree(_path_ptr);
     return retpath;
 }
 
