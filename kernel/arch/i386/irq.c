@@ -96,8 +96,8 @@ void irq_handler(struct isr_regs *cpu_state)
         kpanic("no handler for this interrupt!");
     }
 
-	handler = irq_routines[irq_index];
-	handler(cpu_state);
+	if ((handler = irq_routines[irq_index]) != NULL)
+	    handler(cpu_state);
 
     irq_ack_interrupt(cpu_state->isr_num);
 }
