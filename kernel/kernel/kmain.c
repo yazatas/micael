@@ -13,14 +13,18 @@
 #include <sched/task.h>
 #include <sched/sched.h>
 #include <drivers/timer.h>
-#include <drivers/keyboard.h>
+#include <drivers/tty.h>
+#include <drivers/ps2.h>
 #include <errno.h>
 #include <stdint.h>
 
 void kmain(multiboot_info_t *mbinfo)
 {
+    /* initialize GDT, IDT and IRQs */
     gdt_init(); idt_init(); irq_init();
-    kb_install();
+
+    /* initialize keyboard */
+    ps2_init();
 
     /* building memory map requires multiboot info */
     mmu_init(mbinfo);
@@ -35,18 +39,29 @@ void kmain(multiboot_info_t *mbinfo)
     if (vfs_install_rootfs("initramfs", mbinfo) < 0)
         kpanic("failed to install rootfs!");
 
-    path_t *path = NULL;
-    char *paths[8] = {
-        "/sbin/init", "/sbin/test", "/sbin/dsh",
-        "/usr/bin/echo",  "/bin/usr/cat", "/bin/echo",
-        "/usr/bin/cat", "/bin/cat"
-    };
+    /* initialize tty to /dev/tty1 */
+    if (tty_init() == NULL)
+        kpanic("failed to init tty1");
 
-    for (int i = 0; i < 8; ++i) {
-        if ((path = vfs_path_lookup(paths[i], 0))->p_dentry == NULL)
-            kprint("\t%s NOT FOUND!\n", paths[i]);
-        else
-            kprint("\t%s FOUND!\n", paths[i]);
+    path_t *path = NULL;
+    file_t *file = NULL;
+
+    enable_irq();
+
+    if ((path = vfs_path_lookup("/dev/tty1", 0))->p_flags == LOOKUP_STAT_SUCCESS) {
+        if ((file = file_open(path->p_dentry, O_RDWR)) != NULL) {
+            file_write(file, 0, 14, "Hello, world!\n");
+
+            char buf[10] = { 0 };
+
+            if (file_read(file, 0, 9, buf) == 9)
+                kdebug("'%s'", buf);
+            else
+                kdebug("error: %s", buf);
+
+        } else {
+            kdebug("Failed to open file: %s", kstrerror(errno));
+        }
     }
 
     /* create init and idle tasks and start the scheduler */
