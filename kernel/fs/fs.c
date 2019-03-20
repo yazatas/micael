@@ -392,6 +392,13 @@ static dentry_t *vfs_find_bootstrap(char **path)
     /* skip '/' */
     (*path)++;
 
+    /* if the path is at the end already, it means that
+     * user wanted the dentry of root */
+    if (**path == '\0') {
+        *path = NULL;
+        return root_fs->mnt_root;
+    }
+
     orig  = tmp = strdup(*path);
     mount = vfs_extract_child(&tmp);
 
