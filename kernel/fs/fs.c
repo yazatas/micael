@@ -1,5 +1,4 @@
 #include <fs/binfmt.h>
-#include <fs/block.h>
 #include <fs/char.h>
 #include <fs/dentry.h>
 #include <fs/devfs.h>
@@ -165,11 +164,6 @@ void vfs_init(void)
     if ((errno = cdev_init()) < 0) {
         kdebug("error: %s", kstrerror(-errno));
         kpanic("cdev_init() failed!");
-    }
-
-    if ((errno = bdev_init()) < 0) {
-        kdebug("error: %s", kstrerror(-errno));
-        kpanic("bdev_init() failed!");
     }
 }
 

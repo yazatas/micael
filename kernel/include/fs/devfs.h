@@ -2,7 +2,6 @@
 #define __DEVFS_H__
 
 #include <fs/char.h>
-#include <fs/block.h>
 
 #define DEV_MAJOR(dev)         ((dev >> 20) & 0xfff)
 #define DEV_MINOR(dev)         (dev & 0xfffff)

@@ -1,5 +1,4 @@
 #include <fs/devfs.h>
-#include <fs/super.h>
 #include <kernel/kpanic.h>
 #include <mm/cache.h>
 #include <errno.h>
@@ -99,30 +98,3 @@ super_get_sb_bdev(fs_type_t *type, char *dev, int flags,
 
     return NULL;
 }
-
-#if 0
-    The most important operations performed by get_sb_bdev() are the following:
-
-    1. Invokes open_bdev_excl() to open the block device having device file name dev_
-    name (see the section “Character Device Drivers” in Chapter 13).
-
-    2. Invokes sget() to search the list of superblock objects of the filesystem (type->
-    fs_supers, see the earlier section “Filesystem Type Registration”). If a super-
-    block relative to the block device is already present, the function returns its
-    address. Otherwise, it allocates and initializes a new superblock object, inserts it
-    into the filesystem list and in the global list of superblocks, and returns its
-    address.
-
-    3. If the superblock is not new (it was not allocated in the previous step, because
-    the filesystem is already mounted), it jumps to step 6.
-
-    4. Copies the value of the flags parameter into the s_flags field of the superblock
-    and sets the s_id, s_old_blocksize, and s_blocksize fields with the proper val-
-    ues for the block device.
-
-    5. Invokes the filesystem-dependent function passed as last argument to get_sb_
-    bdev() to access the superblock information on disk and fill the other fields of
-    the new superblock object.
-
-    6. Returns the address of the new superblock object.
-#endif
