@@ -14,6 +14,60 @@
 
 typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
+int32_t sys_read(isr_regs_t *cpu)
+{
+    /* enable interrupts but disable context switching */
+    sched_suspend();
+
+    int fd          = (int)cpu->edx;
+    void *buf       = (void *)cpu->ebx;
+    size_t len      = (size_t)cpu->ecx;
+    task_t *current = sched_get_current();
+
+    if ((buf == NULL) ||
+        (!current->file_ctx || !current->file_ctx->fd) ||
+        (fd < 0 || fd >= current->file_ctx->numfd))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (current->file_ctx->fd[fd] == NULL) {
+        errno = ENOENT; /* TODO: ??? */
+        return -1;
+    }
+
+    int32_t ret = file_read(current->file_ctx->fd[fd], 0, len, buf);
+
+    /* re-enable context switching */
+    sched_resume();
+
+    return ret;
+}
+
+int32_t sys_write(isr_regs_t *cpu)
+{
+    int fd          = (int)cpu->edx;
+    void *buf       = (void *)cpu->ebx;
+    size_t len      = (size_t)cpu->ecx;
+    task_t *current = sched_get_current();
+
+    if ((buf == NULL) ||
+        (!current->file_ctx || !current->file_ctx->fd) ||
+        (fd < 0 || fd >= current->file_ctx->numfd))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (current->file_ctx->fd[fd] == NULL) {
+        errno = ENOENT; /* TODO: ??? */
+        return -1;
+    }
+
+    return file_write(current->file_ctx->fd[fd], 0, len, buf);
+}
+
 int32_t sys_fork(isr_regs_t *cpu)
 {
     (void)cpu;
@@ -44,8 +98,10 @@ int32_t sys_execv(isr_regs_t *cpu)
     if ((path = vfs_path_lookup(p, 0)) == NULL)
         return -1;
 
-    if ((file = file_open(path->p_dentry, O_RDONLY)) == NULL)
+    if ((file = file_open(path->p_dentry, O_RDONLY)) == NULL) {
+        vfs_path_release(path);
         return -1;
+    }
 
     vfs_path_release(path);
 
@@ -86,15 +142,14 @@ int32_t sys_exit(isr_regs_t *cpu)
 
     mmu_unmap_pages(0, KSTART - 1);
 
-
     current->threads->state = T_ZOMBIE;
 
-
-    /* for (;;); */
     sched_switch();
 }
 
 static syscall_t syscalls[MAX_SYSCALLS] = {
+    [0] = sys_read,
+    [1] = sys_write,
     [2] = sys_fork,
     [3] = sys_execv,
     [6] = sys_exit,
