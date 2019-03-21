@@ -281,3 +281,31 @@ task_t *sched_get_init(void)
 {
     return init_task;
 }
+
+/* this is just a temporary hack to make sys_read work 
+ *
+ * interrupts must be enabled in order to get keyboard input but 
+ * we don't want to do context switch because that messes up the 
+ * execution state of function.
+ *
+ * Thus, for a temporary hack, enable interrupts but assign timer interrupt
+ * to a dummy function so nothing gets destroyed during when the timer fires 
+ *
+ * This will be removed when wait queues are added */
+static void __noreturn do_nothing(struct isr_regs *cpu_state)
+{
+    (void)cpu_state;
+}
+
+void sched_suspend(void)
+{
+    timer_phase(100); /* TODO:  */
+    irq_install_handler(do_nothing, 0);
+    enable_irq();
+}
+
+void sched_resume(void)
+{
+    timer_phase(100); /* TODO:  */
+    irq_install_handler(do_context_switch, 0);
+}

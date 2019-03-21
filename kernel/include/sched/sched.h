@@ -5,6 +5,8 @@
 #include <kernel/compiler.h>
 
 void sched_init(void);
+void sched_suspend(void);
+void sched_resume(void);
 void sched_start(void) __noreturn;
 void sched_switch(void) __noreturn;
 void sched_task_schedule(task_t *t);
