@@ -95,6 +95,42 @@ task_t *sched_task_create(const char *name)
     t->dir = mmu_build_pagedir();
     t->cr3 = (uint32_t)mmu_v_to_p(t->dir);
 
+    /* initialize file context of task (stdio) */
+    path_t *path = NULL;
+    file_t *file = NULL;
+
+    if ((path = vfs_path_lookup("/dev/tty1", 0))->p_status == LOOKUP_STAT_SUCCESS) {
+        if ((file = file_open(path->p_dentry, O_RDWR)) != NULL) {
+
+            /* allocate space for three file descriptors (std{in,out,err}) and allocate
+             * more space only when user opens more files */
+            t->file_ctx     = kmalloc(sizeof(file_ctx_t));
+            t->file_ctx->fd = kmalloc(sizeof(file_t *) * 3);
+
+            t->file_ctx->count = 1;
+            t->file_ctx->numfd = 3;
+
+            for (int i = 0; i < 3; ++i) {
+                t->file_ctx->fd[i] = file;
+            }
+        } else {
+            kdebug("failed to open /dev/tty1!");
+        }
+    } else {
+        kdebug("failed to find /dev/tty1!");
+    }
+
+    /* initialize filesystem context of task (root, pwd) */
+    if ((path = vfs_path_lookup("/", 0))->p_status == LOOKUP_STAT_SUCCESS) {
+        t->fs_ctx        = kmalloc(sizeof(fs_ctx_t));
+        t->fs_ctx->count = 1;
+        t->fs_ctx->root  = path->p_dentry;
+        t->fs_ctx->pwd   = path->p_dentry;
+    } else {
+        kdebug("failed to find root dentry!");
+    }
+
+    /* path intentionally not released */
     return t;
 }
 
@@ -135,6 +171,14 @@ task_t *sched_task_fork(task_t *parent)
 
     child->dir = mmu_duplicate_pdir();
     child->cr3 = (uint32_t)mmu_v_to_p(child->dir);
+
+    /* duplicate parent's filesystem context to child */
+    child->fs_ctx = parent->fs_ctx;
+    parent->fs_ctx->count++;
+
+    /* duplicate parent's file descriptors to child */
+    child->file_ctx = parent->file_ctx;
+    parent->file_ctx->count++;
 
     return child;
 }
