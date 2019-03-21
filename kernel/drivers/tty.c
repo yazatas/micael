@@ -78,7 +78,9 @@ static ssize_t __tty_read(file_t *file, off_t offset, size_t size, void *buf)
     if (file->f_mode & O_WRONLY)
         return -ENOTSUP;
 
-    for (size_t i = 0; i < size; ++i) {
+    size_t i;
+
+    for (i = 0; i < size; ++i) {
         char c = ps2_read_next();
 
         if (c == '\n')
@@ -89,7 +91,7 @@ static ssize_t __tty_read(file_t *file, off_t offset, size_t size, void *buf)
     }
     kprint("\n");
 
-    return size;
+    return (ssize_t)i;
 }
 
 tty_t *tty_init(void)
