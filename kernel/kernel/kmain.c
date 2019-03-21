@@ -43,30 +43,9 @@ void kmain(multiboot_info_t *mbinfo)
     if (tty_init() == NULL)
         kpanic("failed to init tty1");
 
-    path_t *path = NULL;
-    file_t *file = NULL;
-
-    enable_irq();
-
-    if ((path = vfs_path_lookup("/dev/tty1", 0))->p_flags == LOOKUP_STAT_SUCCESS) {
-        if ((file = file_open(path->p_dentry, O_RDWR)) != NULL) {
-            file_write(file, 0, 14, "Hello, world!\n");
-
-            char buf[10] = { 0 };
-
-            if (file_read(file, 0, 9, buf) == 9)
-                kdebug("'%s'", buf);
-            else
-                kdebug("error: %s", buf);
-
-        } else {
-            kdebug("Failed to open file: %s", kstrerror(errno));
-        }
-    }
-
     /* create init and idle tasks and start the scheduler */
-    /* sched_init(); */
-    /* sched_start(); */
+    sched_init();
+    sched_start();
 
     for (;;);
 }
