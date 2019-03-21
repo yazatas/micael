@@ -3,7 +3,7 @@ include $(ROOTDIR)/Makefile.config
 
 .PHONY: all kernel iso clean copy-headers
 
-all: copy-headers kernel iso
+all: copy-headers kernel toolchain iso
 
 copy-headers:
 	@mkdir -p $(SYSROOT)
@@ -11,6 +11,11 @@ copy-headers:
 
 kernel:
 	$(MAKE) --directory=kernel install
+
+toolchain:
+	@cd toolchain
+	@mkdir -p programs/bin
+	./generate_initrd.sh
 
 iso:
 	@mkdir -p isodir/boot/grub
