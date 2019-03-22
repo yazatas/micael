@@ -32,7 +32,7 @@ void gdt_init(void)
 	gdt_set_gate(0, 0xfffff, 0xf2, 0xcf, &GDT[4]);          /* user mode data segment */
 	gdt_set_gate(tss_base, tss_limit, 0x89, 0x40, &GDT[5]); /* tss segment */
 
-	memset(&tss_ptr, 0, sizeof(struct tss_ptr_t));
+	kmemset(&tss_ptr, 0, sizeof(struct tss_ptr_t));
 
 	tss_ptr.ss0  = SEG_KERNEL_DATA;         /* kernel data segment offset */
 	tss_ptr.esp0 = (uint32_t)&stack_bottom; /* kernel stack */

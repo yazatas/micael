@@ -57,7 +57,7 @@ static page_t mmu_do_cow(page_t fault_addr)
     mmu_map_page((void *)p_fault, v_org,  MM_PRESENT | MM_READWRITE);
     mmu_map_page((void *)p_copy,  v_copy, MM_PRESENT | MM_READWRITE);
 
-    memcpy(v_copy, v_org, PAGE_SIZE);
+    kmemcpy(v_copy, v_org, PAGE_SIZE);
 
     mmu_free_addr(v_org,  1);
     mmu_free_addr(v_copy, 1);

@@ -2,7 +2,7 @@
 #include <mm/heap.h>
 #include <stdbool.h>
 
-size_t strlen(const char *str)
+size_t kstrlen(const char *str)
 {
     size_t len = 0;
 
@@ -13,7 +13,7 @@ size_t strlen(const char *str)
     return len;
 }
 
-void *memcpy(void *restrict dstptr, const void *restrict srcptr, size_t size)
+void *kmemcpy(void *restrict dstptr, const void *restrict srcptr, size_t size)
 {
     unsigned char *dst = dstptr;
     const unsigned char *src = srcptr;
@@ -25,7 +25,7 @@ void *memcpy(void *restrict dstptr, const void *restrict srcptr, size_t size)
     return dstptr;
 }
 
-void *memset(void *buf, int c, size_t size)
+void *kmemset(void *buf, int c, size_t size)
 {
     unsigned char *ptr = buf;
 
@@ -36,7 +36,7 @@ void *memset(void *buf, int c, size_t size)
     return buf;
 }
 
-void *memmove(void *dstptr, const void *srcptr, size_t size)
+void *kmemmove(void *dstptr, const void *srcptr, size_t size)
 {
     uint8_t *dst = dstptr;
     const uint8_t *src = srcptr;
@@ -51,9 +51,9 @@ void *memmove(void *dstptr, const void *srcptr, size_t size)
     return dstptr;
 }
 
-char *strdup(const char *s)
+char *kstrdup(const char *s)
 {
-    size_t n  = strlen(s), i;
+    size_t n  = kstrlen(s), i;
     char *new = kmalloc(n + 1);
 
     if (!new)
@@ -67,7 +67,7 @@ char *strdup(const char *s)
     return new;
 }
 
-int strncmp(const char *s1, const char *s2, size_t len)
+int kstrncmp(const char *s1, const char *s2, size_t len)
 {
     size_t i;
 
@@ -81,7 +81,7 @@ int strncmp(const char *s1, const char *s2, size_t len)
     return !(s1[i] == s2[i]);
 }
 
-int strcmp(const char *s1, const char *s2)
+int kstrcmp(const char *s1, const char *s2)
 {
     for (size_t i = 0; s1[i] != '\0' || s2[i] != '\0'; ++i) {
         if (s1[i] < s2[i])
@@ -92,13 +92,13 @@ int strcmp(const char *s1, const char *s2)
     return 0;
 }
 
-int strscmp(const char *s1, const char *s2)
+int kstrscmp(const char *s1, const char *s2)
 {
-    size_t len = strlen(s1);
-    return strncmp(s1, s2, len);
+    size_t len = kstrlen(s1);
+    return kstrncmp(s1, s2, len);
 }
 
-char *strncpy(char *restrict dest, const char *restrict src, size_t n)
+char *kstrncpy(char *restrict dest, const char *restrict src, size_t n)
 {
     size_t i;
 
@@ -135,7 +135,7 @@ static char *find_first_non_delim(const char *str, const char *delim)
     return (char *)str;
 }
 
-char *strsep(char **str, const char *delim)
+char *kstrsep(char **str, const char *delim)
 {
     char *s, *tok, *c;
 
@@ -162,7 +162,7 @@ char *strsep(char **str, const char *delim)
     return tok;
 }
 
-char *strncat(char *s1, char *s2, size_t len)
+char *kstrncat(char *s1, char *s2, size_t len)
 {
     char *ret = NULL, *rptr = NULL;
     char *ptr = s1;
@@ -179,9 +179,9 @@ char *strncat(char *s1, char *s2, size_t len)
     return ret;
 }
 
-char *strscat(char *s1, char *s2)
+char *kstrscat(char *s1, char *s2)
 {
-    size_t len = strlen(s1) + strlen(s2);
+    size_t len = kstrlen(s1) + kstrlen(s2);
 
-    return strncat(s1, s2, len);
+    return kstrncat(s1, s2, len);
 }

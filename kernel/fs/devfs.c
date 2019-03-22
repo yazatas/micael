@@ -161,7 +161,7 @@ int devfs_kill_sb(superblock_t *sb)
 int devfs_register_cdev(cdev_t *dev, char *name)
 {
     int ret         = 0;
-    char *path      = strscat("/dev/", name);
+    char *path      = kstrscat("/dev/", name);
     path_t *retpath = vfs_path_lookup(path, LOOKUP_PARENT | LOOKUP_CREATE);
     dentry_t *dntr  = NULL;
     inode_t *ino    = NULL;

@@ -208,7 +208,7 @@ int vfs_unregister_fs(char *type)
     FOREACH(mountpoints, m) {
         mount_t *mnt = container_of(m, mount_t, mnt_list);
 
-        if (strscmp(type, mnt->mnt_type) == 0)
+        if (kstrscmp(type, mnt->mnt_type) == 0)
             return -EBUSY;
     }
 
@@ -235,9 +235,9 @@ int vfs_mount(char *source, char *target,
     }
 
     /* devfs, sysfs and procfs can be mounted only once */
-    if (strscmp(type, "devfs")  == 0 ||
-        strscmp(type, "sysfs")  == 0 ||
-        strscmp(type, "procfs") == 0)
+    if (kstrscmp(type, "devfs")  == 0 ||
+        kstrscmp(type, "sysfs")  == 0 ||
+        kstrscmp(type, "procfs") == 0)
     {
         if (source != NULL) {
             kdebug("%s doesn't take source!", type);
@@ -249,7 +249,7 @@ int vfs_mount(char *source, char *target,
         FOREACH(mountpoints, m) {
             mnt = container_of(m, mount_t, mnt_list);
             
-            if (strscmp(mnt->mnt_type, type) == 0) {
+            if (kstrscmp(mnt->mnt_type, type) == 0) {
                 kdebug("%s has already been mounted to %s", type, target);
                 return -EEXIST;
             }
@@ -260,7 +260,7 @@ int vfs_mount(char *source, char *target,
 
     /* if source is NULL, the only possible (valid) filesystem is tmpfs */
     if (source == NULL) {
-        if (strscmp(type, "tmpfs") != 0) {
+        if (kstrscmp(type, "tmpfs") != 0) {
             kdebug("source can't be NULL for %s", type);
             return -EINVAL;
         }
@@ -282,7 +282,7 @@ check_dest:
     FOREACH(mountpoints, m) {
         mnt = container_of(m, mount_t, mnt_list);
         
-        if (strscmp(mnt->mnt_type, type) == 0) {
+        if (kstrscmp(mnt->mnt_type, type) == 0) {
             kdebug("%s has already been mounted to %s", type, target);
             return -EEXIST;
         }
@@ -310,7 +310,7 @@ static char *vfs_extract_child(char **path)
 {
     char *start = *path,
          *ptr   = *path;
-    size_t len  = strlen(*path);
+    size_t len  = kstrlen(*path);
     size_t i    = 0;
 
     for (i = 0; i < len && ptr[i] != '/' && ptr[i] != '\0'; ++i) {
@@ -399,15 +399,15 @@ static dentry_t *vfs_find_bootstrap(char **path)
         return root_fs->mnt_root;
     }
 
-    orig  = tmp = strdup(*path);
+    orig  = tmp = kstrdup(*path);
     mount = vfs_extract_child(&tmp);
 
     FOREACH(mountpoints, m) {
         mount_t *mnt = container_of(m, mount_t, mnt_list);
 
-        if (strscmp(mnt->mnt_mount->d_name, mount) == 0) {
+        if (kstrscmp(mnt->mnt_mount->d_name, mount) == 0) {
             dntr     = mnt->mnt_root;
-            (*path) += strlen(mount);
+            (*path) += kstrlen(mount);
 
             if (**path == '\0')
                 *path = NULL;
@@ -437,7 +437,7 @@ path_t *vfs_path_lookup(char *path, int flags)
     char *_path_ptr = NULL,
          *_path     = NULL;
 
-    _path_ptr = _path = strdup(path);
+    _path_ptr = _path = kstrdup(path);
     retpath   = kmalloc(sizeof(path_t));
 
     retpath->p_status = LOOKUP_STAT_SUCCESS;

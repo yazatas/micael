@@ -127,7 +127,7 @@ static ssize_t initramfs_file_read(file_t *file, off_t offset, size_t count, voi
     if (((off_t)count + file->f_pos) > file->f_dentry->d_inode->i_size)
         return -E2BIG;
 
-    memcpy(buf, addr + file->f_pos, count);
+    kmemcpy(buf, addr + file->f_pos, count);
     return count;
 }
 
@@ -221,7 +221,7 @@ static inode_t *initramfs_inode_lookup(dentry_t *parent, char *name)
         file_header_t *file = (file_header_t *)((char *)dh + i_offset);
 
         if (dir->magic == DIR_MAGIC) {
-            if (strscmp(dir->name, name) == 0) {
+            if (kstrscmp(dir->name, name) == 0) {
                 i_ino   = dir->inode;
                 i_size  = dir->size;
                 i_flags = T_IFDIR;
@@ -230,7 +230,7 @@ static inode_t *initramfs_inode_lookup(dentry_t *parent, char *name)
         }
 
         if (file->magic == FILE_MAGIC) {
-            if (strscmp(file->name, name) == 0) {
+            if (kstrscmp(file->name, name) == 0) {
                 i_ino   = file->inode;
                 i_size  = file->size;
                 i_flags = T_IFREG;

@@ -113,7 +113,7 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
             mmu_map_page((void *)page, (void *)v_start, mm_flags);
 
             size_t read_size = MIN(PAGE_SIZE, nleft);
-            memcpy((void *)ehdr->e_entry, fptr, read_size);
+            kmemcpy((void *)ehdr->e_entry, fptr, read_size);
 
             nwritten += read_size;
             v_start   = v_start + read_size;
