@@ -12,10 +12,10 @@ char *kstrchr(const char *s, int c);
 char *kstrsep(char **str, const char *delim);
 char *kstrncpy(char *restrict dest, const char *restrict src, size_t n);
 char *kstrncat(char *s1, char *s2, size_t len);
-char *kstrscat(char *s1, char *s2);
+char *kstrcat_s(char *s1, char *s2);
 
 int kstrcmp(const char *s1, const char *s2);
-int kstrscmp(const char *s1, const char *s2);
+int kstrcmp_s(const char *s1, const char *s2);
 int kstrncmp(const char *s1, const char *s2, size_t len);
 size_t kstrlen(const char *str);
 

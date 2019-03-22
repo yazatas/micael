@@ -208,7 +208,7 @@ int vfs_unregister_fs(char *type)
     FOREACH(mountpoints, m) {
         mount_t *mnt = container_of(m, mount_t, mnt_list);
 
-        if (kstrscmp(type, mnt->mnt_type) == 0)
+        if (kstrcmp_s(type, mnt->mnt_type) == 0)
             return -EBUSY;
     }
 
@@ -235,9 +235,9 @@ int vfs_mount(char *source, char *target,
     }
 
     /* devfs, sysfs and procfs can be mounted only once */
-    if (kstrscmp(type, "devfs")  == 0 ||
-        kstrscmp(type, "sysfs")  == 0 ||
-        kstrscmp(type, "procfs") == 0)
+    if (kstrcmp_s(type, "devfs")  == 0 ||
+        kstrcmp_s(type, "sysfs")  == 0 ||
+        kstrcmp_s(type, "procfs") == 0)
     {
         if (source != NULL) {
             kdebug("%s doesn't take source!", type);
@@ -249,7 +249,7 @@ int vfs_mount(char *source, char *target,
         FOREACH(mountpoints, m) {
             mnt = container_of(m, mount_t, mnt_list);
             
-            if (kstrscmp(mnt->mnt_type, type) == 0) {
+            if (kstrcmp_s(mnt->mnt_type, type) == 0) {
                 kdebug("%s has already been mounted to %s", type, target);
                 return -EEXIST;
             }
@@ -260,7 +260,7 @@ int vfs_mount(char *source, char *target,
 
     /* if source is NULL, the only possible (valid) filesystem is tmpfs */
     if (source == NULL) {
-        if (kstrscmp(type, "tmpfs") != 0) {
+        if (kstrcmp_s(type, "tmpfs") != 0) {
             kdebug("source can't be NULL for %s", type);
             return -EINVAL;
         }
@@ -282,7 +282,7 @@ check_dest:
     FOREACH(mountpoints, m) {
         mnt = container_of(m, mount_t, mnt_list);
         
-        if (kstrscmp(mnt->mnt_type, type) == 0) {
+        if (kstrcmp_s(mnt->mnt_type, type) == 0) {
             kdebug("%s has already been mounted to %s", type, target);
             return -EEXIST;
         }
@@ -405,7 +405,7 @@ static dentry_t *vfs_find_bootstrap(char **path)
     FOREACH(mountpoints, m) {
         mount_t *mnt = container_of(m, mount_t, mnt_list);
 
-        if (kstrscmp(mnt->mnt_mount->d_name, mount) == 0) {
+        if (kstrcmp_s(mnt->mnt_mount->d_name, mount) == 0) {
             dntr     = mnt->mnt_root;
             (*path) += kstrlen(mount);
 

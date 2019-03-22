@@ -92,7 +92,7 @@ int kstrcmp(const char *s1, const char *s2)
     return 0;
 }
 
-int kstrscmp(const char *s1, const char *s2)
+int kstrcmp_s(const char *s1, const char *s2)
 {
     size_t len = kstrlen(s1);
     return kstrncmp(s1, s2, len);
@@ -179,7 +179,7 @@ char *kstrncat(char *s1, char *s2, size_t len)
     return ret;
 }
 
-char *kstrscat(char *s1, char *s2)
+char *kstrcat_s(char *s1, char *s2)
 {
     size_t len = kstrlen(s1) + kstrlen(s2);
 

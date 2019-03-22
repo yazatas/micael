@@ -221,7 +221,7 @@ static inode_t *initramfs_inode_lookup(dentry_t *parent, char *name)
         file_header_t *file = (file_header_t *)((char *)dh + i_offset);
 
         if (dir->magic == DIR_MAGIC) {
-            if (kstrscmp(dir->name, name) == 0) {
+            if (kstrcmp_s(dir->name, name) == 0) {
                 i_ino   = dir->inode;
                 i_size  = dir->size;
                 i_flags = T_IFDIR;
@@ -230,7 +230,7 @@ static inode_t *initramfs_inode_lookup(dentry_t *parent, char *name)
         }
 
         if (file->magic == FILE_MAGIC) {
-            if (kstrscmp(file->name, name) == 0) {
+            if (kstrcmp_s(file->name, name) == 0) {
                 i_ino   = file->inode;
                 i_size  = file->size;
                 i_flags = T_IFREG;
