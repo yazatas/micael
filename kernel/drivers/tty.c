@@ -20,7 +20,7 @@ void tty_puts(char *data)
 static char *__tty_get_name(void)
 {
     /* TODO: ??? */
-    return strdup("tty1");
+    return kstrdup("tty1");
 }
 
 static file_t *__tty_open(dentry_t *dntr, int mode)

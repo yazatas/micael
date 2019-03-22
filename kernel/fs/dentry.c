@@ -46,7 +46,7 @@ static dentry_t *__dentry_alloc(char *name, bool cache)
 static dentry_t *__dentry_alloc_empty(dentry_t *parent, char *name, bool cache)
 {
     dentry_t *dntr = NULL;
-    size_t len     = strlen(name);
+    size_t len     = kstrlen(name);
 
     if (!parent || !name) {
         errno = EINVAL;
@@ -74,7 +74,7 @@ static dentry_t *__dentry_alloc_empty(dentry_t *parent, char *name, bool cache)
     dntr->d_flags    = 0;
     dntr->d_count    = 1;
 
-    strncpy(dntr->d_name, name, len);
+    kstrncpy(dntr->d_name, name, len);
     list_init(&dntr->d_list);
 
     /* update parent */
@@ -173,7 +173,7 @@ dentry_t *dentry_alloc_orphan(char *name, uint32_t flags)
     dntr->d_parent = NULL;
     dntr->d_inode  = NULL;
 
-    strncpy(dntr->d_name, name, strlen(name));
+    kstrncpy(dntr->d_name, name, kstrlen(name));
     list_init(&dntr->d_list);
 
     if (flags & T_IFDIR) {

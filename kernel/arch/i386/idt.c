@@ -41,7 +41,7 @@ void idt_init(void)
 	idt_ptr.limit = IDT_ENTRY_SIZE * 256 - 1;
 	idt_ptr.base  = (uint32_t)&IDT;
 
-	memset(&IDT, 0, IDT_ENTRY_SIZE * IDT_TABLE_SIZE);
+	kmemset(&IDT, 0, IDT_ENTRY_SIZE * IDT_TABLE_SIZE);
 
 	idt_set_gate((uint32_t)isr0,  0x08, 0x8e, &IDT[0]);
 	idt_set_gate((uint32_t)isr1,  0x08, 0x8e, &IDT[1]);

@@ -150,7 +150,7 @@ void vbe_clear_screen(void)
 {
     for (size_t bank = 0; bank < LAST_BANK; ++bank) {
         vbe_set_bank(bank);
-        memset(vga_mem, 0xff, PAGE_SIZE * 16);
+        kmemset(vga_mem, 0xff, PAGE_SIZE * 16);
     }
 }
 
@@ -211,20 +211,20 @@ void vbe_put_char(char c)
          * and place the write cursor to last line  of the last bank */
         for (int bank = cur_bank; bank >= 0; --bank) {
             /* copy the first line of bank to memory */
-            memcpy(line_buffer[0], vga_mem, LINE_SIZE);
+            kmemcpy(line_buffer[0], vga_mem, LINE_SIZE);
 
             /* shift all rows up by one */
             for (size_t i = 0; i < 3; ++i) {
-                memset(vga_mem + i * LINE_SIZE, 0x0, LINE_SIZE);
-                memcpy(vga_mem + i * LINE_SIZE, vga_mem + (i + 1) * LINE_SIZE, LINE_SIZE);
+                kmemset(vga_mem + i * LINE_SIZE, 0x0, LINE_SIZE);
+                kmemcpy(vga_mem + i * LINE_SIZE, vga_mem + (i + 1) * LINE_SIZE, LINE_SIZE);
             }
 
             /* copy the first row of last bank to this bank */
             if (cur_bank != LAST_BANK)
-                memcpy(vga_mem + 3 * LINE_SIZE, line_buffer[1], LINE_SIZE);
+                kmemcpy(vga_mem + 3 * LINE_SIZE, line_buffer[1], LINE_SIZE);
 
             /* make a copy of the first line of this bank */
-            memcpy(line_buffer[1], line_buffer[0], LINE_SIZE); 
+            kmemcpy(line_buffer[1], line_buffer[0], LINE_SIZE); 
             vbe_set_bank(cur_bank - 1);
         }
 
@@ -236,7 +236,7 @@ void vbe_put_char(char c)
 end:
     /* clear the new line */
     if (c == '\n') {
-        memset(vga_mem + cur_y * DISPLAY_WIDTH, 0, LINE_SIZE);
+        kmemset(vga_mem + cur_y * DISPLAY_WIDTH, 0, LINE_SIZE);
     }
 }
 
@@ -245,7 +245,7 @@ void vbe_put_str(const char *s)
     if (!s)
         return;
 
-    size_t len = strlen(s);
+    size_t len = kstrlen(s);
 
     for (size_t i = 0; i < len; ++i) {
         vbe_put_char(s[i]);

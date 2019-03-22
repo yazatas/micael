@@ -115,7 +115,7 @@ void *kcalloc(size_t nmemb, size_t size)
 {
     void *b = kmalloc(nmemb * size);
 
-    memset(b, 0, nmemb * size);
+    kmemset(b, 0, nmemb * size);
     return b;
 }
 
@@ -131,7 +131,7 @@ void *krealloc(void *ptr, size_t size)
     if (new_size >= size) {
         if (b->prev != NULL && IS_FREE(b->prev)) {
             merge_blocks(b->prev, b);
-            memmove(b->prev + 1, b + 1, b->size);
+            kmemmove(b->prev + 1, b + 1, b->size);
             b = b->prev;
         }
 
@@ -148,7 +148,7 @@ void *krealloc(void *ptr, size_t size)
         }
 
         UNMARK_FREE(tmp);
-        memcpy(tmp + 1, b + 1, b->size);
+        kmemcpy(tmp + 1, b + 1, b->size);
         kfree(ptr);
         b = tmp;
     }

@@ -39,7 +39,7 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
     t->exec_state    = (exec_state_t *)((uint8_t *)t->kstack_bottom - sizeof(exec_state_t));
 
     list_init(&t->list);
-    memset(t->exec_state, 0, sizeof(exec_state_t));
+    kmemset(t->exec_state, 0, sizeof(exec_state_t));
 
     /* TODO: comment */
     /* TODO: push arg to stack */
@@ -64,7 +64,7 @@ void sched_thread_destory(thread_t *t)
         return;
 
     list_remove(&t->list);
-    memset(t->kstack_top, 0, KSTACK_SIZE);
+    kmemset(t->kstack_top, 0, KSTACK_SIZE);
 }
 
 int sched_task_add_thread(task_t *parent, thread_t *child)
@@ -160,7 +160,7 @@ task_t *sched_task_fork(task_t *parent)
         child_t->exec_state    = (exec_state_t *)((uint8_t *)child_t->kstack_bottom - sizeof(exec_state_t));
 
         list_init(&child_t->list);
-        memcpy(child_t->exec_state, parent_t->exec_state, sizeof(exec_state_t));
+        kmemcpy(child_t->exec_state, parent_t->exec_state, sizeof(exec_state_t));
 
         sched_task_add_thread(child, child_t);
         parent_t = container_of(parent_t->list.next, thread_t, list);
