@@ -1,7 +1,7 @@
 ROOTDIR?=$(shell pwd)
 include $(ROOTDIR)/Makefile.config
 
-.PHONY: all kernel iso clean copy-headers
+.PHONY: all kernel iso clean copy-headers toolchain
 
 all: copy-headers kernel toolchain iso
 
@@ -13,9 +13,7 @@ kernel:
 	$(MAKE) --directory=kernel install
 
 toolchain:
-	@cd toolchain
-	@mkdir -p programs/bin
-	./generate_initrd.sh
+	$(MAKE) --directory=toolchain all
 
 iso:
 	@mkdir -p isodir/boot/grub
@@ -35,4 +33,5 @@ debug:
 
 clean:
 	$(MAKE) --directory=kernel clean
+	$(MAKE) --directory=toolchain clean
 	@rm -rf sysroot isodir micael.iso kernel.sym

@@ -23,7 +23,8 @@ int main(int argc, char **argv)
             buffer[ret] = '\0';
             if (execv(buffer, (void *)0) == -1) {
                 write(1, "failed to open file\n", 20);
-                _exit(1);
+                while (1);
+                /* _exit(1); */
             }
         }
     }
