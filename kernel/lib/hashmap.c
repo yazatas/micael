@@ -70,7 +70,7 @@ hashmap_t *hm_alloc_hashmap(size_t size, hm_key_type_t type)
     if ((hm = kmalloc(sizeof(hashmap_t))) == NULL)
         return NULL;
 
-    if ((hm->elem = kmalloc(size * sizeof(hm_item_t *))) == NULL)
+    if ((hm->elem = kcalloc(size, sizeof(hm_item_t *))) == NULL)
         return NULL;
 
     hm->len = 0;
