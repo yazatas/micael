@@ -425,12 +425,16 @@ end:
 
 path_t *vfs_path_lookup(char *path, int flags)
 {
-    if (!path) {
-        errno = EINVAL;
-        return NULL;
+    path_t *retpath   = kmalloc(sizeof(path_t));
+    retpath->p_status = LOOKUP_STAT_SUCCESS;
+    retpath->p_flags  = flags;
+
+    if (path == NULL || kstrlen(path) == 0) {
+        retpath->p_status = LOOKUP_STAT_EINVAL;
+        retpath->p_dentry = NULL;
+        return retpath;
     }
 
-    path_t *retpath = NULL;
     task_t *current = NULL;
     dentry_t *start = NULL,
              *dntr  = NULL;
@@ -438,10 +442,6 @@ path_t *vfs_path_lookup(char *path, int flags)
          *_path     = NULL;
 
     _path_ptr = _path = kstrdup(path);
-    retpath   = kmalloc(sizeof(path_t));
-
-    retpath->p_status = LOOKUP_STAT_SUCCESS;
-    retpath->p_flags  = flags;
 
     if (_path[0] == '/') {
         start = vfs_find_bootstrap(&_path);
