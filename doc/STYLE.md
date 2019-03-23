@@ -33,8 +33,8 @@ Both curly brackets have their own line. Unused parameters should be casted to v
 ```
 int func(int param)
 {
-	(void)param;
-	return 0;
+    (void)param;
+    return 0;
 }
 ```
 
@@ -64,9 +64,9 @@ If the condition of if/while takes more than one line, use the following bracket
 
 ```
 if ((sb        = kmalloc(sizeof(superblock_t))) == NULL ||
-	(sb->s_ops = kmalloc(sizeof(super_ops_t)))  == NULL)
+    (sb->s_ops = kmalloc(sizeof(super_ops_t)))  == NULL)
 {
-	/* error handling */
+    /* error handling */
 }
 
 ```
@@ -77,14 +77,14 @@ Empty line after each case
 
 ```
 switch (expression) {
-	case a:
-		break;
+    case a:
+        break;
 
-	case b:
-		break;
+    case b:
+        break;
 
-	case c:
-		break;
+    case c:
+        break;
 }
 ```
 
