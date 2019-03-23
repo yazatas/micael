@@ -95,13 +95,11 @@ int32_t sys_execv(isr_regs_t *cpu)
     file_t *file   = NULL;
     path_t *path   = NULL;
 
-    if ((path = vfs_path_lookup(p, 0)) == NULL)
-        return -1;
+    if ((path = vfs_path_lookup(p, 0))->p_status != LOOKUP_STAT_SUCCESS)
+        goto error;
 
-    if ((file = file_open(path->p_dentry, O_RDONLY)) == NULL) {
-        vfs_path_release(path);
-        return -1;
-    }
+    if ((file = file_open(path->p_dentry, O_RDONLY)) == NULL)
+        goto error;
 
     vfs_path_release(path);
 
@@ -114,6 +112,8 @@ int32_t sys_execv(isr_regs_t *cpu)
      * the new process or it fails (and returns) and we must return -1 to caller */
     binfmt_load(file, 0, NULL);
 
+error:
+    vfs_path_release(path);
     return -1;
 }
 
