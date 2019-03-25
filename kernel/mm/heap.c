@@ -108,7 +108,17 @@ void *kmalloc(size_t size)
         UNMARK_FREE(b);
     }
 
+    kmemset(b + 1, 0, size);
+
     return b + 1;
+}
+
+void *kzalloc(size_t size)
+{
+    void *b = kmalloc(size);
+
+    kmemset(b, 0, size);
+    return b;
 }
 
 void *kcalloc(size_t nmemb, size_t size)
