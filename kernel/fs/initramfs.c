@@ -1,6 +1,7 @@
 #include <fs/fs.h>
 #include <fs/multiboot.h>
 #include <fs/super.h>
+#include <kernel/kpanic.h>
 #include <kernel/util.h>
 #include <mm/heap.h>
 #include <mm/mmu.h>
@@ -212,9 +213,9 @@ static inode_t *initramfs_inode_lookup(dentry_t *parent, char *name)
     uint32_t i_offset = 0;
     inode_t *inode    = NULL;
 
-    i_private_t *ip   = ((i_private_t *)parent->d_inode->i_private);
-    dir_header_t *dh  = (dir_header_t *)ip->vstart;
-
+    i_private_t *ip  = ((i_private_t *)parent->d_inode->i_private);
+    dir_header_t *dh = (dir_header_t *)ip->vstart;
+    
     for (size_t i = 0; i < dh->num_files; ++i) {
         i_offset            = dh->file_offsets[i];
         dir_header_t *dir   = (dir_header_t  *)((char *)dh + i_offset);
@@ -263,16 +264,22 @@ found:
     uint32_t parent_start = (uint32_t)ip->pstart;
     uint32_t parent_size  = parent->d_inode->i_size;
     uint32_t boundary     = ROUND_DOWN(parent_start, PAGE_SIZE);
+    uint32_t off_start    = parent_start + i_offset - boundary;
 
-    if ((i_flags & T_IFDIR) && ((parent_start - boundary) + parent_size + i_size) > PAGE_SIZE) {
-        /* if the directory contents cross page boundaries, we must allocate both pages */
-        /* TODO:  */
+    /* if the offset from page boundary of the initrd + directory size is more than PAGE_SIZE,
+     * it means that this directory overlaps two pages and we must allocate space for two pages */
+    if ((i_flags & T_IFDIR) && (off_start + i_size) > PAGE_SIZE) {
+        uint32_t *vstart      = mmu_alloc_addr(2);
+        size_t off_from_start = parent_start + i_offset - boundary;
+        mmu_map_range((void *)boundary, vstart, 2, MM_PRESENT | MM_READONLY);
+
+        GET_INO_PRIVATE(inode)->pstart = (void *)((uint8_t *)ip->pstart + i_offset);
+        GET_INO_PRIVATE(inode)->vstart = (void *)((uint8_t *)vstart + off_start);
     } else {
-        if (i_flags & T_IFDIR) {
+        if (i_flags & T_IFDIR)
             GET_INO_PRIVATE(inode)->vstart = (char *)ip->vstart + i_offset;
-        } else {
+        else
             GET_INO_PRIVATE(inode)->vstart = NULL;
-        }
 
         GET_INO_PRIVATE(inode)->pstart = (char *)ip->pstart + i_offset;
     }
