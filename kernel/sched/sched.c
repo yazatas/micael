@@ -167,7 +167,7 @@ void __noreturn sched_switch(void)
         current = sched_dequeue_task(&run_queue);
 
         if (current == NULL) {
-            kdebug("no task to run, choosing idle task");
+            /* kdebug("no task to run, choosing idle task"); */
             current = idle_task;
         }
     }
@@ -306,6 +306,7 @@ void sched_suspend(void)
 
 void sched_resume(void)
 {
+    disable_irq();
     timer_phase(100); /* TODO:  */
     irq_install_handler(do_context_switch, 0);
 }
