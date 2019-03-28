@@ -176,7 +176,7 @@ void vbe_put_char(char c)
             break;
 
         case '\b':
-            vbe_putchar(0, cur_y, cur_x, DISPLAY_FG_COLOR, DISPLAY_BG_COLOR);
+            vbe_putchar(0, cur_y, cur_x - DISPLAY_BITDEPTH, DISPLAY_FG_COLOR, DISPLAY_BG_COLOR);
             cur_x -= DISPLAY_BITDEPTH;
             break;
 
