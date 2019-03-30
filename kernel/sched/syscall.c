@@ -90,16 +90,20 @@ int32_t sys_fork(isr_regs_t *cpu)
 
 int32_t sys_execv(isr_regs_t *cpu)
 {
-    char *p = (char *)cpu->ebx;
+    char *p  = (char *)cpu->ebx;
 
     file_t *file   = NULL;
     path_t *path   = NULL;
 
-    if ((path = vfs_path_lookup(p, 0))->p_status != LOOKUP_STAT_SUCCESS)
+    if ((path = vfs_path_lookup(p, 0))->p_status != LOOKUP_STAT_SUCCESS) {
+        kdebug("looup error %d", path->p_status);
         goto error;
+    }
 
-    if ((file = file_open(path->p_dentry, O_RDONLY)) == NULL)
+    if ((file = file_open(path->p_dentry, O_RDONLY)) == NULL) {
+        kdebug("open error %s", kstrerror(errno));
         goto error;
+    }
 
     vfs_path_release(path);
 
@@ -126,24 +130,23 @@ int32_t sys_exit(isr_regs_t *cpu)
     kdebug("exiting from %s ( pid %d): status %d", current->name, current->pid, status);
     sched_print_tasks();
 
-    /* reassign new parent for current's children */
+    /* reassign new parent for current task's children */
     if (LIST_EMPTY(current->children) == false) {
         if (parent == NULL)
             parent = sched_get_init();
-
         /* TODO: assign new parent for children */
     }
-
-    /* TODO: signal parent (SIGCHLD) */
 
     /* free all used memory (all memory that can be freed) */
     /* vfs_free_fs_context(current->fs_ctx); */
     sched_free_threads(current);
 
+    /* clear page tables of current process:
+     * mark all user page tables as not present and try to free
+     * as many page frames as possible (all pages not marked as CoW) */
     mmu_unmap_pages(0, KSTART - 1);
 
     current->threads->state = T_ZOMBIE;
-
     sched_switch();
 }
 
