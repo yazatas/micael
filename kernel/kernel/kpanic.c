@@ -1,9 +1,9 @@
-#include <kernel/tty.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/common.h>
+#include <mm/mmu.h>
+#include <errno.h>
 #include <stdint.h>
-
-#include <mm/vmm.h>
 
 #define REG(reg) reg, reg
 
@@ -14,15 +14,16 @@ struct regs_t {
 	uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
 };
 
-void kpanic(const char *error)
+void __attribute__((noreturn))
+kpanic(const char *error)
 {
-    asm ("cli");
-    tty_init(VGA_COLOR_WHITE, VGA_COLOR_BLUE);
+    disable_irq();
 
 	struct regs_t *tmp = (struct regs_t*)error;
 
 	kdebug("error number: %d %x", tmp->err_num, tmp->err_num);
 	kdebug("'%s'", error);
+    kdebug("%s", kstrerror(errno));
 
     uint32_t eax, ebx, ecx, edx, edi, cr3, cr2;
 
@@ -44,8 +45,8 @@ void kpanic(const char *error)
            "\tcr3: 0x%08x %8u\n\n\n", REG(eax), REG(ebx), REG(ecx), 
 		   REG(edx), REG(edi),    REG(cr2), REG(cr3));
 
-	kdebug("%u free pages", vmm_count_free_pages());
-	vmm_list_pde();
+    mmu_print_memory_map();
+	mmu_list_pde();
 
     while (1) { }
     __builtin_unreachable();

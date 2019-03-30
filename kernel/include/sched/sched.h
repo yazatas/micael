@@ -1,14 +1,23 @@
 #ifndef __SCHED_H__
 #define __SCHED_H__
 
-/* TODO: how to cooperative with task.h */
+#include <sched/task.h>
+#include <kernel/compiler.h>
 
-void schedule(void) __attribute__((noreturn));
+void sched_init(void);
+void sched_suspend(void);
+void sched_resume(void);
+void sched_start(void) __noreturn;
+void sched_switch(void) __noreturn;
+void sched_task_schedule(task_t *t);
 
-/* voluntarily yield execution
- *
- * useful if you know you'll be waiting for I/O or
- * mutex/semaphore you're trying to take is locked */
-void yield_tmp(void);
+/* TODO: comment */
+task_t *sched_get_current(void);
+task_t *sched_get_init(void);
+void sched_enter_userland(void *eip, void *esp) __noreturn;
+
+
+/* TODO: remove */
+void sched_print_tasks(void);
 
 #endif /* end of include guard: __SCHED_H__ */

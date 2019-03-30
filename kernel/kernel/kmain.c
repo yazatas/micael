@@ -1,49 +1,51 @@
-#include <stdio.h>
-#include <limits.h>
-#include <stdint.h>
-#include <string.h>
-#include <kernel/tty.h>
+#include <drivers/vbe.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
 #include <kernel/irq.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
-#include <sync/mutex.h>
-#include <mm/vmm.h>
-#include <mm/kheap.h>
-#include <fs/multiboot.h>
-#include <fs/vfs.h>
-#include <sched/kthread.h>
-#include <sched/proc.h>
+#include <kernel/util.h>
+#include <mm/cache.h>
+#include <mm/heap.h>
+#include <mm/mmu.h>
+#include <fs/binfmt.h>
+#include <fs/fs.h>
+#include <sched/task.h>
+#include <sched/sched.h>
 #include <drivers/timer.h>
-#include <drivers/keyboard.h>
-
-extern uint32_t __kernel_virtual_start,  __kernel_virtual_end;
-extern uint32_t __kernel_physical_start, __kernel_physical_end;
-extern uint32_t __code_segment_start, __code_segment_end;
-extern uint32_t __data_segment_start, __data_segment_end;
-extern uint32_t boot_page_dir; 
+#include <drivers/tty.h>
+#include <drivers/ps2.h>
+#include <errno.h>
+#include <stdint.h>
 
 void kmain(multiboot_info_t *mbinfo)
 {
-    tty_init_default();
+    /* initialize GDT, IDT and IRQs */
+    gdt_init(); idt_init(); irq_init();
 
-	kdebug("kvirtual kphysical start: 0x%08x 0x%08x\n"
-		   "[kmain] kvirtual kphysical end:   0x%08x 0x%08x",
-		   &__kernel_virtual_start, &__kernel_physical_start,
-		   &__kernel_virtual_end,   &__kernel_physical_end);
-	kdebug("code segment start - end: 0x%08x - 0x%08x",
-			&__code_segment_start, &__code_segment_end);
-	kdebug("data segment start - end: 0x%08x - 0x%08x",
-			&__data_segment_start, &__data_segment_end);
-	kdebug("kpage dir start addr:     0x%08x", &boot_page_dir);
+    /* initialize keyboard */
+    ps2_init();
 
-	gdt_init(); idt_init(); irq_init(); 
-	timer_install(); kb_install();
-	asm ("sti"); /* enable interrupts */
+    /* building memory map requires multiboot info */
+    mmu_init(mbinfo);
 
-	vmm_init(mbinfo);
-    vfs_init(mbinfo);
+    /* VBE must be initialized after MMU, because it uses
+     * mmu functions to get the from from VGA memory */
+    vbe_init();
 
-	for (;;);
+    /* initialize inode and dentry caches, mount pseudo rootfs and devfs */
+    vfs_init();
+
+    if (vfs_install_rootfs("initramfs", mbinfo) < 0)
+        kpanic("failed to install rootfs!");
+
+    /* initialize tty to /dev/tty1 */
+    if (tty_init() == NULL)
+        kpanic("failed to init tty1");
+
+    /* create init and idle tasks and start the scheduler */
+    sched_init();
+    sched_start();
+
+    for (;;);
 }

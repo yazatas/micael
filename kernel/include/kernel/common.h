@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <limits.h>
+#include <kernel/kprint.h>
 
 typedef struct isr_regs {
     uint16_t gs, fs, es, ds;
@@ -12,11 +13,44 @@ typedef struct isr_regs {
     uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
 } isr_regs_t;
 
-#define MIN(v1, v2) ((v1 < v2) ? v1 : v2)
-#define MAX(v1, v2) ((v1 < v2) ? v2 : v1)
+typedef int ssize_t;
+typedef int gid_t;
+
+#define MIN(v1, v2) (((v1) < (v2)) ? (v1) : (v2))
+#define MAX(v1, v2) (((v1) < (v2)) ? (v2) : (v1))
+
 #define ROUND_DOWN(addr, boundary) (addr & ~(boundary - 1))
 #define ROUND_UP(addr,   boundary) ((addr % boundary) ? \
-								   ((addr & ~(boundary - 1)) + boundary) : \
-									(addr))
+								   ((addr & ~(boundary - 1)) + boundary) : (addr))
+#define MULTIPLE_OF_2(value)       ((value + 1) & -2)
+
+static inline void hex_dump(void *buf, size_t len)
+{
+    for (size_t i = 0; i < len; i+=10) {
+        kprint("\t");
+        for (size_t k = i; k < i + 10 && k < len; ++k) {
+            kprint("0x%02x ", ((uint8_t *)buf)[k]);
+        }
+        kprint("\n");
+    }
+}
+
+static inline void disable_irq(void)
+{
+    asm volatile ("cli" ::: "memory");
+}
+
+static inline void enable_irq(void)
+{
+    asm volatile ("sti" ::: "memory");
+}
+
+static inline uint32_t get_sp(void)
+{
+    uint32_t sp;
+    asm volatile ("mov %%esp, %0" : "=r"(sp));
+
+    return sp;
+}
 
 #endif /* end of include guard: __COMMON_H__ */

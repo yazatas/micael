@@ -1,9 +1,7 @@
 #include <kernel/io.h>
 #include <kernel/irq.h>
 #include <drivers/timer.h>
-
-#include <stddef.h>
-#include <stdio.h>
+#include <kernel/kprint.h>
 
 static size_t ticks = 0;
 
