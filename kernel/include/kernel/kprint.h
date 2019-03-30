@@ -7,5 +7,6 @@
 #define kdebug(fmt, ...) kprint("[%s] "fmt"\n", __func__, ##__VA_ARGS__)
 
 void kprint(const char *fmt, ...);
+const char *kstrerror(int error);
 
 #endif /* end of include guard: __KPRINT_H__ */

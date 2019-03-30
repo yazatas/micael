@@ -1,7 +1,7 @@
 #include <kernel/kprint.h>
 #include <kernel/common.h>
 #include <fs/multiboot.h>
-#include <mm/vmm.h>
+#include <mm/mmu.h>
 
 size_t multiboot_map_memory(multiboot_info_t *mbinfo)
 {
@@ -22,7 +22,7 @@ size_t multiboot_map_memory(multiboot_info_t *mbinfo)
             kprint("\t\tend address:   0x%x\n", end);
 
             for (cur = start; cur <= end; cur += 0x1000) {
-                vmm_claim_page(cur);
+                mmu_claim_page(cur);
                 numpages++;
             }
             kprint("\t\tmaps:          %u pages\n", numpages);
@@ -41,7 +41,7 @@ size_t multiboot_load_modules(multiboot_info_t *mbi)
 
 
     multiboot_module_t *mod;
-    int i;
+    size_t i;
     kdebug("mods_count = %d, mods_addr = 0x%x\n",
             (int) mbi->mods_count, (int) mbi->mods_addr);
     for (i = 0, mod = (multiboot_module_t *) mbi->mods_addr;
@@ -52,4 +52,5 @@ size_t multiboot_load_modules(multiboot_info_t *mbi)
                 (unsigned) mod->mod_end,
                 (char *) mod->cmdline);
 
+    return 0;
 }

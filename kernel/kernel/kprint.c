@@ -1,10 +1,32 @@
 #include <kernel/kprint.h>
-#include <kernel/tty.h> 
-
+#include <kernel/util.h>
+#include <drivers/tty.h>
 #include <stdarg.h>
-#include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <errno.h>
+
+static const char *errors[EMAX] = {
+    "Success",
+    "No space left on device",
+    "No such file or directory",
+    "Invalid value",
+    "File exists",
+    "Out of memory",
+    "Device busy",
+    "Argument list too long",
+    "Illegal seek",
+    "Funcion not implemented",
+    "Not a directory",
+    "Operation not supported",
+};
+
+const char *kstrerror(int error)
+{
+    if (error >= EMAX || error <= 0)
+        return errors[0];
+    return errors[error];
+}
 
 static void print_integer(uint32_t value, int width, int sign, bool zp)
 {
@@ -26,7 +48,7 @@ static void print_integer(uint32_t value, int width, int sign, bool zp)
     }
 
     while (--i >= 0) {
-        term_putc(c[i]);
+        tty_putc(c[i]);
     }
 }
 
@@ -37,7 +59,7 @@ static void va_kprint(const char *fmt, va_list args)
     while (*fmt) {
 
         if (*fmt != '%') {
-            term_putc(*fmt);
+            tty_putc(*fmt);
             fmt++;
             continue;
         }
@@ -45,18 +67,18 @@ static void va_kprint(const char *fmt, va_list args)
         fmt++;
         switch (*fmt) {
             case '%':
-                term_putc('%');
+                tty_putc('%');
                 fmt++;
                 continue;
 
             case 'c':
-                term_putc(va_arg(args, int));
+                tty_putc(va_arg(args, int));
                 fmt++;
                 continue;
 
             case 's': {
                 char *tmp = va_arg(args, char*);
-                term_puts(tmp);
+                tty_puts(tmp);
                 fmt++;
                 continue;
             }
@@ -106,7 +128,7 @@ static void va_kprint(const char *fmt, va_list args)
                 }
 
                 while (--i >= 0) {
-                    term_putc(c[i]);
+                    tty_putc(c[i]);
                 }
 
                 break;
