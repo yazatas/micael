@@ -107,7 +107,7 @@ static ssize_t initramfs_file_read(file_t *file, off_t offset, size_t count, voi
 
     /* allocate address space for file and map the bytes there */
     if (GET_FILE_PRIVATE(file)->mapped == false) {
-        size_t range = (file->f_dentry->d_inode->i_size / 4096) + 1;
+        size_t range = (file->f_dentry->d_inode->i_size / 4096) + 2;
         void *vaddr  = mmu_alloc_addr(range);
         void *paddr  = GET_FILE_PRIVATE(file)->pstart;
         size_t off   = (uint32_t)paddr - ROUND_DOWN(((uint32_t)paddr), PAGE_SIZE);
