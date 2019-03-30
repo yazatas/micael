@@ -22,6 +22,8 @@ int main(int argc, char **argv)
         int fnum = buffer[0] - '0';
         int snum = buffer[1] - '0';
         int res  = 0;
+        int i    = 0;
+        ret      = 2;
 
         switch (buffer[2]) {
             case '+':
@@ -35,20 +37,18 @@ int main(int argc, char **argv)
                 break;
         }
 
-        if (res != 0) {
-            if (res >= 10) {
-                ret = 2;
-                buffer[0] = (res / 10) + '0';
-                buffer[1] = (res % 10) + '0';
-            } else {
-                ret = 1;
-                buffer[0] = (res % 10) + '0';
-            }
+        if (res < 0)
+            buffer[i++] = '-', res = -res;
 
-            write(1, "result: ", 8);
-            write(1, buffer, ret);
-        } else {
-            write(1, "something went wrong", 20);
-        }
+        if (res >= 10)
+            ret++, buffer[i++] = (res / 10) + '0';
+
+        buffer[i++] = (res % 10) + '0';
+        buffer[i]   = '\n';
+
+        write(1, "result: ", 8);
+        write(1, buffer, ret);
     }
+
+    return 0;
 }
