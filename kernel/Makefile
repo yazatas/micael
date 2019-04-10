@@ -10,9 +10,8 @@ include $(DIR_LIB)/make.config
 
 DESTDIR=$(realpath $(shell pwd)/../sysroot)
 
-CFLAGS:=$(CFLAGS) --sysroot=$(DESTDIR) -D__is_kernel $(KERNEL_ARCH_CFLAGS)
-LDFLAGS:=$(LDFLAGS) -nostdlib -lgcc $(KERNEL_ARCH_LDFLAGS)
-
+CFLAGS  := $(CFLAGS) --sysroot=$(DESTDIR) $(KERNEL_ARCH_CFLAGS)
+LDFLAGS := $(LDFLAGS) -nostdlib -lgcc $(KERNEL_ARCH_LDFLAGS)
 
 KERNEL_OBJS=\
 $(KERNEL_ARCH_OBJS) \
@@ -43,13 +42,16 @@ copy-headers:
 	cp -R --preserve=timestamps include/. $(DESTDIR)$(INCLUDEDIR)/.
 
 install-kernel: micael.kernel
-	echo $(DESTDIR)
 	mkdir -p $(DESTDIR)$(BOOTDIR)
 	cp micael.kernel $(DESTDIR)$(BOOTDIR)
 
 micael.kernel: $(OBJS) $(ARCHDIR)/linker.ld
 	$(CC) -T $(ARCHDIR)/linker.ld -o $@ $(CFLAGS) $(LINK_LIST)
+ifeq ($(AS), x86_64-elf-as)
+	grub-file --is-x86-multiboot2 micael.kernel
+else
 	grub-file --is-x86-multiboot micael.kernel
+endif
 
 .c.o:
 	$(CC) -MD -c $< -o $@ -std=gnu11 $(CFLAGS)

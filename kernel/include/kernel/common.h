@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <limits.h>
 #include <kernel/kprint.h>
+#include <sys/types.h>
 
 typedef struct isr_regs {
     uint16_t gs, fs, es, ds;

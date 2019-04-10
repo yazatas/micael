@@ -1,4 +1,5 @@
 #include <drivers/vbe.h>
+#include <kernel/arch.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
 #include <kernel/irq.h>
@@ -20,7 +21,8 @@
 
 void kmain(multiboot_info_t *mbinfo)
 {
-    /* initialize GDT, IDT and IRQs */
+    /* initialize all low-level stuff (GDT, IDT, IRQ, etc.) */
+    /* arch_init(); */
     gdt_init(); idt_init(); irq_init();
 
     /* initialize keyboard */

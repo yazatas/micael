@@ -173,7 +173,7 @@ void __noreturn sched_switch(void)
     }
 
     /* update tss, important for user mode tasks */
-    tss_ptr.esp0 = (uint32_t)current->threads->kstack_bottom;
+    /* tss_ptr.esp0 = (uint32_t)current->threads->kstack_bottom; */
 
     context_switch(current->cr3, current->threads->exec_state);
     kpanic("context_switch() returned!");
@@ -251,7 +251,7 @@ void __noreturn sched_enter_userland(void *eip, void *esp)
     current->threads->exec_state->cs = SEG_USER_CODE;
     current->threads->exec_state->ss = SEG_USER_DATA;
 
-    tss_ptr.esp0 = (uint32_t)current->threads->kstack_bottom;
+    /* tss_ptr.esp0 = (uint32_t)current->threads->kstack_bottom; */
 
     /* TODO: remove */
     current->name = names[index++];

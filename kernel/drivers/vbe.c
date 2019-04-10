@@ -89,9 +89,15 @@ static void vbe_get_font(void)
      * we must allocate twice the needed space in order to copy the whole bitmap */
     mmu_map_range((void *)0xA0000, tmp_ptr, 2, MM_READWRITE | MM_PRESENT);
 
+#ifdef __x86_64__
+    asm volatile("mov %[vga_ptr],  %%rsi\n\
+                  mov %[font_ptr], %%rdi"
+              :: [vga_ptr] "r" (tmp_ptr), [font_ptr] "r" (font_map));
+#else
     asm volatile("mov %[vga_ptr],  %%esi\n\
                   mov %[font_ptr], %%edi"
               :: [vga_ptr] "r" (tmp_ptr), [font_ptr] "r" (font_map));
+#endif
 
     /* 256 * 16 == 4096 bytes */
     for (int i = 0; i < 256; ++i) {

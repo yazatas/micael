@@ -23,7 +23,7 @@
 #define PHYSADDR_TO_INDEX(addr)  (addr / PAGE_SIZE)
 #define INDEX_TO_PHYSADDR(index) (index * PAGE_SIZE)
 
-extern uint32_t boot_page_dir; /* this address is virtual */
+/* extern uint32_t boot_page_dir; /1* this address is virtual *1/ */
 
 static uint32_t PAGE_DIR[MEM_MAX_PAGE_COUNT        / 32] = { PAGE_FREE };
 static uint32_t VTMP_PAGES[MEM_MAX_TMP_VPAGE_COUNT / 32] = { PAGE_FREE };
@@ -254,7 +254,8 @@ void mmu_init(multiboot_info_t *mbinfo)
 
     /* enable recursion for temporary page directory 
      * identity mapping enables us this "direct" access to physical memory */
-    uint32_t *KPDIR_P = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000);
+    /* uint32_t *KPDIR_P = (uint32_t*)((uint32_t)&boot_page_dir - 0xc0000000); */
+    uint32_t *KPDIR_P = (uint32_t*)((uint32_t)0x100000 - 0xc0000000);
     KPDIR_P[1023]     = ((uint32_t)KPDIR_P) | MM_PRESENT | MM_READONLY;
 
     /* initialize kernel page tables */
