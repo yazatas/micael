@@ -4,17 +4,16 @@
 .global tss_flush
 
 gdt_flush:
-    lgdt 4(%esp)
+    lgdt (%rdi)
+    pushq $8
+    pushq $flush
+    lretq
+flush:
     movw $0x10, %ax
     movw %ax, %ds
     movw %ax, %es
     movw %ax, %fs
     movw %ax, %gs
-    movq $flush, %rax
-
-    .byte 0x48
-    ljmp *(%rax)
-flush:
     ret
 
 tss_flush:
