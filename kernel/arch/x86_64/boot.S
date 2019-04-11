@@ -1,5 +1,3 @@
-#include <arch/x86_64/gdtdef.h>
-
 #define PML4_ATOEI(addr) (((addr) >> 39) & 0x1FF)
 #define PDPT_ATOEI(addr) (((addr) >> 30) & 0x1FF)
 
@@ -58,16 +56,13 @@ header_end:
 .comm hpdt,  MM_STRUCT_SIZE, MM_ALIGN
 
 .section .data
-.align GDT_TABLE_ALIGNMENT
+.align 0x1000
 gdt_table_start:
-    .8byte GDT_ENTRY_NULL
-    .8byte GDT_ENTRY_KERNEL_CODE
-
-gdt_table_end:
-    .skip (GDT_TABLE_SIZE - (gdt_table_end - gdt_table_start))
+    .8byte 0x0
+    .8byte 0x00a0980000000000
 
 gdt_ptr:
-    .short GDT_TABLE_SIZE - 1
+    .short 15
     .long gdt_table_start
 
 .section .text
