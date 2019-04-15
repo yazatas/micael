@@ -2,9 +2,10 @@
 #define __TYPES_H__
 
 #include <stddef.h>
-#include <stdint.h>
+//#include <stdint.h>
 
 #ifdef __x86_64__
+#undef uint64_t
 typedef unsigned long     uint64_t;
 typedef unsigned long int uint64_t;
 typedef unsigned int      uint32_t;
@@ -30,5 +31,7 @@ typedef int32_t  off_t;
 
 typedef int gid_t;
 typedef uint32_t dev_t;
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
 
 #endif /* __TYPES_H__ */

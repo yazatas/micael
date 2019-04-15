@@ -2,6 +2,7 @@
 .section .text
 .global gdt_flush
 .global tss_flush
+.global idt_flush
 
 gdt_flush:
     lgdt (%rdi)
@@ -14,6 +15,10 @@ flush:
     movw %ax, %es
     movw %ax, %fs
     movw %ax, %gs
+    ret
+
+idt_flush:
+    lidt (%rdi)
     ret
 
 tss_flush:
