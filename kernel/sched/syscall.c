@@ -12,6 +12,9 @@
 
 #define MAX_SYSCALLS 7
 
+// TODO REMOVE
+#define KSTART 768
+
 typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
 int32_t sys_read(isr_regs_t *cpu)

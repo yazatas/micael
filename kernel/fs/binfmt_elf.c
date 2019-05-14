@@ -6,6 +6,8 @@
 #include <sched/sched.h>
 #include <stdbool.h>
 
+#define KSTART 768
+
 #define USER_STACK_START ((((KSTART - 1) << 22) | (1023 << 12)) | 0xfee)
 
 static bool elf_check_header(Elf32_Ehdr *header)

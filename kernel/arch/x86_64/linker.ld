@@ -57,8 +57,8 @@ SECTIONS
 
 	.bss : AT ((LOADADDR(.data) + SIZEOF(.data) + 0xFFF) & 0xFFFFFFFFFFFFF000)
 	{
-		*(COMMON)
 		*(.bss)
+		*(COMMON)
 	}
 
 	_kernel_physical_end = (LOADADDR(.bss) + SIZEOF(.bss) + 0xFFF) & 0xFFFFFFFFFFFFF000;

@@ -1,3 +1,5 @@
+#include <kernel/common.h>
+#include <kernel/kprint.h>
 #include <lib/list.h>
 #include <mm/cache.h>
 #include <mm/heap.h>
