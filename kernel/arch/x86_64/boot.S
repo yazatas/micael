@@ -1,3 +1,6 @@
+#define ASM_FILE
+#include <fs/multiboot2.h>
+
 #define PML4_ATOEI(addr) (((addr) >> 39) & 0x1FF)
 #define PDPT_ATOEI(addr) (((addr) >> 30) & 0x1FF)
 
@@ -22,11 +25,6 @@
 .set MM_STRUCT_SIZE, 0x1000
 .set MM_ENTRY_SIZE,     0x8
 
-# multiboot defines
-.set MULTIBOOT2_HEADER_MAGIC,     0xE85250D6
-.set MULTIBOOT_ARCHITECTURE_I386, 0x0
-.set MULTIBOOT_HEADER_TAG_END,    0x0
-
 .set HEADER_LENGTH, header_end - header_start
 .set CHECKSUM, -(MULTIBOOT2_HEADER_MAGIC + MULTIBOOT_ARCHITECTURE_I386 + HEADER_LENGTH)
 
@@ -37,7 +35,9 @@ header_start:
     .long HEADER_LENGTH
     .long CHECKSUM
 
-    // TODO provide memory map
+    .short MULTIBOOT_TAG_TYPE_MMAP
+    .short 0
+    .long 8
 
     .short MULTIBOOT_HEADER_TAG_END
     .short 0
@@ -137,7 +137,7 @@ _start_64:
     movw %ax, %ss
 
     # multiboot info
-    pushq %rbx
+    movq %rbx, %rdi
     call kmain
 
     cli
