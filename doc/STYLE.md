@@ -71,6 +71,15 @@ if ((sb        = kmalloc(sizeof(superblock_t))) == NULL ||
 
 ```
 
+Equal signs of assignments should be aligned if feasible. For example
+```
+file->f_mode   = mode;
+file->f_dentry = dntr;
+file->f_ops    = dntr->d_inode->i_fops;
+```
+
+If variable names are of very different lengths, it's not necessary.
+
 ## Switch
 
 Empty line after each case
@@ -90,8 +99,10 @@ switch (expression) {
 
 ## Misc
 
-Static size arrays
+Use whitespaces around curly brackets
 
 ```
 int array[10] = { 0 };
 ```
+
+All "impossible" conditions should be checked using kassert(). Possible, but invalid conditions should be checked normally and an error message should be printed and errno should be set/returned.
