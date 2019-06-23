@@ -1,10 +1,13 @@
 #include <fs/multiboot2.h>
+#include <kernel/common.h>
+#include <kernel/kassert.h>
 #include <mm/mmu.h>
 #include <sys/types.h>
-#include <kernel/common.h>
 
-size_t multiboot2_map_memory(unsigned long *address)
+size_t multiboot2_map_memory(unsigned long *address, void (*callback)(unsigned long, size_t))
 {
+    kassert(callback != NULL);
+
     struct multiboot_tag *tag;
     multiboot_memory_map_t *mmap;
 
@@ -23,12 +26,7 @@ size_t multiboot2_map_memory(unsigned long *address)
                     switch (mmap->type) {
                         case MULTIBOOT_MEMORY_AVAILABLE:
                         case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE: {
-                            unsigned long start = ROUND_UP(addr, PAGE_SIZE);
-                            unsigned long end   = ROUND_DOWN((addr + len), PAGE_SIZE);
-
-                            for (; start < len; start += PAGE_SIZE) {
-                                mmu_claim_page(start);
-                            }
+                            callback(addr, len);
                         }
                         break;
                     }
