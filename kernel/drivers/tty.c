@@ -1,20 +1,24 @@
 #include <drivers/ps2.h>
 #include <drivers/tty.h>
 #include <drivers/vbe.h>
+#include <drivers/vga.h>
 #include <fs/devfs.h>
 #include <fs/file.h>
 #include <kernel/util.h>
 #include <mm/heap.h>
 #include <errno.h>
+#include <stdbool.h>
 
 void tty_putc(char c)
 {
-    vbe_put_char(c);
+    /* vbe_put_char(c); */
+    vga_put_char(c);
 }
 
 void tty_puts(char *data)
 {
-    vbe_put_str(data);
+    /* vbe_put_str(data); */
+    vga_put_str(data);
 }
 
 static char *__tty_get_name(void)
