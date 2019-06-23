@@ -90,7 +90,10 @@
 #ifndef ASM_FILE
 #include <sys/types.h>
 
-size_t multiboot2_map_memory(unsigned long *addr);
+size_t multiboot2_map_memory(
+    unsigned long *address,
+    void (*callback)(unsigned long, size_t)
+);
 
 typedef unsigned char           multiboot_uint8_t;
 typedef unsigned short          multiboot_uint16_t;
