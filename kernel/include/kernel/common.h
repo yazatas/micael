@@ -21,6 +21,8 @@ typedef struct isr_regs {
 #define ROUND_UP(addr,   boundary) (((addr) % (boundary)) ? \
                                    (((addr) & ~((boundary) - 1)) + (boundary)) : (addr))
 #define MULTIPLE_OF_2(value)       ((value + 1) & -2)
+#define ALIGNED(value, aligment)   ((value & (aligment - 1)) == 0)
+#define PAGE_ALIGNED(value)        ALIGNED(value, 4096)
 
 static inline void hex_dump(void *buf, size_t len)
 {
