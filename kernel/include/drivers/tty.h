@@ -37,4 +37,12 @@ void tty_switch(tty_t *tty);
 void tty_putc(char c);
 void tty_puts(char *data);
 
+/* Functions for installing new functions for screen output
+ *
+ * These are needed because during boot kernel will use
+ * VGA to do early prints but after MMU has been initialized,
+ * the kernel switches to uses VBE */
+void tty_install_putc(void (*tty_putc)(char c));
+void tty_install_puts(void (*tty_puts)(char *s));
+
 #endif /* __TTY_H__ */

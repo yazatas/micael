@@ -98,7 +98,7 @@ void vga_put_char(char c)
 	}
 }
 
-void vga_put_str(const char *data)
+void vga_put_str(char *data)
 {
 	size_t size = kstrlen(data);
 	for (size_t i = 0; i < size; i++)

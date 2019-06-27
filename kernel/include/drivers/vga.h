@@ -4,6 +4,6 @@
 void vga_init(void);
 
 void vga_put_char(char c);
-void vga_put_str(const char *s);
+void vga_put_str(char *s);
 
 #endif /* __VGA_H__ */
