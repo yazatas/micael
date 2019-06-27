@@ -1,13 +1,13 @@
 #include <kernel/gdt.h>
 #include <mm/mmu.h>
 #include <mm/heap.h>
-#include <mm/cache.h>
+#include <mm/slab.h>
 #include <sched/task.h>
 #include <kernel/util.h>
 #include <errno.h>
 
-static cache_t *task_cache = NULL;
-static cache_t *thread_cache = NULL;
+static mm_cache_t *task_cache = NULL;
+static mm_cache_t *thread_cache = NULL;
 
 static pid_t sched_get_pid(void)
 {
@@ -18,10 +18,10 @@ static pid_t sched_get_pid(void)
 
 int sched_task_init(void)
 {
-    if ((task_cache = cache_create(sizeof(task_t), C_NOFLAGS)) == NULL)
+    if ((task_cache = mmu_cache_create(sizeof(task_t), MM_NO_FLAG)) == NULL)
         return -errno;
 
-    if ((thread_cache = cache_create(sizeof(thread_t), C_NOFLAGS)) == NULL)
+    if ((thread_cache = mmu_cache_create(sizeof(thread_t), MM_NO_FLAG)) == NULL)
         return -errno;
 
     return 0;
@@ -31,10 +31,12 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
 {
     (void)arg;
 
-    thread_t *t = cache_alloc_entry(thread_cache, C_NOFLAGS);
+    thread_t *t = mmu_cache_alloc_entry(thread_cache, MM_NO_FLAG);
 
     t->state         = T_READY;
-    t->kstack_top    = cache_alloc_page(C_NOFLAGS);
+    /* t->kstack_top    = cache_alloc_page(MM_NO_FLAG); */
+    t->kstack_bottom = NULL;
+    kpanic("kstack missing");
     t->kstack_bottom = (uint8_t *)t->kstack_top + KSTACK_SIZE;
     t->exec_state    = (exec_state_t *)((uint8_t *)t->kstack_bottom - sizeof(exec_state_t));
 
@@ -83,7 +85,7 @@ int sched_task_add_thread(task_t *parent, thread_t *child)
 
 task_t *sched_task_create(const char *name)
 {
-    task_t *t   = cache_alloc_entry(task_cache, C_NOFLAGS);
+    task_t *t   = mmu_cache_alloc_entry(task_cache, MM_NO_FLAG);
     t->parent   = NULL;
     t->name     = name;
     t->nthreads = 0;
@@ -141,7 +143,7 @@ void sched_task_destroy(task_t *task)
 
 task_t *sched_task_fork(task_t *parent)
 {
-    task_t *child   = cache_alloc_entry(task_cache, C_NOFLAGS);
+    task_t *child   = mmu_cache_alloc_entry(task_cache, MM_NO_FLAG);
     child->parent   = parent;
     child->pid      = sched_get_pid();
     child->name     = "forked_task";
@@ -152,10 +154,11 @@ task_t *sched_task_fork(task_t *parent)
     thread_t *parent_t = parent->threads;
 
     for (size_t i = 0; i < parent->nthreads; ++i) {
-        child_t  = cache_alloc_entry(thread_cache, C_FORCE_SPATIAL);
+        /* child_t  = mmu_cache_alloc_entry(thread_cache, C_FORCE_SPATIAL); */
 
         child_t->state         = parent_t->state;
-        child_t->kstack_top    = cache_alloc_page(C_NOFLAGS);
+        /* child_t->kstack_top    = cache_alloc_page(MM_NO_FLAG); */
+        kpanic("kstack missing");
         child_t->kstack_bottom = (uint8_t *)child_t->kstack_top + KSTACK_SIZE;
         child_t->exec_state    = (exec_state_t *)((uint8_t *)child_t->kstack_bottom - sizeof(exec_state_t));
 
@@ -192,8 +195,8 @@ void sched_free_threads(task_t *t)
 
     do {
         kdebug("freeing thread %u", t->nthreads);
-        cache_dealloc_page(iter->kstack_top, C_NOFLAGS);
-        cache_dealloc_entry(thread_cache, iter, C_NOFLAGS);
+        /* mmu_cache_free_page(iter->kstack_top, MM_NO_FLAG); */
+        mmu_cache_free_entry(thread_cache, iter);
         iter = container_of(iter->list.next, thread_t, list);
     } while (--t->nthreads > 1);
 }

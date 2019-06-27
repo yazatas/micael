@@ -5,7 +5,6 @@
 #include <lib/bitmap.h>
 #include <lib/list.h>
 #include <mm/bootmem.h>
-#include <mm/cache.h>
 #include <mm/heap.h>
 #include <mm/page.h>
 #include <mm/slab.h>

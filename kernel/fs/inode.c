@@ -2,22 +2,22 @@
 #include <fs/file.h>
 #include <fs/inode.h>
 #include <kernel/kpanic.h>
-#include <mm/cache.h>
+#include <mm/slab.h>
 #include <errno.h>
 
-static cache_t *inode_cache     = NULL;
-static cache_t *inode_ops_cache = NULL;
-static cache_t *file_ops_cache  = NULL;
+static mm_cache_t *inode_cache     = NULL;
+static mm_cache_t *inode_ops_cache = NULL;
+static mm_cache_t *file_ops_cache  = NULL;
 
 int inode_init(void)
 {
-    if ((inode_cache = cache_create(sizeof(inode_t), C_NOFLAGS)) == NULL)
+    if ((inode_cache = mmu_cache_create(sizeof(inode_t), MM_NO_FLAG)) == NULL)
         kpanic("failed to initialize slab cache for inodes!");
 
-    if ((inode_ops_cache = cache_create(sizeof(inode_ops_t), C_NOFLAGS)) == NULL)
+    if ((inode_ops_cache = mmu_cache_create(sizeof(inode_ops_t), MM_NO_FLAG)) == NULL)
         kpanic("failed to initialize slab cache for inode ops!");
 
-    if ((file_ops_cache = cache_create(sizeof(file_ops_t), C_NOFLAGS)) == NULL)
+    if ((file_ops_cache = mmu_cache_create(sizeof(file_ops_t), MM_NO_FLAG)) == NULL)
         kpanic("failed to initialize slab cache for file ops!");
 
     return 0;
@@ -27,14 +27,14 @@ inode_t *inode_generic_alloc(uint32_t flags)
 {
     inode_t *ino = NULL;
 
-    if (((ino         = cache_alloc_entry(inode_cache,     C_NOFLAGS)) == NULL) ||
-        ((ino->i_fops = cache_alloc_entry(file_ops_cache,  C_NOFLAGS)) == NULL) ||
-        ((ino->i_iops = cache_alloc_entry(inode_ops_cache, C_NOFLAGS)) == NULL))
+    if (((ino         = mmu_cache_alloc_entry(inode_cache,     MM_NO_FLAG)) == NULL) ||
+        ((ino->i_fops = mmu_cache_alloc_entry(file_ops_cache,  MM_NO_FLAG)) == NULL) ||
+        ((ino->i_iops = mmu_cache_alloc_entry(inode_ops_cache, MM_NO_FLAG)) == NULL))
     {
         if (ino) {
             if (ino->i_iops)
-                cache_dealloc_entry(inode_ops_cache, ino->i_iops, C_NOFLAGS);
-            cache_dealloc_entry(inode_cache, ino, C_NOFLAGS);
+                mmu_cache_free_entry(inode_ops_cache, ino->i_iops);
+            mmu_cache_free_entry(inode_cache, ino);
         }
 
         errno = ENOMEM;
@@ -62,9 +62,9 @@ int inode_generic_dealloc(inode_t *ino)
     if (ino->i_count > 1)
         return -EBUSY;
 
-    cache_dealloc_entry(inode_ops_cache, ino->i_iops, C_NOFLAGS);
-    cache_dealloc_entry(file_ops_cache,  ino->i_fops, C_NOFLAGS);
-    cache_dealloc_entry(inode_cache,     ino,         C_NOFLAGS);
+    (void)mmu_cache_free_entry(inode_ops_cache, ino->i_iops);
+    (void)mmu_cache_free_entry(file_ops_cache,  ino->i_fops);
+    (void)mmu_cache_free_entry(inode_cache,     ino);
 
     return 0;
 }
