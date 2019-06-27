@@ -9,8 +9,8 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
-#include <mm/cache.h>
 #include <mm/heap.h>
+#include <mm/slab.h>
 #include <sched/sched.h>
 #include <errno.h>
 #include <stdbool.h>
@@ -18,7 +18,7 @@
 #define NUM_FS_TYPES 2
 #define NUM_FS 1
 
-static cache_t *path_cache;
+static mm_cache_t *path_cache;
 
 static list_head_t mountpoints;
 static list_head_t superblocks;
@@ -109,7 +109,7 @@ static int vfs_mount_pseudo(char *target, char *type, dentry_t *mountpoint)
 void vfs_init(void)
 {
     fs_types   = hm_alloc_hashmap(16, HM_KEY_TYPE_STR);
-    path_cache = cache_create(sizeof(path_t), C_NOFLAGS);
+    path_cache = mmu_cache_create(sizeof(path_t), MM_NO_FLAG);
 
     list_init(&mountpoints);
     list_init(&superblocks);

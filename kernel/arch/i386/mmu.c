@@ -3,7 +3,6 @@
 #include <kernel/compiler.h>
 #include <kernel/common.h>
 #include <kernel/util.h>
-#include <mm/cache.h>
 #include <mm/heap.h>
 #include <mm/mmu.h>
 #include <fs/multiboot.h>
