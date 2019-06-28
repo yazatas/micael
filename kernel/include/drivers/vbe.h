@@ -60,6 +60,6 @@ void vbe_clear_screen(void);
 
 void vbe_put_pixel(uint8_t color, uint32_t y, uint32_t x);
 void vbe_put_char(char c);
-void vbe_put_str(const char *s);
+void vbe_put_str(char *s);
 
 #endif /* __VBE_H__ */
