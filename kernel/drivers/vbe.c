@@ -1,6 +1,8 @@
+#include <drivers/tty.h>
 #include <drivers/vbe.h>
 #include <mm/heap.h>
 #include <mm/mmu.h>
+#include <mm/page.h>
 #include <mm/types.h>
 #include <kernel/io.h>
 #include <kernel/kprint.h>
@@ -80,20 +82,18 @@ static void vbe_get_font(void)
     /* clear even/odd mode */
     outw(0x3ce, 0x604);
 
-    /* void *tmp_ptr = mmu_alloc_addr(2); */
-    /* font_map      = mmu_alloc_addr(1); */
-
-    /* mmu_map_page((void *)mmu_alloc_page(), font_map, MM_READWRITE | MM_PRESENT); */
-
     /* 8-bit font map SHOULD take 0x1000 (4096) bytes of space but because VGA
-     * reserves space for 8x32 fonts, the font map "overflows" to 0xB000-> and thus
-     * we must allocate twice the needed space in order to copy the whole bitmap */
-    /* mmu_map_range((void *)0xA0000, tmp_ptr, 2, MM_READWRITE | MM_PRESENT); */
+     * reserves space for 8x32 fonts, the font map "overflows" to 0xB000 and beyond 
+     * We're not going to use the last 16 bytes of glyphs which means that one page
+     * of memory is enough for us */
+    unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL);
+    font_map           = mmu_p_to_v(page);
+    vga_mem            = mmu_p_to_v(0xA0000);
 
 #ifdef __x86_64__
-    /* asm volatile("mov %[vga_ptr],  %%rsi\n\ */
-    /*               mov %[font_ptr], %%rdi" */
-    /*           :: [vga_ptr] "r" (tmp_ptr), [font_ptr] "r" (font_map)); */
+    asm volatile("mov %[vga_ptr],  %%rsi\n\
+                  mov %[font_ptr], %%rdi"
+              :: [vga_ptr] "r" (vga_mem), [font_ptr] "r" (font_map));
 #else
     asm volatile("mov %[vga_ptr],  %%esi\n\
                   mov %[font_ptr], %%edi"
@@ -109,7 +109,11 @@ static void vbe_get_font(void)
 
         /* discard the last 16 bytes of each glyph
          * we only need the first 16, see comment above */
+#ifdef __x86_64__
+        asm volatile ("add $16, %rsi");
+#else
         asm volatile ("add $16, %esi");
+#endif
     }
 
     /* restore VGA to normal state */
@@ -117,12 +121,14 @@ static void vbe_get_font(void)
     outw(0x3ce, 0x204);
     outw(0x3ce, 0x1005);
     outw(0x3ce, 0xe06);
-
-    /* mmu_free_addr(tmp_ptr, 2); */
 }
 
 void vbe_init(void)
 {
+    vga_mem        = (uint8_t *)mmu_p_to_v(0xA0000);
+    line_buffer[0] = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, 2));
+    line_buffer[1] = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, 2));
+
     vbe_get_font();
 
     /* set video mode */
@@ -132,21 +138,9 @@ void vbe_init(void)
     vbe_write_reg(VBE_DISPI_INDEX_BPP,    DISPLAY_BITDEPTH);
     vbe_write_reg(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_ENABLED | VBE_DISPI_LFB_ENABLED);
 
-    /* 16 * 4096 == 64KB (bank size) */
-    /* vga_mem = mmu_alloc_addr(16); */
-    /* mmu_map_range((void *)0xA0000, vga_mem, 16, MM_READWRITE | MM_PRESENT); */
-
-    /* allocate space for line buffers (used for scrolling) */
-    for (size_t buffer = 0; buffer < 2; ++buffer) {
-        /* line takes 16KB of memory (DISPLAY_WIDTH * DISPLAY_BITDEPTH * 2) */
-        /* line_buffer[buffer] = mmu_alloc_addr(4); */
-
-        for (size_t i = 0; i < 4; ++i) {
-            /* mmu_map_page((void *)mmu_alloc_page(), */
-            /*              (void *)((uint32_t)line_buffer[buffer] + i * 0x1000), */
-            /*              MM_PRESENT | MM_READWRITE); */
-        }
-    }
+    /* install new tty print routines */
+    tty_install_putc(vbe_put_char);
+    tty_install_puts(vbe_put_str);
 
     /* set all video memory to 0xff (black color) */
     vbe_clear_screen();
@@ -247,7 +241,7 @@ end:
     }
 }
 
-void vbe_put_str(const char *s)
+void vbe_put_str(char *s)
 {
     if (!s)
         return;
