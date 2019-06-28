@@ -62,6 +62,78 @@ static int __zone_add_block(mm_zone_t *zone, unsigned long start, int order)
     return 0;
 }
 
+static void __claim_range(mm_zone_t *zone, unsigned long start, unsigned long end)
+{
+    kassert(zone != NULL);
+
+    unsigned long range_len = end - start;
+
+    if (range_len < PAGE_SIZE)
+        return;
+
+    for (int order = BUDDY_MAX_ORDER - 1; order >= 0; --order) {
+        size_t BLOCK_SIZE = (1 << order) * PAGE_SIZE;
+        size_t num_blocks = range_len / BLOCK_SIZE;
+        size_t rem_bytes  = range_len % BLOCK_SIZE;
+
+        if (num_blocks > 0) {
+            zone->page_count += (1 << order);
+
+            /* kdebug("%u (%d) satisfies %u: %u, %u", BLOCK_SIZE, order, range_len, num_blocks, rem_bytes); */
+
+            for (size_t b = 0; b < num_blocks; ++b) {
+                __zone_add_block(zone, start, order);
+                start        = start + (b + 1) * BLOCK_SIZE;
+            }
+
+            range_len = rem_bytes;
+        }
+    }
+}
+
+/* get next free entry from "zone" of "order" and remove it from the free list */
+static mm_block_t *__get_free_entry(mm_zone_t *zone, unsigned order)
+{
+    kassert(zone != NULL);
+    kassert(order < BUDDY_MAX_ORDER);
+
+    mm_block_t *b = container_of(zone->blocks[order].list.next, mm_block_t, list);
+    list_remove(&b->list);
+    list_init_null(&b->list);
+
+    return b;
+}
+
+/* Split the block of order "split_order" into smaller blocks and keep splitting until
+ * we've reached a half of a block that satisfies the request "req_order" */
+static unsigned long __split_block(mm_zone_t *zone, unsigned req_order, unsigned split_order)
+{
+    kassert(split_order != 0 && req_order < BUDDY_MAX_ORDER);
+
+    mm_block_t *b = __get_free_entry(zone, split_order);
+
+    unsigned long split_size  = (1 << (split_order - 1)) * PAGE_SIZE;
+    unsigned long split_start = b->start + split_size;
+
+    /* modify the end of the original block to create "new" smaller block */
+    b->end -= split_size;
+    list_append(&zone->blocks[--split_order].list, &b->list);
+
+    while (req_order != split_order) {
+        mm_block_t *tmp = mmu_cache_alloc_entry(mm_block_cache, MM_NO_FLAG);
+
+        tmp->start  = split_start;
+        split_size  = (1 << (split_order - 1)) * PAGE_SIZE;
+        split_start = tmp->start + split_size;
+
+        tmp->end -= split_size;
+        tmp->end = tmp->start + split_size - 1;
+        list_append(&zone->blocks[--split_order].list, &tmp->list);
+    }
+
+    return split_start;
+}
+
 void mmu_zones_init(void *arg)
 {
     zone_dma.name    = "MM_ZONE_DMA";
@@ -109,35 +181,6 @@ void mmu_zones_init(void *arg)
     struct bootmem_mmap **map = mmu_bootmem_release(&entries);
 
     /* TODO: i need to rethink this.. */
-}
-
-static void __claim_range(mm_zone_t *zone, unsigned long start, unsigned long end)
-{
-    kassert(zone != NULL);
-
-    unsigned long range_len = end - start;
-
-    if (range_len < PAGE_SIZE)
-        return;
-
-    for (int order = BUDDY_MAX_ORDER - 1; order >= 0; --order) {
-        size_t BLOCK_SIZE = (1 << order) * PAGE_SIZE;
-        size_t num_blocks = range_len / BLOCK_SIZE;
-        size_t rem_bytes  = range_len % BLOCK_SIZE;
-
-        if (num_blocks > 0) {
-            zone->page_count += (1 << order);
-
-            /* kdebug("%u (%d) satisfies %u: %u, %u", BLOCK_SIZE, order, range_len, num_blocks, rem_bytes); */
-
-            for (size_t b = 0; b < num_blocks; ++b) {
-                __zone_add_block(zone, start, order);
-                start        = start + (b + 1) * BLOCK_SIZE;
-            }
-
-            range_len = rem_bytes;
-        }
-    }
 }
 
 void mmu_claim_range(unsigned long address, size_t len)
@@ -213,22 +256,22 @@ unsigned long mmu_block_alloc(unsigned memzone, unsigned order)
     else if (memzone & MM_ZONE_HIGH)
         zone = &zone_high;
 
-    for (size_t o = order; o < BUDDY_MAX_ORDER; ++o) {
+    for (unsigned o = order; o < BUDDY_MAX_ORDER; ++o) {
         if (ORDER_EMPTY(zone->blocks[o]))
             continue;
 
-        /* There's a free block available in the order list caller requested
+        /* There's a free block available in the order's list caller requested
          * Hanle this as a special case because it's cleaner */
-        /* if (o == order) { */
-            mm_block_t *b = container_of(zone->blocks[o].list.next, mm_block_t, list);
+        if (o == order) {
+            mm_block_t *b = __get_free_entry(zone, o);
 
             unsigned long start = b->start;
-
-            list_remove(&b->list);
             (void)mmu_cache_free_entry(mm_block_cache, b);
 
             return start;
-        /* } */
+        }
+
+        return __split_block(zone, order, o);
     }
 
     errno = ENOMEM;
