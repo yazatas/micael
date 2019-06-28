@@ -36,8 +36,7 @@ void kmain(void *arg)
 
     /* VBE must be initialized after MMU, because it uses
      * mmu functions to get the from from VGA memory */
-    /* vbe_init(); */
-    /* kprint("hello"); */
+    vbe_init();
 
 #if 0
     /* initialize inode and dentry caches, mount pseudo rootfs and devfs */

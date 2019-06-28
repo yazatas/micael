@@ -63,8 +63,9 @@ typedef struct task {
     list_head_t list;
     list_head_t children;
 
-    cr3_t *dir;
+    /* cr3_t *dir; */
     /* pdir_t *dir; */
+    void *dir;
     uint32_t cr3;
 } task_t;
 
