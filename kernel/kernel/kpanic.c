@@ -8,10 +8,10 @@
 #define REG(reg) reg, reg
 
 struct regs_t {
-	uint16_t gs, fs, es, ds;
-	uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; /* pusha */
-	uint32_t isr_num, err_num;
-	uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
+    uint16_t gs, fs, es, ds;
+    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; /* pusha */
+    uint32_t isr_num, err_num;
+    uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
 };
 
 void __attribute__((noreturn))
@@ -19,10 +19,10 @@ kpanic(const char *error)
 {
     disable_irq();
 
-	struct regs_t *tmp = (struct regs_t*)error;
+    struct regs_t *tmp = (struct regs_t*)error;
 
-	kdebug("error number: %d %x", tmp->err_num, tmp->err_num);
-	kdebug("'%s'", error);
+    kdebug("error number: %d %x", tmp->err_num, tmp->err_num);
+    kdebug("'%s'", error);
     kdebug("%s", kstrerror(errno));
 
     uint32_t eax, ebx, ecx, edx, edi, cr3, cr2;
@@ -43,10 +43,10 @@ kpanic(const char *error)
     kprint("\teax: 0x%08x %8u\n\tebx: 0x%08x %8u\n\tecx: 0x%08x %8u\n"
            "\tedx: 0x%08x %8u\n\tedi: 0x%08x %8u\n\tcr2: 0x%08x %8u\n"
            "\tcr3: 0x%08x %8u\n\n\n", REG(eax), REG(ebx), REG(ecx), 
-		   REG(edx), REG(edi),    REG(cr2), REG(cr3));
+           REG(edx), REG(edi),    REG(cr2), REG(cr3));
 
-    mmu_print_memory_map();
-	mmu_list_pde();
+    /* mmu_print_memory_map(); */
+    /* mmu_list_pde(); */
 
     while (1) { }
     __builtin_unreachable();

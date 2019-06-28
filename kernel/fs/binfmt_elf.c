@@ -50,14 +50,14 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
     size_t pages = (fsize / PAGE_SIZE) + 1;
     void *addr   = NULL, *ptr = NULL;
 
-    if ((addr = ptr = mmu_alloc_addr(pages)) == NULL) {
-        kdebug("Failed to allocate address space for file!");
-        return false;
-    }
+    /* if ((addr = ptr = mmu_alloc_addr(pages)) == NULL) { */
+    /*     kdebug("Failed to allocate address space for file!"); */
+    /*     return false; */
+    /* } */
 
     for (size_t i = 0; i < pages; ++i) {
-        page_t page = mmu_alloc_page();
-        mmu_map_page((void *)page, ptr, MM_PRESENT | MM_READWRITE);
+        /* page_t page = mmu_alloc_page(); */
+        /* mmu_map_page((void *)page, ptr, MM_PRESENT | MM_READWRITE); */
         ptr = (uint8_t *)ptr + PAGE_SIZE;
     }
 
@@ -111,8 +111,8 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
         void *fptr       = (uint8_t *)phdr + phdr->p_offset + ehdr->e_phentsize;
 
         while (nwritten < nleft) {
-            page_t page = mmu_alloc_page();
-            mmu_map_page((void *)page, (void *)v_start, mm_flags);
+            /* page_t page = mmu_alloc_page(); */
+            /* mmu_map_page((void *)page, (void *)v_start, mm_flags); */
 
             size_t read_size = MIN(PAGE_SIZE, nleft);
             kmemcpy((void *)ehdr->e_entry, fptr, read_size);
@@ -124,7 +124,7 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
 
     /* create stack */
     uint32_t mm_flags = MM_PRESENT | MM_READWRITE | MM_USER;
-    mmu_map_page((void *)mmu_alloc_page(), (void *)USER_STACK_START, mm_flags);
+    /* mmu_map_page((void *)mmu_alloc_page(), (void *)USER_STACK_START, mm_flags); */
 
     /* TODO: add argc + argv to stack */
 

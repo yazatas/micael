@@ -2,41 +2,54 @@
 #define __MMU_TYPES_H__
 
 #include <sys/types.h>
+#include <lib/list.h>
 
-#define PAGE_SIZE 4096
+#define PAGE_SIZE       4096
+#define INVALID_ADDRESS ULONG_MAX
+#define BUDDY_MAX_ORDER 16
 
-typedef struct task task_t;
+#define MM_SET_FLAG(value, flag)   (value |= flag)
+#define MM_UNSET_FLAG(value, flag) (value &= ~flag)
+#define MM_TEST_FLAG(value, flag)  (value & flag)
 
-typedef uint32_t page_t;
-
-/* typedef struct page { */
-/*     unsigned long address; /1* physical address of the page *1/ */
-/*     int flags;             /1* flags associated with the page *1/ */
-/* } page_t; */
-
-typedef struct pdir {
-
-} pdir_t;
-
+enum MM_PAGE_FLAGS {
+    MM_PRESENT    = 1,
+    MM_READWRITE  = 1 << 1,
+    MM_READONLY   = 0 << 1,
+    MM_USER       = 1 << 2,
+    MM_WR_THROUGH = 1 << 3,
+    MM_D_CACHE    = 1 << 4,
+    MM_ACCESSED   = 1 << 5,
+    MM_SIZE_4MB   = 1 << 6,
 #ifdef __x86_64__
-typedef struct pdpt {
-
-} pdpt_t;
-
-typedef struct pml4 {
-
-} pml4_t;
+    MM_2MB        = 1 << 7, // TODO
 #endif
+    MM_COW        = 1 << 9,
+};
 
-typedef struct cr3 {
-    unsigned long address; /* address of the directory (TODO: physical or virtual?) */
-    task_t *task;          /* owner of the page directory */
+typedef enum MM_ALLOC_FLAGS {
+    MM_NO_FLAG = 0,
+} mm_flags_t;
 
-#ifdef __x86_64__
-    pml4_t *dir;
-#else
-    pdir_t *dir;
-#endif
-} cr3_t;
+enum MM_ZONES {
+    MM_ZONE_DMA,     /* 0MB  - 16MB */
+    MM_ZONE_NORMAL,  /* 16MB - 2GB */
+    MM_ZONE_HIGH,    /* 2GB  -  */
+};
+
+enum MM_ZONE_RANGES {
+    MM_ZONE_DMA_START    = 0x0000000000000000,
+    MM_ZONE_DMA_END      = 0x0000000001000000,
+    MM_ZONE_NORMAL_START = 0x0000000001000000,
+    MM_ZONE_NORMAL_END   = 0xffffffffffffffff,
+    MM_ZONE_HIGH_START   = 0xffffffffffffffff,
+    MM_ZONE_HIGH_END     = 0xffffffffffffffff,
+};
+
+typedef struct page {
+    unsigned long addr; /* TODO:  */
+    list_head_t lru;    /* TODO:  */
+    void *virtual;      /* virtual address of the page */
+} page_t;
 
 #endif /* __MMU_TYPES_H__ */
