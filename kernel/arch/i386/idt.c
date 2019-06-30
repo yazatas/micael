@@ -1,5 +1,4 @@
 #include <kernel/idt.h>
-#include <kernel/kprint.h>
 #include <kernel/util.h>
 #include <stdint.h>
 
@@ -25,9 +24,14 @@ extern void isr17();
 extern void isr18();
 extern void isr19();
 extern void isr20();
-extern void isr128(); /* 0x80 */
+extern void isr128(); /* 0x80 aka syscall */
 
-void idt_set_gate(uint32_t offset, uint16_t select, uint8_t type, struct idt_entry_t *entry)
+static struct idt_ptr_t idt_ptr;
+static struct idt_entry_t idt_table[IDT_TABLE_SIZE];
+
+struct idt_entry_t *IDT = idt_table;
+
+void idt_set_gate(unsigned long offset, uint16_t select, uint8_t type, struct idt_entry_t *entry)
 {
 	entry->offset0_15  = offset & 0xffff;
 	entry->offset16_31 = (offset >> 16) & 0xffff;
@@ -39,34 +43,32 @@ void idt_set_gate(uint32_t offset, uint16_t select, uint8_t type, struct idt_ent
 void idt_init(void)
 {
 	idt_ptr.limit = IDT_ENTRY_SIZE * 256 - 1;
-	idt_ptr.base  = (uint32_t)&IDT;
+	idt_ptr.base  = (unsigned long)&idt_table;
 
-	kmemset(&IDT, 0, IDT_ENTRY_SIZE * IDT_TABLE_SIZE);
+	kmemset(&idt_table, 0, IDT_ENTRY_SIZE * IDT_TABLE_SIZE);
 
-	idt_set_gate((uint32_t)isr0,  0x08, 0x8e, &IDT[0]);
-	idt_set_gate((uint32_t)isr1,  0x08, 0x8e, &IDT[1]);
-	idt_set_gate((uint32_t)isr2,  0x08, 0x8e, &IDT[2]);
-	idt_set_gate((uint32_t)isr3,  0x08, 0x8e, &IDT[3]);
-	idt_set_gate((uint32_t)isr4,  0x08, 0x8e, &IDT[4]);
-	idt_set_gate((uint32_t)isr5,  0x08, 0x8e, &IDT[5]);
-	idt_set_gate((uint32_t)isr6,  0x08, 0x8e, &IDT[6]);
-	idt_set_gate((uint32_t)isr7,  0x08, 0x8e, &IDT[7]);
-	idt_set_gate((uint32_t)isr8,  0x08, 0x8e, &IDT[8]);
-	idt_set_gate((uint32_t)isr9,  0x08, 0x8e, &IDT[9]);
-	idt_set_gate((uint32_t)isr10, 0x08, 0x8e, &IDT[10]);
-	idt_set_gate((uint32_t)isr11, 0x08, 0x8e, &IDT[11]);
-	idt_set_gate((uint32_t)isr12, 0x08, 0x8e, &IDT[12]);
-	idt_set_gate((uint32_t)isr13, 0x08, 0x8e, &IDT[13]);
-	idt_set_gate((uint32_t)isr14, 0x08, 0x8e, &IDT[14]);
-	idt_set_gate((uint32_t)isr15, 0x08, 0x8e, &IDT[15]);
-	idt_set_gate((uint32_t)isr16, 0x08, 0x8e, &IDT[16]);
-	idt_set_gate((uint32_t)isr17, 0x08, 0x8e, &IDT[17]);
-	idt_set_gate((uint32_t)isr18, 0x08, 0x8e, &IDT[18]);
-	idt_set_gate((uint32_t)isr19, 0x08, 0x8e, &IDT[19]);
-	idt_set_gate((uint32_t)isr20, 0x08, 0x8e, &IDT[20]);
-	idt_set_gate((uint32_t)isr128, 0x08, 0xee, &IDT[128]);
+	idt_set_gate((unsigned long)isr0,   0x08, 0x8e, &idt_table[0]);
+	idt_set_gate((unsigned long)isr1,   0x08, 0x8e, &idt_table[1]);
+	idt_set_gate((unsigned long)isr2,   0x08, 0x8e, &idt_table[2]);
+	idt_set_gate((unsigned long)isr3,   0x08, 0x8e, &idt_table[3]);
+	idt_set_gate((unsigned long)isr4,   0x08, 0x8e, &idt_table[4]);
+	idt_set_gate((unsigned long)isr5,   0x08, 0x8e, &idt_table[5]);
+	idt_set_gate((unsigned long)isr6,   0x08, 0x8e, &idt_table[6]);
+	idt_set_gate((unsigned long)isr7,   0x08, 0x8e, &idt_table[7]);
+	idt_set_gate((unsigned long)isr8,   0x08, 0x8e, &idt_table[8]);
+	idt_set_gate((unsigned long)isr9,   0x08, 0x8e, &idt_table[9]);
+	idt_set_gate((unsigned long)isr10,  0x08, 0x8e, &idt_table[10]);
+	idt_set_gate((unsigned long)isr11,  0x08, 0x8e, &idt_table[11]);
+	idt_set_gate((unsigned long)isr12,  0x08, 0x8e, &idt_table[12]);
+	idt_set_gate((unsigned long)isr13,  0x08, 0x8e, &idt_table[13]);
+	idt_set_gate((unsigned long)isr14,  0x08, 0x8e, &idt_table[14]);
+	idt_set_gate((unsigned long)isr15,  0x08, 0x8e, &idt_table[15]);
+	idt_set_gate((unsigned long)isr16,  0x08, 0x8e, &idt_table[16]);
+	idt_set_gate((unsigned long)isr17,  0x08, 0x8e, &idt_table[17]);
+	idt_set_gate((unsigned long)isr18,  0x08, 0x8e, &idt_table[18]);
+	idt_set_gate((unsigned long)isr19,  0x08, 0x8e, &idt_table[19]);
+	idt_set_gate((unsigned long)isr20,  0x08, 0x8e, &idt_table[20]);
+	idt_set_gate((unsigned long)isr128, 0x08, 0xee, &idt_table[128]);
 
-	asm volatile ("lidt (%0)" :: "r"(&idt_ptr));
-
-	kdebug("IDT initialized! Start address 0x%x", &IDT);
+	asm volatile ("lidt (%0)" :: "r" (&idt_ptr));
 }

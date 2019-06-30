@@ -1,20 +1,20 @@
 #include <fs/devfs.h>
 #include <kernel/kpanic.h>
-#include <mm/cache.h>
+#include <mm/slab.h>
 #include <errno.h>
 
-static cache_t *sb_cache = NULL;
-static cache_t *sb_ops_cache = NULL;
+static mm_cache_t *sb_cache = NULL;
+static mm_cache_t *sb_ops_cache = NULL;
 
 static void init_sb_caches(void)
 {
     if (!sb_cache) {
-        if ((sb_cache = cache_create(sizeof(superblock_t), C_NOFLAGS)) == NULL)
+        if ((sb_cache = mmu_cache_create(sizeof(superblock_t), MM_NO_FLAG)) == NULL)
             kpanic("failed to allocate cache for superblocks!");
     }
 
     if (!sb_ops_cache) {
-        if ((sb_ops_cache = cache_create(sizeof(super_ops_t), C_NOFLAGS)) == NULL)
+        if ((sb_ops_cache = mmu_cache_create(sizeof(super_ops_t), MM_NO_FLAG)) == NULL)
             kpanic("failed to allocate cache for superblock operations!");
     }
 }
@@ -26,12 +26,12 @@ static superblock_t *alloc_generic_sb(void)
     if (!sb_cache || !sb_ops_cache)
         init_sb_caches();
 
-    if ((sb = cache_alloc_entry(sb_cache, C_NOFLAGS)) == NULL) {
+    if ((sb = mmu_cache_alloc_entry(sb_cache, MM_NO_FLAG)) == NULL) {
         kdebug("failed to allocate space for superblock!");
         return NULL;
     }
 
-    if ((sb->s_ops = cache_alloc_entry(sb_ops_cache, C_NOFLAGS)) == NULL) {
+    if ((sb->s_ops = mmu_cache_alloc_entry(sb_ops_cache, MM_NO_FLAG)) == NULL) {
         kdebug("failed to allocate space for superblock operations!");
         return NULL;
     }

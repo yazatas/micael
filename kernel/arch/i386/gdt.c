@@ -1,20 +1,19 @@
 #include <kernel/gdt.h>
-#include <kernel/kprint.h>
-#include <kernel/util.h>
+#include <arch/i386/gdt.h>
 
 extern uint32_t stack_bottom;
 
-static void gdt_set_gate(uint32_t base, uint32_t limit, uint8_t access,
-                   uint8_t gran, struct gdt_entry_t *entry)
+void gdt_set_gate(uint32_t base, uint32_t limit, uint8_t access,
+                  uint8_t gran,  struct gdt_entry_t *entry)
 {
-	entry->base_low    = base & 0xffff;
-	entry->base_middle = (base >> 16) & 0xff;
-	entry->base_high   = (base >> 24) & 0xff;
+    entry->base_low    = base & 0xffff;
+    entry->base_middle = (base >> 16) & 0xff;
+    entry->base_high   = (base >> 24) & 0xff;
 
-	entry->limit_low   = limit & 0xffff;
-	entry->granularity = (limit >> 16) & 0xffff;
-	entry->granularity |= gran & 0xf0;
-	entry->access      = access;
+    entry->limit_low   = limit & 0xffff;
+    entry->granularity = (limit >> 16) & 0xffff;
+    entry->granularity |= gran & 0xf0;
+    entry->access      = access;
 }
 
 void gdt_init(void)

@@ -12,6 +12,9 @@
 
 #define MAX_SYSCALLS 7
 
+// TODO REMOVE
+#define KSTART 768
+
 typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
 int32_t sys_read(isr_regs_t *cpu)
@@ -110,7 +113,7 @@ int32_t sys_execv(isr_regs_t *cpu)
     /* clear page tables of current process:
      * mark all user page tables as not present and try to free
      * as many page frames as possible (all pages not marked as CoW) */
-    mmu_unmap_pages(0, KSTART - 1);
+    /* mmu_unmap_pages(0, KSTART - 1); */
 
     /* binfmt_load either jumps to user land and starts to execute
      * the new process or it fails (and returns) and we must return -1 to caller */
@@ -144,7 +147,7 @@ int32_t sys_exit(isr_regs_t *cpu)
     /* clear page tables of current process:
      * mark all user page tables as not present and try to free
      * as many page frames as possible (all pages not marked as CoW) */
-    mmu_unmap_pages(0, KSTART - 1);
+    /* mmu_unmap_pages(0, KSTART - 1); */
 
     current->threads->state = T_ZOMBIE;
     sched_switch();

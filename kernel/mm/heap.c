@@ -1,8 +1,13 @@
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
-#include <mm/mmu.h>
+#include <mm/bootmem.h>
 #include <mm/heap.h>
+#include <mm/mmu.h>
+#include <mm/page.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <errno.h>
 
 typedef struct meta {
     size_t size;
@@ -17,9 +22,9 @@ typedef struct meta {
 #define UNMARK_FREE(x) (x->flags &= ~0x1)
 #define GET_BASE(x)    ((meta_t*)x - 1)
 
-static meta_t   *kernel_base;
-static uint32_t *HEAP_START;
-static uint32_t *HEAP_BREAK;
+static meta_t        *kernel_base;
+static unsigned long *HEAP_START;
+static unsigned long *HEAP_BREAK;
 
 /* TODO: this needs a rewrite!!! 
  *
@@ -32,12 +37,14 @@ static uint32_t *HEAP_BREAK;
  * job to provide so don't write PT allocation here. Instead call mmu_alloc_pt */
 static meta_t *morecore(size_t size)
 {
+    kpanic("morecore not implemented");
+
     size_t pgcount = size / 0x1000 + 1;
     meta_t *tmp = (meta_t*)HEAP_BREAK;
 
     for (size_t i = 0; i < pgcount; ++i) {
-        mmu_map_page((void *)mmu_alloc_page(), HEAP_BREAK, MM_PRESENT | MM_READWRITE);
-        HEAP_BREAK = (uint32_t *)((uint8_t *)HEAP_BREAK + 0x1000);
+        /* mmu_map_page((void *)mmu_alloc_page(), HEAP_BREAK, MM_PRESENT | MM_READWRITE); */
+        HEAP_BREAK = (unsigned long *)((uint8_t *)HEAP_BREAK + 0x1000);
     }
     mmu_flush_TLB();
 
@@ -189,13 +196,54 @@ void kfree(void *ptr)
     /* TODO: call mmu_kfree_frame */
 }
 
+static int __heap_init(void *heap_start)
+{
+    if (heap_start == NULL)
+        return -EINVAL;
+
+    HEAP_START = heap_start;
+    kernel_base = heap_start;
+    kernel_base->size = PAGE_SIZE;
+    kernel_base->next = NULL;
+    kernel_base->prev = NULL;
+    MARK_FREE(kernel_base);
+    HEAP_BREAK = (unsigned long *)((unsigned long)HEAP_START + 0x1000);
+
+    return 0;
+}
+
+int mmu_heap_preinit(void)
+{
+    /* Allocate one page of memory for booting */
+    unsigned long mem = mmu_bootmem_alloc_page();
+
+    if (mem == INVALID_ADDRESS) {
+        kdebug("failed to allocate memory for heap!");
+        return -ENOMEM;
+    }
+
+    return __heap_init(mmu_p_to_v(mem));
+}
+
+int mmu_heap_init(void)
+{
+    unsigned long mem = mmu_page_alloc(MM_ZONE_NORMAL);
+
+    if (mem == INVALID_ADDRESS) {
+        kdebug("failed to allocate memory for heap!");
+        return -ENOMEM;
+    }
+
+    return __heap_init(mmu_p_to_v(mem));
+}
+
 void heap_initialize(uint32_t *heap_start_v)
 {
-	HEAP_START = heap_start_v;
+    HEAP_START = (void *)heap_start_v;
 
     kernel_base = (meta_t*)HEAP_START;
     kernel_base->size = 0x1000 - META_SIZE;
     kernel_base->next = kernel_base->prev = NULL;
     MARK_FREE(kernel_base);
-	HEAP_BREAK = (uint32_t*)((uint32_t)HEAP_START + 0x1000);
+    HEAP_BREAK = (void *)((unsigned long)HEAP_START + 0x1000);
 }

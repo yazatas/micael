@@ -3,10 +3,10 @@
 #include <fs/fs.h>
 #include <kernel/util.h>
 #include <lib/bitmap.h>
-#include <mm/cache.h>
+#include <mm/slab.h>
 #include <errno.h>
 
-static cache_t *cdev_cache  = NULL;
+static mm_cache_t *cdev_cache  = NULL;
 static bitmap_t *bm_devnums = NULL;
 
 /* FIXME: this is incorrect, each device major group
@@ -27,7 +27,7 @@ int cdev_init(void)
     path_t *path   = NULL;
     int ret        = 0;
 
-    if ((cdev_cache = cache_create(sizeof(cdev_t), C_NOFLAGS)) == NULL)
+    if ((cdev_cache = mmu_cache_create(sizeof(cdev_t), MM_NO_FLAG)) == NULL)
         return -ENOMEM;
 
     if ((bm_devnums = bm_alloc_bitmap(256)) == NULL)
@@ -77,7 +77,7 @@ cdev_t *cdev_alloc(char *name, file_ops_t *ops, int major)
     if ((minor = cdev_alloc_devnum()) < 0)
         goto error;
 
-    if ((dev = cache_alloc_entry(cdev_cache, C_NOFLAGS)) == NULL)
+    if ((dev = mmu_cache_alloc_entry(cdev_cache, MM_NO_FLAG)) == NULL)
         goto error_deventry;
 
     dev->c_dev  = MAKE_DEV(major, minor);
@@ -106,5 +106,5 @@ void cdev_dealloc(cdev_t *dev)
         kdebug("failed to unset bit");
     }
 
-    cache_dealloc_entry(cdev_cache, dev, C_NOFLAGS);
+    mmu_cache_free_entry(cdev_cache, dev);
 }

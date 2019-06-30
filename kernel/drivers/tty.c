@@ -1,20 +1,39 @@
 #include <drivers/ps2.h>
 #include <drivers/tty.h>
 #include <drivers/vbe.h>
+#include <drivers/vga.h>
 #include <fs/devfs.h>
 #include <fs/file.h>
 #include <kernel/util.h>
 #include <mm/heap.h>
 #include <errno.h>
+#include <stdbool.h>
+
+/* Use the VGA routines by default.
+ * When VBE is initialized, new routines will be installed */
+void (*__tty_putc)(char)   = vga_put_char;
+void (*__tty_puts)(char *) = vga_put_str;
 
 void tty_putc(char c)
 {
-    vbe_put_char(c);
+    __tty_putc(c);
 }
 
 void tty_puts(char *data)
 {
-    vbe_put_str(data);
+    __tty_puts(data);
+}
+
+void tty_install_putc(void (*_tty_putc)(char c))
+{
+    if (_tty_putc)
+        __tty_putc = _tty_putc;
+}
+
+void tty_install_puts(void (*_tty_puts)(char *s))
+{
+    if (_tty_puts)
+        __tty_puts = _tty_puts;
 }
 
 static char *__tty_get_name(void)

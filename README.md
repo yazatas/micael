@@ -1,6 +1,6 @@
 # micael
 
-micael is a 32-bit monolithic kernel written in C and x86 assembly.
+micael is a 64-bit monolithic kernel written in C and x86 assembly.
 
 See doc/OVERVIEW.md and doc/ROADMAP.md for more details
 
