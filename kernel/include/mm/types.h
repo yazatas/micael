@@ -7,6 +7,7 @@
 #define PAGE_SIZE       4096
 #define INVALID_ADDRESS ULONG_MAX
 #define BUDDY_MAX_ORDER 16
+#define PAGE_SHIFT      12
 
 #define MM_SET_FLAG(value, flag)   (value |= flag)
 #define MM_UNSET_FLAG(value, flag) (value &= ~flag)
@@ -46,10 +47,16 @@ enum MM_ZONE_RANGES {
     MM_ZONE_HIGH_END     = 0xffffffffffffffff,
 };
 
+enum MM_PAGE_TYPES {
+    MM_PT_INVALID = 0 << 0,
+    MM_PT_FREE    = 1 << 0,
+    MM_PT_IN_USE  = 1 << 1,
+};
+
 typedef struct page {
-    unsigned long addr; /* TODO:  */
-    list_head_t lru;    /* TODO:  */
-    void *virtual;      /* virtual address of the page */
+    list_head_t list;
+    uint8_t type:2;
+    uint8_t order:6;
 } page_t;
 
 #endif /* __MMU_TYPES_H__ */
