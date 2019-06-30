@@ -191,6 +191,16 @@ static unsigned long __alloc_mem(unsigned memzone, unsigned order)
     return INVALID_ADDRESS;
 }
 
+/* claim only available/reclaimable memory */
+static void __claim_range_preinit(unsigned type, unsigned long address, size_t len)
+{
+    if (type != MULTIBOOT_MEMORY_AVAILABLE &&
+        type != MULTIBOOT_MEMORY_ACPI_RECLAIMABLE)
+        return;
+
+    return mmu_claim_range(address, len);
+}
+
 void mmu_zones_init(void *arg)
 {
     zone_dma.name    = "MM_ZONE_DMA";
@@ -219,8 +229,10 @@ void mmu_zones_init(void *arg)
     if ((mm_block_cache = mmu_cache_create(sizeof(mm_block_t), MM_NO_FLAG)) == NULL)
         kpanic("Failed to allocate mm_block_cache for PFA");
 
-    /* initialize memory zones using the multiboot memory map */
-    multiboot2_map_memory(arg, mmu_claim_range);
+    /* Memory is claimed twice: on the first run we're only interested in free memory
+     * because we're initializing the zones. When zones and the page array have been initialized
+     * we reclaim all memory but this time we're only updating the page array */
+    multiboot2_map_memory(arg, __claim_range_preinit);
 
     /* We have now mapped all memory for the PFA but during boot
      * we allocated memory pages from boot memory manager.
