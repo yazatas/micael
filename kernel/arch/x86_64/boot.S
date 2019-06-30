@@ -5,8 +5,8 @@
 #define PDPT_ATOEI(addr) (((addr) >> 30) & 0x1FF)
 
 # general defines
-.set KPSTART,         0x0000000000400000
-.set KVSTART,         0xFFFFFFFF80400000
+.set KPSTART,         0x0000000000100000
+.set KVSTART,         0xFFFFFFFF80100000
 .set BOOT_STACK_SIZE,              16384
 
 # control defines
