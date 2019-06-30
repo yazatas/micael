@@ -107,6 +107,7 @@ static ssize_t initramfs_file_read(file_t *file, off_t offset, size_t count, voi
 
     /* allocate address space for file and map the bytes there */
     if (GET_FILE_PRIVATE(file)->mapped == false) {
+#if 0
         size_t range = (file->f_dentry->d_inode->i_size / 4096) + 2;
         void *vaddr  = mmu_alloc_addr(range);
         void *paddr  = GET_FILE_PRIVATE(file)->pstart;
@@ -117,6 +118,7 @@ static ssize_t initramfs_file_read(file_t *file, off_t offset, size_t count, voi
         GET_FILE_PRIVATE(file)->mapped     = true;
         GET_FILE_PRIVATE(file)->num_mapped = range;
         GET_FILE_PRIVATE(file)->vstart     = (char *)((uint32_t)vaddr + off);
+#endif
     }
 
     int ret    = initramfs_file_seek(file, offset);
@@ -183,7 +185,7 @@ static int initramfs_file_close(file_t *file)
         GET_FILE_PRIVATE(file)->mapped &&
         GET_FILE_PRIVATE(file)->vstart != NULL)
     {
-        mmu_free_addr(GET_FILE_PRIVATE(file)->vstart, GET_FILE_PRIVATE(file)->num_mapped);
+        /* mmu_free_addr(GET_FILE_PRIVATE(file)->vstart, GET_FILE_PRIVATE(file)->num_mapped); */
     }
 
     kfree(file->f_private);
@@ -269,12 +271,14 @@ found:
     /* if the offset from page boundary of the initrd + directory size is more than PAGE_SIZE,
      * it means that this directory overlaps two pages and we must allocate space for two pages */
     if ((i_flags & T_IFDIR) && (off_start + i_size) > PAGE_SIZE) {
+#if 0
         uint32_t *vstart      = mmu_alloc_addr(2);
         size_t off_from_start = parent_start + i_offset - boundary;
         mmu_map_range((void *)boundary, vstart, 2, MM_PRESENT | MM_READONLY);
 
         GET_INO_PRIVATE(inode)->pstart = (void *)((uint8_t *)ip->pstart + i_offset);
         GET_INO_PRIVATE(inode)->vstart = (void *)((uint8_t *)vstart + off_start);
+#endif
     } else {
         if (i_flags & T_IFDIR)
             GET_INO_PRIVATE(inode)->vstart = (char *)ip->vstart + i_offset;
@@ -329,26 +333,26 @@ static int initramfs_init(superblock_t *sb, void *args)
     disk_header_t *dh;
 
     /* first check did we actually get any modules */
-    mbi = mmu_alloc_addr(1);
+    /* mbi = mmu_alloc_addr(1); */
     mmu_map_page(args, mbi, MM_PRESENT | MM_READWRITE);
 
     if (mbi->mods_count == 0) {
         kdebug("trying to init initrd, module count 0!");
-        mmu_free_addr(mbi, 1);
+        /* mmu_free_addr(mbi, 1); */
         return -ENXIO;
     }
 
     /* kdebug("mbi->mods_count %u mbi->mods_addr 0x%x", mbi->mods_count, mbi->mods_addr); */
 
     /* then check that header was loaded correctly */
-    mod = mmu_alloc_addr(1);
+    /* mod = mmu_alloc_addr(1); */
     mmu_map_page((char *)mbi->mods_addr, mod, MM_PRESENT | MM_READWRITE);
     mod = (multiboot_module_t *)((uint32_t)mod + 0x9c);
 
     /* kdebug("start 0x%x | end 0x%x | size %u", mod->mod_start, mod->mod_end, */
     /*         mod->mod_end - mod->mod_start); */
 
-    dh = mmu_alloc_addr(1);
+    /* dh = mmu_alloc_addr(1); */
     mmu_map_page((char *)mod->mod_start, dh, MM_PRESENT | MM_READWRITE);
 
     if (dh->magic != HEADER_MAGIC) {
@@ -376,8 +380,8 @@ static int initramfs_init(superblock_t *sb, void *args)
     ((i_private_t *)sb->s_root->d_inode->i_private)->vstart =
         ((char *)dh)            + sizeof(disk_header_t);
 
-    mmu_free_addr(mbi, 1);
-    mmu_free_addr(mod, 1);
+    /* mmu_free_addr(mbi, 1); */
+    /* mmu_free_addr(mod, 1); */
 
     return 0;
 }

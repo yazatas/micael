@@ -38,6 +38,13 @@ int func(int param)
 }
 ```
 
+Static functions should be prefixed with `__` to make them more visible in the code.
+The "namespace" should be dropped for static functions. For example (this function is part of page.c, namespace mmu):
+
+```
+static void __claim_range(mm_zone_t *zone, unsigned long start, unsigned long end)
+```
+
 ## Whitespacing
 
 More is more
@@ -71,6 +78,15 @@ if ((sb        = kmalloc(sizeof(superblock_t))) == NULL ||
 
 ```
 
+Equal signs of assignments should be aligned if feasible. For example
+```
+file->f_mode   = mode;
+file->f_dentry = dntr;
+file->f_ops    = dntr->d_inode->i_fops;
+```
+
+It's not strictly necessary if the variable names are of very different lengths.
+
 ## Switch
 
 Empty line after each case
@@ -90,8 +106,16 @@ switch (expression) {
 
 ## Misc
 
-Static size arrays
+Use whitespaces around curly brackets
 
 ```
 int array[10] = { 0 };
+```
+
+All "impossible" conditions should be checked using kassert(). Possible, but invalid conditions should be checked normally and an error message should be printed and errno should be set/returned.
+
+
+Ignoring the return value is discouraged but if it's done for whatever reason, the function call must be casted to void:
+```
+(void)mmu_slab_preinit();
 ```

@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <limits.h>
 #include <kernel/kprint.h>
+#include <sys/types.h>
 
 typedef struct isr_regs {
     uint16_t gs, fs, es, ds;
@@ -13,16 +14,15 @@ typedef struct isr_regs {
     uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
 } isr_regs_t;
 
-typedef int ssize_t;
-typedef int gid_t;
-
 #define MIN(v1, v2) (((v1) < (v2)) ? (v1) : (v2))
 #define MAX(v1, v2) (((v1) < (v2)) ? (v2) : (v1))
 
-#define ROUND_DOWN(addr, boundary) (addr & ~(boundary - 1))
-#define ROUND_UP(addr,   boundary) ((addr % boundary) ? \
-								   ((addr & ~(boundary - 1)) + boundary) : (addr))
+#define ROUND_DOWN(addr, boundary) ((addr) & ~((boundary) - 1))
+#define ROUND_UP(addr,   boundary) (((addr) % (boundary)) ? \
+                                   (((addr) & ~((boundary) - 1)) + (boundary)) : (addr))
 #define MULTIPLE_OF_2(value)       ((value + 1) & -2)
+#define ALIGNED(value, aligment)   ((value & (aligment - 1)) == 0)
+#define PAGE_ALIGNED(value)        ALIGNED(value, 4096)
 
 static inline void hex_dump(void *buf, size_t len)
 {

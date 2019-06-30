@@ -28,7 +28,7 @@ const char *kstrerror(int error)
     return errors[error];
 }
 
-static void print_integer(uint32_t value, int width, int sign, bool zp)
+static void print_integer(unsigned long value, int width, int sign, bool zp)
 {
     char c[64] = {0};
     int i = 0, nlen;
@@ -54,7 +54,8 @@ static void print_integer(uint32_t value, int width, int sign, bool zp)
 
 static void va_kprint(const char *fmt, va_list args)
 {
-    int width = 0, zero_padding = 0;
+    int width = 0;
+    bool zero_padding = false;
 
     while (*fmt) {
 
@@ -86,7 +87,7 @@ static void va_kprint(const char *fmt, va_list args)
         }
 
         if (*fmt == '0') {
-            zero_padding = 1;
+            zero_padding = true;
             fmt++;
         }
 
@@ -98,25 +99,27 @@ static void va_kprint(const char *fmt, va_list args)
 
         switch (*fmt) {
             case 'd': {
-                int32_t tmp = va_arg(args, int32_t);
+                long tmp = va_arg(args, long);
                 print_integer((tmp < 0) ? -tmp : tmp, width, -(tmp < 0), zero_padding);
                 break;
             }
 
             case 'u': {
-                uint32_t tmp = va_arg(args, uint32_t);
+                unsigned long tmp = va_arg(args, unsigned long);
                 print_integer(tmp, width, 0, zero_padding);
                 break;
             }
 
             case 'x': {
-                const uint8_t sym[16] = {'0', '1', '2', '3',
-                                         '4', '5', '6', '7',
-                                         '8', '9', 'a', 'b',
-                                         'c', 'd', 'e', 'f'};
-                uint32_t tmp = va_arg(args, uint32_t);
-                static char c[64];
                 int i = 0;
+                static char c[64];
+                unsigned long tmp = va_arg(args, unsigned long);
+                const uint8_t sym[16] = {
+                    '0', '1', '2', '3',
+                    '4', '5', '6', '7',
+                    '8', '9', 'a', 'b',
+                    'c', 'd', 'e', 'f'
+                };
 
                 do {
                     c[i++] = sym[tmp & 0xf];
@@ -135,7 +138,8 @@ static void va_kprint(const char *fmt, va_list args)
             }
         }
 
-        width = zero_padding = 0;
+        width = 0;
+        zero_padding = false;
         fmt++;
     }
 }

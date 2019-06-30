@@ -5,18 +5,18 @@
 #include <kernel/util.h>
 #include <lib/hashmap.h>
 #include <lib/list.h>
-#include <mm/cache.h>
+#include <mm/slab.h>
 #include <errno.h>
 #include <stdbool.h>
 
 #define DENTRY_HM_LEN 32
 #define USE_CACHE(flags) (!((bool)(flags & DNTR_NO_CACHE)))
 
-static cache_t *dentry_cache = NULL;
+static mm_cache_t *dentry_cache = NULL;
 
 int dentry_init(void)
 {
-    if ((dentry_cache = cache_create(sizeof(dentry_t), C_NOFLAGS)) == NULL)
+    if ((dentry_cache = mmu_cache_create(sizeof(dentry_t), MM_NO_FLAG)) == NULL)
         kpanic("failed to initialize slab cache for dentries!");
 
     /* TODO: initialize global cache */
@@ -30,7 +30,7 @@ static dentry_t *__dentry_alloc(char *name, bool cache)
 {
     dentry_t *dntr = NULL;
 
-    if ((dntr = cache_alloc_entry(dentry_cache, C_NOFLAGS)) == NULL)
+    if ((dntr = mmu_cache_alloc_entry(dentry_cache, MM_NO_FLAG)) == NULL)
         return NULL;
 
     /* don't cache this dentry to global dentry cache (used for . and ..) */
@@ -241,7 +241,7 @@ int dentry_dealloc(dentry_t *dntr)
 
     list_remove(&dntr->d_list);
     hm_dealloc_hashmap(dntr->d_children);
-    cache_dealloc_entry(dentry_cache, dntr, C_NOFLAGS);
+    (void)mmu_cache_free_entry(dentry_cache, dntr);
 
     return ret;
 }
