@@ -17,8 +17,12 @@ struct {
     size_t ptr;
 } mem_info;
 
-static void bootmem_claim_range(unsigned long addr, size_t len)
+static void bootmem_claim_range(unsigned type, unsigned long addr, size_t len)
 {
+    if (type != MULTIBOOT_MEMORY_AVAILABLE &&
+        type != MULTIBOOT_MEMORY_ACPI_RECLAIMABLE)
+        return;
+
     if (mem_info.ptr >= 5)
         return;
 

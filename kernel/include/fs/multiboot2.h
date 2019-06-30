@@ -92,7 +92,7 @@
 
 size_t multiboot2_map_memory(
     unsigned long *address,
-    void (*callback)(unsigned long, size_t)
+    void (*callback)(unsigned, unsigned long, size_t)
 );
 
 typedef unsigned char           multiboot_uint8_t;

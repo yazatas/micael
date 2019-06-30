@@ -4,7 +4,7 @@
 #include <mm/mmu.h>
 #include <sys/types.h>
 
-size_t multiboot2_map_memory(unsigned long *address, void (*callback)(unsigned long, size_t))
+size_t multiboot2_map_memory(unsigned long *address, void (*callback)(unsigned, unsigned long, size_t))
 {
     kassert(callback != NULL);
 
@@ -25,9 +25,11 @@ size_t multiboot2_map_memory(unsigned long *address, void (*callback)(unsigned l
 
                     switch (mmap->type) {
                         case MULTIBOOT_MEMORY_AVAILABLE:
-                        case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE: {
-                            callback(addr, len);
-                        }
+                        case MULTIBOOT_MEMORY_RESERVED:
+                        case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
+                        case MULTIBOOT_MEMORY_NVS:
+                        case MULTIBOOT_MEMORY_BADRAM:
+                            callback(mmap->type, addr, len);
                         break;
                     }
 
