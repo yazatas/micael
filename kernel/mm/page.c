@@ -2,6 +2,7 @@
 #include <kernel/common.h>
 #include <kernel/kpanic.h>
 #include <kernel/kassert.h>
+#include <kernel/util.h>
 #include <lib/bitmap.h>
 #include <lib/list.h>
 #include <mm/bootmem.h>
@@ -10,8 +11,11 @@
 #include <mm/page.h>
 #include <mm/slab.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #define ORDER_EMPTY(o) (o.list.next == NULL)
+
+typedef int (*add_block_t)(void *, unsigned long, unsigned);
 
 typedef struct mm_block {
     unsigned long start;
@@ -48,8 +52,9 @@ static inline mm_zone_t *__get_zone(unsigned long start, unsigned long end)
     return NULL;
 }
 
-static int __zone_add_block(mm_zone_t *zone, unsigned long start, int order)
+static int __zone_add_block(void *param, unsigned long start, unsigned order)
 {
+    mm_zone_t *zone   = (mm_zone_t *)param;
     mm_block_t *block = mmu_cache_alloc_entry(mm_block_cache, MM_NO_FLAG);
 
     if (block == NULL)
@@ -60,13 +65,35 @@ static int __zone_add_block(mm_zone_t *zone, unsigned long start, int order)
 
     list_init_null(&block->list);
     list_append(&zone->blocks[order].list, &block->list);
+    zone->page_count += (1 << order);
 
     return 0;
 }
 
-static void __claim_range(mm_zone_t *zone, unsigned long start, unsigned long end)
+static int __page_array_add_block(void *param, unsigned long start, unsigned order)
 {
-    kassert(zone != NULL);
+    kassert(param != NULL);
+
+    unsigned type = *(unsigned *)param;
+    unsigned pfn  = start >> PAGE_SHIFT;
+
+    page_array[pfn].type  = type;
+    page_array[pfn].order = order;
+    page_array[pfn].first = 1;
+
+    for (int i = 1; i < (1 << order); ++i) {
+        page_array[pfn + i].type  = type;
+        page_array[pfn + i].order = order;
+        page_array[pfn + i].first = 0;
+    }
+
+    return 0;
+}
+
+static void __claim_range(unsigned long start, unsigned long end, add_block_t callback, void *cb_param)
+{
+    kassert(callback != NULL);
+    kassert(cb_param != NULL);
 
     unsigned long range_len = end - start;
 
@@ -79,13 +106,9 @@ static void __claim_range(mm_zone_t *zone, unsigned long start, unsigned long en
         size_t rem_bytes  = range_len % BLOCK_SIZE;
 
         if (num_blocks > 0) {
-            zone->page_count += (1 << order);
-
-            /* kdebug("%u (%d) satisfies %u: %u, %u", BLOCK_SIZE, order, range_len, num_blocks, rem_bytes); */
-
             for (size_t b = 0; b < num_blocks; ++b) {
-                __zone_add_block(zone, start, order);
-                start        = start + (b + 1) * BLOCK_SIZE;
+                (void)callback(cb_param, start, order);
+                start = start + (b + 1) * BLOCK_SIZE;
             }
 
             range_len = rem_bytes;
@@ -191,7 +214,7 @@ static unsigned long __alloc_mem(unsigned memzone, unsigned order)
     return INVALID_ADDRESS;
 }
 
-/* claim only available/reclaimable memory */
+/* claim only available/reclaimable memory for zones */
 static void __claim_range_preinit(unsigned type, unsigned long address, size_t len)
 {
     if (type != MULTIBOOT_MEMORY_AVAILABLE &&
@@ -199,6 +222,32 @@ static void __claim_range_preinit(unsigned type, unsigned long address, size_t l
         return;
 
     return mmu_claim_range(address, len);
+}
+
+/* claim all memory but update only the page array */
+static void __claim_range_postinit(unsigned type, unsigned long address, size_t len)
+{
+    unsigned mm_type;
+
+    switch (type) {
+        case MULTIBOOT_MEMORY_AVAILABLE:
+        case MULTIBOOT_MEMORY_ACPI_RECLAIMABLE:
+            mm_type = MM_PT_FREE;
+            break;
+
+        case MULTIBOOT_MEMORY_RESERVED:
+        case MULTIBOOT_MEMORY_NVS:
+        case MULTIBOOT_MEMORY_BADRAM:
+            mm_type = MM_PT_IN_USE;
+            break;
+    }
+
+    __claim_range(
+        ROUND_UP(address, PAGE_SIZE),
+        ROUND_DOWN(address + len, PAGE_SIZE),
+        __page_array_add_block,
+        &mm_type
+    );
 }
 
 void mmu_zones_init(void *arg)
@@ -266,10 +315,16 @@ void mmu_zones_init(void *arg)
 
     page_array = mmu_p_to_v(pa_mem);
 
-    kdebug("0x%x", pa_mem, pa_mem >> PAGE_SHIFT);
+    /* initially mark all memory as invalid
+     * (even the parts that multiboot2 memory doesn't contain) */
+    kmemset(page_array, MM_PT_INVALID, (1 << 12) * PAGE_SIZE);
 
-    page_array[pa_mem >> PAGE_SHIFT].type  = MM_PT_IN_USE;
-    page_array[pa_mem >> PAGE_SHIFT].order = 12;
+    /* Mark areas of page array to free/occupied using multiboot2 memory map */
+    multiboot2_map_memory(arg, __claim_range_postinit);
+
+    /* set the memory consumed by the page array as in use separately
+     * because multiboot2_map_memory() has marked it as free */
+    (void)__page_array_add_block(&(unsigned){ MM_PT_IN_USE }, pa_mem, 12);
 }
 
 void mmu_claim_range(unsigned long address, size_t len)
@@ -279,9 +334,10 @@ void mmu_claim_range(unsigned long address, size_t len)
     if (zone != NULL) {
         /* round up and down to get usable boundaries */
         __claim_range(
-            zone,
             ROUND_UP(address, PAGE_SIZE),
-            ROUND_DOWN(address + len, PAGE_SIZE)
+            ROUND_DOWN(address + len, PAGE_SIZE),
+            __zone_add_block,
+            zone
         );
     }
 
@@ -293,15 +349,17 @@ void mmu_claim_range(unsigned long address, size_t len)
      * deal with the error by splitting the range into two smaller ranges */
     if (address < MM_ZONE_NORMAL_START && address + len > MM_ZONE_DMA_END) {
         __claim_range(
-            &zone_dma,
             ROUND_UP(address, PAGE_SIZE),
-            MM_ZONE_DMA_END
+            MM_ZONE_DMA_END,
+            __zone_add_block,
+            &zone_dma
         );
 
         __claim_range(
-            &zone_normal,
             MM_ZONE_NORMAL_START,
-            ROUND_DOWN(address + len, PAGE_SIZE)
+            ROUND_DOWN(address + len, PAGE_SIZE),
+            __zone_add_block,
+            &zone_normal
         );
     }
 }
@@ -318,17 +376,14 @@ unsigned long mmu_page_alloc(unsigned memzone)
 
 unsigned long mmu_block_alloc(unsigned memzone, unsigned order)
 {
-    unsigned long mem = __alloc_mem(memzone, order);
+    unsigned long address = __alloc_mem(memzone, order);
 
-    if (mem == INVALID_ADDRESS)
+    if (address == INVALID_ADDRESS)
         return INVALID_ADDRESS;
 
-    unsigned pfn = mem >> PAGE_SHIFT;
+    (void)__page_array_add_block(&(unsigned){ MM_PT_IN_USE }, address, order);
 
-    page_array[pfn].type  = MM_PT_IN_USE;
-    page_array[pfn].order = order;
-
-    return mem;
+    return address;
 }
 
 int mmu_block_free(unsigned long address, unsigned order)
@@ -341,7 +396,7 @@ int mmu_block_free(unsigned long address, unsigned order)
     if (zone == NULL)
         return -ENXIO;
 
-    page_array[address >> PAGE_SHIFT].type = MM_PT_FREE;
+    (void)__page_array_add_block(&(unsigned){ MM_PT_FREE }, address, order);
 
     return __zone_add_block(zone, address, order);
 }
