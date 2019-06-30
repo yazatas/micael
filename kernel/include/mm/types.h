@@ -55,8 +55,9 @@ enum MM_PAGE_TYPES {
 
 typedef struct page {
     list_head_t list;
-    uint8_t type:2;
-    uint8_t order:6;
+    uint8_t type:2;   /* type of memory (see MM_PAGE_TYPES) */
+    uint8_t order:5;  /* order of block (0 - BUDDY_MAX_ORDER - 1) */
+    uint8_t first:1;  /* is this the first block of a range? */
 } page_t;
 
 #endif /* __MMU_TYPES_H__ */
