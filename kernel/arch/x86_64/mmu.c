@@ -9,8 +9,8 @@ static uint64_t __pd[512]    __attribute__((aligned(0x1000)));
 
 static uint64_t __pml4_;
 
-#define KPSTART 0x0000000000400000
-#define KVSTART 0xffffffff80400000
+#define KPSTART 0x0000000000100000
+#define KVSTART 0xffffffff80100000
 
 #define PML4_ATOEI(addr) (((addr) >> 39) & 0x1FF)
 #define PDPT_ATOEI(addr) (((addr) >> 30) & 0x1FF)

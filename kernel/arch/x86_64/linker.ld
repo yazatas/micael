@@ -3,7 +3,7 @@ ENTRY(_start)
 
 SECTIONS
 {
-	. = 4M;
+	. = 1M;
 
 	.loader.text :
 	{
