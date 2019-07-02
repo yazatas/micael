@@ -1,4 +1,5 @@
 #include <drivers/vbe.h>
+#include <kernel/acpi.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
 #include <kernel/irq.h>
@@ -37,6 +38,8 @@ void kmain(void *arg)
     /* VBE must be initialized after MMU, because it uses
      * mmu functions to get the from from VGA memory */
     vbe_init();
+
+    acpi_initialize();
 
 #if 0
     /* initialize inode and dentry caches, mount pseudo rootfs and devfs */
