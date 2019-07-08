@@ -1,5 +1,5 @@
 #include <kernel/io.h>
-#include <kernel/irq.h>
+#include <kernel/pic.h>
 #include <drivers/timer.h>
 #include <kernel/kprint.h>
 
