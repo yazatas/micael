@@ -1,6 +1,6 @@
 #include <drivers/ps2.h>
 #include <drivers/tty.h>
-#include <kernel/irq.h>
+#include <kernel/pic.h>
 #include <kernel/io.h>
 #include <stdbool.h>
 
