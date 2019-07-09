@@ -8,11 +8,17 @@
 #include <sys/types.h>
 
 typedef struct isr_regs {
+#ifdef __x86_64__
+    uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
+    uint64_t isr_num, err_num;
+    uint64_t eip, cs, eflags, esp, ss;
+#else
     uint16_t gs, fs, es, ds;
     uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; /* pusha */
     uint32_t isr_num, err_num;
     uint32_t eip, cs, eflags, useresp, ss; /*  pushed by cpu */
-} isr_regs_t;
+#endif
+} __attribute__((packed)) isr_regs_t;
 
 #define MIN(v1, v2) (((v1) < (v2)) ? (v1) : (v2))
 #define MAX(v1, v2) (((v1) < (v2)) ? (v2) : (v1))
