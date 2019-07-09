@@ -1,6 +1,6 @@
 #include <kernel/io.h>
 #include <kernel/idt.h>
-#include <kernel/irq.h>
+#include <kernel/pic.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/common.h>
@@ -58,23 +58,21 @@ void irq_init(void)
     outb(PIC_SLAVE_DATA_PORT,  0x00);
 
     idt_set_gate((unsigned long int)irq0,  0x08, 0x8e, &IDT[32]);
-    /* idt_set_gate((unsigned long int)irq1,  0x08, 0x8e, &IDT[33]); */
-    /* idt_set_gate((unsigned long int)irq2,  0x08, 0x8e, &IDT[34]); */
-    /* idt_set_gate((unsigned long int)irq3,  0x08, 0x8e, &IDT[35]); */
-    /* idt_set_gate((unsigned long int)irq4,  0x08, 0x8e, &IDT[36]); */
-    /* idt_set_gate((unsigned long int)irq5,  0x08, 0x8e, &IDT[37]); */
-    /* idt_set_gate((unsigned long int)irq6,  0x08, 0x8e, &IDT[38]); */
-    /* idt_set_gate((unsigned long int)irq7,  0x08, 0x8e, &IDT[39]); */
-    /* idt_set_gate((unsigned long int)irq8,  0x08, 0x8e, &IDT[40]); */
-    /* idt_set_gate((unsigned long int)irq9,  0x08, 0x8e, &IDT[41]); */
-    /* idt_set_gate((unsigned long int)irq10, 0x08, 0x8e, &IDT[42]); */
-    /* idt_set_gate((unsigned long int)irq11, 0x08, 0x8e, &IDT[43]); */
-    /* idt_set_gate((unsigned long int)irq12, 0x08, 0x8e, &IDT[44]); */
-    /* idt_set_gate((unsigned long int)irq13, 0x08, 0x8e, &IDT[45]); */
-    /* idt_set_gate((unsigned long int)irq14, 0x08, 0x8e, &IDT[46]); */
-    /* idt_set_gate((unsigned long int)irq15, 0x08, 0x8e, &IDT[47]); */
-
-    /* kdebug("IRQs enabled!"); */
+    idt_set_gate((unsigned long int)irq1,  0x08, 0x8e, &IDT[33]);
+    idt_set_gate((unsigned long int)irq2,  0x08, 0x8e, &IDT[34]);
+    idt_set_gate((unsigned long int)irq3,  0x08, 0x8e, &IDT[35]);
+    idt_set_gate((unsigned long int)irq4,  0x08, 0x8e, &IDT[36]);
+    idt_set_gate((unsigned long int)irq5,  0x08, 0x8e, &IDT[37]);
+    idt_set_gate((unsigned long int)irq6,  0x08, 0x8e, &IDT[38]);
+    idt_set_gate((unsigned long int)irq7,  0x08, 0x8e, &IDT[39]);
+    idt_set_gate((unsigned long int)irq8,  0x08, 0x8e, &IDT[40]);
+    idt_set_gate((unsigned long int)irq9,  0x08, 0x8e, &IDT[41]);
+    idt_set_gate((unsigned long int)irq10, 0x08, 0x8e, &IDT[42]);
+    idt_set_gate((unsigned long int)irq11, 0x08, 0x8e, &IDT[43]);
+    idt_set_gate((unsigned long int)irq12, 0x08, 0x8e, &IDT[44]);
+    idt_set_gate((unsigned long int)irq13, 0x08, 0x8e, &IDT[45]);
+    idt_set_gate((unsigned long int)irq14, 0x08, 0x8e, &IDT[46]);
+    idt_set_gate((unsigned long int)irq15, 0x08, 0x8e, &IDT[47]);
 }
 
 void irq_ack_interrupt(int irq_num)
@@ -92,6 +90,7 @@ void irq_handler(struct isr_regs *cpu_state)
 
     int irq_index = cpu_state->isr_num - 32;
     if (irq_index >= 16) {
+        kdebug("%x", irq_index);
         kpanic("no handler for this interrupt!");
     }
 
