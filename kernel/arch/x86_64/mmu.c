@@ -1,3 +1,5 @@
+#include <kernel/kassert.h>
+#include <kernel/kprint.h>
 #include <kernel/util.h>
 #include <mm/mmu.h>
 #include <mm/page.h>
@@ -36,6 +38,7 @@ static inline uint64_t *native_p_to_v(uint64_t paddr)
 {
     /* TODO: check is this really a physical address 
      * ie. that the the addition doesn't overflow */
+    kassert(paddr < (uint64_t)(1 << 31));
 
     return (uint64_t *)(paddr + (KVSTART - KPSTART));
 }
@@ -70,6 +73,14 @@ int mmu_native_init(void)
     return 0;
 }
 
+static uint64_t __alloc_entry(void)
+{
+    uint64_t addr = mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL);
+    kmemset((void *)native_p_to_v(addr), 0, PAGE_SIZE);
+
+    return addr | MM_PRESENT | MM_READWRITE;
+}
+
 int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)
 {
     unsigned long pml4i = (vaddr >> 39) & 0x1ff;
@@ -79,28 +90,24 @@ int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)
 
     uint64_t *pml4 = native_p_to_v(native_get_cr3());
 
-    if (!(pml4[pml4i] & MM_PRESENT)) {
-        pml4[pml4i]  = mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL);
-        pml4[pml4i] |= MM_PRESENT | MM_READWRITE;
-    }
+    if (!(pml4[pml4i] & MM_PRESENT))
+        pml4[pml4i] = __alloc_entry();
 
-    uint64_t *pdpt = native_p_to_v(pml4[pml4i]);
+    uint64_t *pdpt = native_p_to_v(pml4[pml4i] & ~0xfff);
 
-    if (!(pdpt[pdpti] & MM_PRESENT)) {
-        pdpt[pdpti]  = mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL);
-        pdpt[pdpti] |= MM_PRESENT | MM_READWRITE;
-    }
+    if (!(pdpt[pdpti] & MM_PRESENT))
+        pdpt[pdpti] = __alloc_entry();
 
-    uint64_t *pd = native_p_to_v(pdpt[pdpti]);
+    uint64_t *pd = native_p_to_v(pdpt[pdpti] & ~0xfff);
 
-    if (!(pd[pdi] & MM_PRESENT)) {
-        pd[pdi]  = mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL);
-        pd[pdi] |= MM_PRESENT | MM_READWRITE;
-    }
+    if (!(pd[pdi] & MM_PRESENT))
+        pd[pdi] = __alloc_entry();
 
-    uint64_t *pt = native_p_to_v(pd[pdi]);
+    uint64_t *pt = native_p_to_v(pd[pdi] & ~0xfff);
+    pt[pti]      = paddr | flags | MM_PRESENT;
 
-    pt[pti] = paddr | flags;
+    asm volatile ("mov %cr3, %rcx \n \
+                   mov %rcx, %cr3");
 
     return 0;
 }
