@@ -22,7 +22,7 @@ static unsigned long mmu_do_cow(unsigned long fault_addr)
     /* return p_copy | MM_PRESENT | MM_READWRITE | MM_USER; */
 }
 
-void mmu_pf_handler(uint32_t error)
+void mmu_pf_handler(isr_regs_t *cpu_state)
 {
     uint64_t cr2, cr3;
 

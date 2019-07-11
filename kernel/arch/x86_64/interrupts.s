@@ -26,6 +26,23 @@
 .global isr20 # virtualization exception
 .global isr128 # system call
 
+.global irq0  # timer, Local APIC is configured during initialization
+.global irq1  # keyboard
+.global irq2  # cascade
+.global irq3  # com2
+.global irq4  # com1
+.global irq5  # lpt2
+.global irq6  # floppy disk
+.global irq7  # lpt1
+.global irq8  # cmos real-time clock
+.global irq9  # legacy scsi / nic
+.global irq10 # scsi / nic
+.global irq11 # scsi / nic
+.global irq12 # ps2 mouse
+.global irq13 # fpu / coprocessor / inter-processor
+.global irq14 # primary ata hard disk
+.global irq15 # secondary ata hard disk
+
 # how everything works:
 # 1. clear interrupt flag
 # 2. push "dummy" error code (not for every interrupt)
@@ -174,6 +191,102 @@ isr128:
     pushq $0x80
     jmp isr_common
 
+irq0:
+    cli
+    pushq $0
+    pushq $32
+    jmp isr_common
+
+irq1:
+    cli
+    pushq $0
+    pushq $33
+    jmp isr_common
+
+irq2:
+    cli
+    pushq $0
+    pushq $34
+    jmp isr_common
+
+irq3:
+    cli
+    pushq $0
+    pushq $35
+    jmp isr_common
+
+irq4:
+    cli
+    pushq $0
+    pushq $36
+    jmp isr_common
+
+irq5:
+    cli
+    pushq $0
+    pushq $37
+    jmp isr_common
+
+irq6:
+    cli
+    pushq $0
+    pushq $38
+    jmp isr_common
+
+irq7:
+    cli
+    pushq $0
+    pushq $39
+    jmp isr_common
+
+irq8:
+    cli
+    pushq $0
+    pushq $40
+    jmp isr_common
+
+irq9:
+    cli
+    pushq $0
+    pushq $41
+    jmp isr_common
+
+irq10:
+    cli
+    pushq $0
+    pushq $42
+    jmp isr_common
+
+irq11:
+    cli
+    pushq $0
+    pushq $43
+    jmp isr_common
+
+irq12:
+    cli
+    pushq $0
+    pushq $44
+    jmp isr_common
+
+irq13:
+    cli
+    pushq $0
+    pushq $45
+    jmp isr_common
+
+irq14:
+    cli
+    pushq $0
+    pushq $46
+    jmp isr_common
+
+irq15:
+    cli
+    pushq $0
+    pushq $47
+    jmp isr_common
+
 # save cpu state, call interrupt handler
 # and then restore state
 isr_common:
@@ -186,142 +299,6 @@ isr_common:
     pushq %rax
     movq %rsp, %rdi
     mov $interrupt_handler, %rax
-    call *%rax
-    popq %rax
-    popq %rcx
-    popq %rdx
-    popq %rbx
-    popq %rbp
-    popq %rsi
-    popq %rdi
-    addq $16, %rsp # discard error code and isr number
-    iretq
-
-
-# Interrupt requests
-.global irq0  # timer
-.global irq1  # keyboard
-.global irq2  # cascade
-.global irq3  # com2
-.global irq4  # com1
-.global irq5  # lpt2
-.global irq6  # floppy disk
-.global irq7  # lpt1
-.global irq8  # cmos real-time clock
-.global irq9  # legacy scsi / nic
-.global irq10 # scsi / nic
-.global irq11 # scsi / nic
-.global irq12 # ps2 mouse
-.global irq13 # fpu / coprocessor / inter-processor
-.global irq14 # primary ata hard disk
-.global irq15 # secondary ata hard disk
-
-irq0:
-    cli
-    pushq $0
-    pushq $32
-    jmp irq_common
-
-irq1:
-    cli
-    pushq $0
-    pushq $33
-    jmp irq_common
-
-irq2:
-    cli
-    pushq $0
-    pushq $34
-    jmp irq_common
-
-irq3:
-    cli
-    pushq $0
-    pushq $35
-    jmp irq_common
-
-irq4:
-    cli
-    pushq $0
-    pushq $36
-    jmp irq_common
-
-irq5:
-    cli
-    pushq $0
-    pushq $37
-    jmp irq_common
-
-irq6:
-    cli
-    pushq $0
-    pushq $38
-    jmp irq_common
-
-irq7:
-    cli
-    pushq $0
-    pushq $39
-    jmp irq_common
-
-irq8:
-    cli
-    pushq $0
-    pushq $40
-    jmp irq_common
-
-irq9:
-    cli
-    pushq $0
-    pushq $41
-    jmp irq_common
-
-irq10:
-    cli
-    pushq $0
-    pushq $42
-    jmp irq_common
-
-irq11:
-    cli
-    pushq $0
-    pushq $43
-    jmp irq_common
-
-irq12:
-    cli
-    pushq $0
-    pushq $44
-    jmp irq_common
-
-irq13:
-    cli
-    pushq $0
-    pushq $45
-    jmp irq_common
-
-irq14:
-    cli
-    pushq $0
-    pushq $46
-    jmp irq_common
-
-irq15:
-    cli
-    pushq $0
-    pushq $47
-    jmp irq_common
-
-irq_common:
-    pushq %rdi
-    pushq %rsi
-    pushq %rbp
-    pushq %rbx
-    pushq %rdx
-    pushq %rcx
-    pushq %rax
-    movq %rsp, %rdi
-    mov $irq_handler, %rax
     call *%rax
     popq %rax
     popq %rcx
