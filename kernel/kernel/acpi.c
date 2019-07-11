@@ -67,6 +67,14 @@ enum FIXED_ACPI_FLAGS {
     FA_DCK_CAP      = 1 << 9,
 };
 
+enum MULTIPLE_APIC_TYPES {
+    MA_LOCAL_APIC        = 0,
+    MA_IO_APIC           = 1,
+    MA_INT_SRC_OVRRD     = 2,
+    MA_NMI               = 3,
+    MA_LOCAL_APIC_OVERRD = 4,
+};
+
 /* Root System Descriptor Pointer */
 struct rspd_desc {
     char signature[8];
@@ -108,6 +116,48 @@ struct rspd_table {
 
 struct desc_header {
     struct common_header hdr;
+} __packed;
+
+struct apic_common_header {
+    uint8_t type;
+    uint8_t length;
+};
+
+struct local_apic {
+    struct apic_common_header hdr;
+    uint8_t acpi_cpu_id;
+    uint8_t apic_id;
+    uint32_t flags;
+} __packed;
+
+struct io_apic {
+    struct apic_common_header hdr;
+    uint8_t io_apic_id;
+    uint8_t reserved;
+    uint32_t io_apic_addr;
+    uint32_t global_sys_intr_base;
+} __packed;
+
+struct int_src_override {
+    struct apic_common_header hdr;
+    uint8_t bus_src;
+    uint8_t irq_src;
+    uint32_t global_sys_intr;
+    uint16_t flags;
+} __packed;
+
+/* non-maskable interrupts */
+struct nmi {
+    struct apic_common_header hdr;
+    uint8_t acpi_cpu_id; /* 0xff means all cpus */
+    uint16_t flags;
+    uint8_t lint;        /* 0 or 1 */
+} __packed;
+
+struct local_apic_addr_override {
+    struct apic_common_header hdr;
+    uint16_t reserved;
+    uint64_t local_apic_addr; /* 64-bit address */
 } __packed;
 
 /* Save the Fixed ACPI Descriptor Table to static global variable
@@ -267,7 +317,10 @@ static struct fixed_acpi_desc_table {
 } *fadt = NULL;
 
 static struct multiple_apic {
-
+    struct common_header hdr;
+    uint32_t local_apic_addr;
+    uint32_t flags;
+    uint32_t apics[0];
 } *mapic = NULL;
 
 /* return pointer to the start or RSD Descriptor if found, NULL otherwise */
@@ -317,7 +370,7 @@ int acpi_initialize(void)
     unsigned long *rspd_start = NULL;
 
     if ((rspd_start = __find_rspd_start(0x00080000, 0x0009FFFF)) == NULL) {
-        kdebug("RSDP start not found from Extended BIOS Data Area (EBDA)!");
+        kdebug("RSDP start not found from Extended BIOS Data Area!");
 
         if ((rspd_start = __find_rspd_start(0x000E0000, 0x000FFFFF)) == NULL) {
             kdebug("RSDP start not Upper memory (0x%x - 0x%x", 0x000E0000, 0x000FFFFF);
@@ -354,11 +407,11 @@ int acpi_initialize(void)
     }
 
     if (fadt == NULL) {
-        kdebug("Fixed APIC entry not found!");
+        kdebug("Fixed ACPI entry not found!");
         return -ENXIO;
     }
 
-
+    /* ACPI has already been enabled */
     if ((fadt->pm1a_cnt_blk & 0x1) == 1 &&
         fadt->acpi_enable          == 0 &&
         fadt->acpi_disable         == 0 &&
@@ -373,4 +426,54 @@ int acpi_initialize(void)
     while ((inw(fadt->pm1a_cnt_blk) & 1) == 0);
 
     return 0;
+}
+
+unsigned long acpi_get_local_apic_addr(void)
+{
+    if (mapic == NULL) {
+        kdebug("Multiple APIC Descriptor Table not found!");
+        errno = ENXIO;
+        return INVALID_ADDRESS;
+    }
+
+    return mapic->local_apic_addr;
+}
+
+int acpi_parse_madt(void)
+{
+    if (mapic == NULL) {
+        kdebug("Multiple APIC not found!");
+        return -EINVAL;
+    }
+
+    struct apic_common_header *hdr;
+    uint8_t *ptr = (uint8_t *)mapic->apics;
+
+    while (ptr < ((uint8_t *)mapic + mapic->hdr.length)) {
+        hdr = (void *)ptr;
+
+        switch (hdr->type) {
+            case MA_LOCAL_APIC:
+                kdebug("loapic");
+                break;
+
+            case MA_IO_APIC:
+                kdebug("ioapic");
+                break;
+
+            case MA_INT_SRC_OVRRD:
+                kdebug("interrupt source override");
+                break;
+
+            case MA_NMI:
+                kdebug("non-maskable interrupt");
+                break;
+
+            case MA_LOCAL_APIC_OVERRD:
+                kdebug("local apic address override");
+                break;
+        }
+
+        ptr += hdr->length;
+    }
 }
