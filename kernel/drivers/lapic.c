@@ -12,7 +12,7 @@
 #define MAX_CPU  64
 
 /* Local APIC general defines */
-#define IA32_APIC_BASE           0x0000001b  /* MSR index */
+#define IA32_APIC_BASE          0x0000001b  /* MSR index */
 #define IA32_LAPIC_MSR_BASE     0xfffff000  /* Base addr mask */
 #define IA32_LAPIC_MSR_ENABLE   0x00000800  /* Global enable */
 #define IA32_LAPIC_MSR_BSP      0x00000100  /* BSP */
@@ -172,7 +172,7 @@ void lapic_initialize(void)
     isr_install_handler(VECNUM_SPURIOUS, __svr_handler);
 }
 
-void lapic_register(int cpu_id, int lapic_id)
+void lapic_register_dev(int cpu_id, int lapic_id)
 {
     kassert(cpu_id >= 0 && cpu_id < MAX_CPU);
 
