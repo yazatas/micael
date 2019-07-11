@@ -12,11 +12,13 @@ DESCRIPTION OF THE COMMIT IN MORE DETAIL (optional though couraged)
 * arch
    * x86_64
    * i386
-* mm
-* fs
 * build
-* kernel
 * doc
+* fs
+* kernel
+* mm
+* sched
+* sync
 
 ## Example
 
