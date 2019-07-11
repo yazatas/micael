@@ -1,3 +1,4 @@
+#include <drivers/lapic.h>
 #include <kernel/acpi.h>
 #include <kernel/compiler.h>
 #include <kernel/io.h>
@@ -454,7 +455,10 @@ int acpi_parse_madt(void)
 
         switch (hdr->type) {
             case MA_LOCAL_APIC:
-                kdebug("loapic");
+                (void)lapic_register(
+                    ((struct local_apic *)ptr)->acpi_cpu_id,
+                    ((struct local_apic *)ptr)->apic_id
+                );
                 break;
 
             case MA_IO_APIC:
