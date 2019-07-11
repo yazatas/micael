@@ -1,9 +1,9 @@
-#include <drivers/timer.h>
+#include <drivers/pit.h>
 #include <fs/file.h>
 #include <fs/binfmt.h>
 #include <kernel/common.h>
 #include <kernel/gdt.h>
-#include <kernel/irq.h>
+#include <kernel/pic.h>
 #include <kernel/kpanic.h>
 #include <kernel/kprint.h>
 #include <mm/heap.h>
@@ -219,7 +219,7 @@ void sched_start(void)
 {
     disable_irq();
 
-    timer_phase(100);
+    pit_phase(100);
     irq_install_handler(do_context_switch, 0);
 
     sched_switch();
@@ -299,7 +299,7 @@ static void __noreturn do_nothing(struct isr_regs *cpu_state)
 
 void sched_suspend(void)
 {
-    timer_phase(100); /* TODO:  */
+    pit_phase(100); /* TODO:  */
     irq_install_handler(do_nothing, 0);
     enable_irq();
 }
@@ -307,6 +307,6 @@ void sched_suspend(void)
 void sched_resume(void)
 {
     disable_irq();
-    timer_phase(100); /* TODO:  */
+    pit_phase(100); /* TODO:  */
     irq_install_handler(do_context_switch, 0);
 }
