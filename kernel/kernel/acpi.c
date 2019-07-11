@@ -1,3 +1,4 @@
+#include <drivers/ioapic.h>
 #include <drivers/lapic.h>
 #include <kernel/acpi.h>
 #include <kernel/compiler.h>
@@ -455,29 +456,35 @@ int acpi_parse_madt(void)
 
         switch (hdr->type) {
             case MA_LOCAL_APIC:
-                (void)lapic_register(
+                lapic_register_dev(
                     ((struct local_apic *)ptr)->acpi_cpu_id,
                     ((struct local_apic *)ptr)->apic_id
                 );
                 break;
 
             case MA_IO_APIC:
-                kdebug("ioapic");
+                ioapic_register_dev(
+                    ((struct io_apic *)ptr)->io_apic_id,
+                    ((struct io_apic *)ptr)->io_apic_addr,
+                    ((struct io_apic *)ptr)->global_sys_intr_base
+                );
                 break;
 
             case MA_INT_SRC_OVRRD:
-                kdebug("interrupt source override");
+                /* kdebug("interrupt source override"); */
                 break;
 
             case MA_NMI:
-                kdebug("non-maskable interrupt");
+                /* kdebug("non-maskable interrupt"); */
                 break;
 
             case MA_LOCAL_APIC_OVERRD:
-                kdebug("local apic address override");
+                /* kdebug("local apic address override"); */
                 break;
         }
 
         ptr += hdr->length;
     }
+
+    return 0;
 }
