@@ -2,7 +2,7 @@
 #include <kernel/acpi.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
-#include <kernel/irq.h>
+#include <kernel/pic.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
@@ -13,7 +13,6 @@
 #include <fs/fs.h>
 #include <sched/task.h>
 #include <sched/sched.h>
-#include <drivers/timer.h>
 #include <drivers/tty.h>
 #include <drivers/ps2.h>
 #include <drivers/vga.h>
