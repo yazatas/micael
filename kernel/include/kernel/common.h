@@ -59,4 +59,51 @@ static inline uint32_t get_sp(void)
     return sp;
 }
 
+static inline uint64_t get_msr(uint32_t msr)
+{
+    uint32_t lo, hi;
+    asm volatile ("rdmsr" : "=a" (lo), "=d" (hi) : "c" (msr));
+
+    return ((uint64_t)hi) << 32 | (uint32_t)lo;
+}
+
+static inline void set_msr(uint32_t msr, uint64_t reg)
+{
+    asm volatile ("wrmsr" ::
+        "a" (reg & 0xffffffff),
+        "d" ((reg >> 32 & 0xffffffff)),
+        "c" (msr)
+    );
+}
+
+static inline uint64_t read_64(void *ptr)
+{
+    return *((uint64_t volatile *)ptr);
+}
+
+static inline uint32_t read_32(void *ptr)
+{
+    return *((uint32_t volatile *)ptr);
+}
+
+static inline uint16_t read_16(void *ptr)
+{
+    return *((uint16_t volatile *)ptr);
+}
+
+static inline void write_64(void *ptr, uint64_t value)
+{
+    *((uint64_t volatile *)ptr) = value;
+}
+
+static inline void write_32(void *ptr, uint64_t value)
+{
+    *((uint32_t volatile *)ptr) = value;
+}
+
+static inline void write_16(void *ptr, uint64_t value)
+{
+    *((uint16_t volatile *)ptr) = value;
+}
+
 #endif /* end of include guard: __COMMON_H__ */
