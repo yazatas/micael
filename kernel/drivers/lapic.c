@@ -1,3 +1,4 @@
+#include <drivers/lapic.h>
 #include <drivers/pit.h>
 #include <kernel/acpi.h>
 #include <kernel/common.h>
@@ -5,6 +6,7 @@
 #include <kernel/io.h>
 #include <kernel/isr.h>
 #include <kernel/kassert.h>
+#include <kernel/tick.h>
 #include <mm/mmu.h>
 #include <mm/types.h>
 #include <errno.h>
@@ -82,47 +84,53 @@
 #define LAPIC_TMR_DEADLINE     0x00040000  /* Timer mode: tsc-deadline */
 
 static struct {
-    int cpu_id;
-    int lapic_id;
+    unsigned cpu_id;
+    unsigned lapic_id;
 } lapics[MAX_CPU];
 
-static uint8_t *lapic_v = NULL;
+static uint8_t *lapic_base     = NULL;
+static unsigned cpu_count      = 0;    /* Number of CPUs */
+static unsigned cpu_init_count = 0;    /* Number of initialized CPUs */
 
 static void __configure_timer(void)
 {
-    write_32(lapic_v + LAPIC_REG_CFG, 0x0b);
-    write_32(lapic_v + LAPIC_REG_ICR, 0xffffffff);
+    uint16_t ticks;
+    uint32_t end;
+
+    write_32(lapic_base + LAPIC_REG_CFG, 0x0b);
+    write_32(lapic_base + LAPIC_REG_ICR, 0xffffffff);
 
     /* Configure PIT */
     outb(PIT_CMD,    0xb6);
     outb(PIT_DATA_2, 0xff);
     outb(PIT_DATA_2, 0xff);
-    outb(PIT_CHNL_2, inb(PIT_CHNL_2) | 0x01);
-
-    uint32_t start = read_32(lapic_v + LAPIC_REG_CCR);
-    uint32_t value = 0;
+    outb(PIT_CHNL_2, inb(PIT_CHNL_2) | 0x1);
 
     do {
         outb(PIT_CMD, 0xe8);
-    } while (!(inb(PIT_DATA_2) & 0x80));
+    } while ((inb(PIT_DATA_2) & 0x80) == 0x80);
 
+    /* sleep 50ms */
     do {
         outb(PIT_CMD, 0x80);
-        value = (inb(PIT_DATA_2) << 8) | inb(PIT_DATA_2);
-    } while (value < 11762);
+        ticks  =  inb(PIT_DATA_2);
+        ticks |= (inb(PIT_DATA_2) << 8);
+    } while (ticks > (2 * 65535 - 119318 + 10));
 
-    uint32_t end = read_32(lapic_v + LAPIC_REG_CCR);
+    end = read_32(lapic_base + LAPIC_REG_CCR);
     outb(PIT_CHNL_2, inb(PIT_CHNL_2) & ~0x01);
 
-    write_32(lapic_v + LAPIC_REG_TIMER, LAPIC_TMR_PERIODIC | VECNUM_TIMER);
-    write_32(lapic_v + LAPIC_REG_CFG, 0x0b);
-    write_32(lapic_v + LAPIC_REG_ICR, ((start - end) * 20) / 1000);
+    write_32(lapic_base + LAPIC_REG_TIMER, LAPIC_TMR_PERIODIC | VECNUM_TIMER);
+    write_32(lapic_base + LAPIC_REG_CFG, 0x0b);
+    write_32(lapic_base + LAPIC_REG_ICR, ((0xffffffff - end) * 20) / 1000);
+
+    tick_init((0xffffffff - end) * 20, 1000);
 }
 
 static void __svr_handler(isr_regs_t *cpu)
 {
     (void)cpu;
-    write_32(lapic_v + LAPIC_REG_EOI, 0);
+    write_32(lapic_base + LAPIC_REG_EOI, 0);
 
     /* TODO: do something here? */
 }
@@ -131,16 +139,14 @@ static void __tmr_handler(isr_regs_t *cpu)
 {
     (void)cpu;
 
-    write_32(lapic_v + LAPIC_REG_EOI, 0);
-
-    /* TODO: advance tick counter  */
-    /* TODO: create tick counter */
+    write_32(lapic_base + LAPIC_REG_EOI, 0);
+    tick_inc();
 }
 
 void lapic_initialize(void)
 {
     unsigned long lapic_addr = acpi_get_local_apic_addr();
-    unsigned long msr         = get_msr(IA32_APIC_BASE);
+    unsigned long msr        = get_msr(IA32_APIC_BASE);
 
     /* Enable APIC if it's not enabled already */
     if ((msr & IA32_LAPIC_MSR_BASE) != lapic_addr || (msr & IA32_LAPIC_MSR_ENABLE) == 0) {
@@ -149,27 +155,29 @@ void lapic_initialize(void)
     }
 
     /* Because the Local APIC is above 2GB, we must explicitly map it to address space  */
-    lapic_v = (uint8_t *)lapic_addr;
-    mmu_map_page(lapic_addr, (unsigned long)lapic_v, MM_PRESENT | MM_READWRITE);
+    lapic_base = (uint8_t *)lapic_addr;
+    mmu_map_page(lapic_addr, (unsigned long)lapic_base, MM_PRESENT | MM_READWRITE);
 
-    write_32(lapic_v + LAPIC_REG_DFR, 0xffffffff);
-    write_32(lapic_v + LAPIC_REG_TPR, 0);
+    write_32(lapic_base + LAPIC_REG_DFR, 0xffffffff);
+    write_32(lapic_base + LAPIC_REG_TPR, 0);
 
     /* configure Local APIC Timer */
     __configure_timer();
 
     /* disable logical interrupt lines */
-    write_32(lapic_v + LAPIC_REG_LINT0, LAPIC_INT_DISABLED_MASK);
-    write_32(lapic_v + LAPIC_REG_LINT1, LAPIC_INT_DISABLED_MASK);
+    write_32(lapic_base + LAPIC_REG_LINT0, LAPIC_INT_DISABLED_MASK);
+    write_32(lapic_base + LAPIC_REG_LINT1, LAPIC_INT_DISABLED_MASK);
 
     /* enable Local APIC */
-    write_32(lapic_v + LAPIC_REG_SVR, LAPIC_DM_SMI | LAPIC_SVR_ENABLE | VECNUM_SPURIOUS);
+    write_32(lapic_base + LAPIC_REG_SVR, LAPIC_DM_SMI | LAPIC_SVR_ENABLE | VECNUM_SPURIOUS);
 
     /* acknowledge pending interrupts */
-    write_32(lapic_v + LAPIC_REG_EOI, 0);
+    write_32(lapic_base + LAPIC_REG_EOI, 0);
 
     isr_install_handler(VECNUM_TIMER,    __tmr_handler);
     isr_install_handler(VECNUM_SPURIOUS, __svr_handler);
+
+    cpu_init_count++;
 }
 
 void lapic_register_dev(int cpu_id, int lapic_id)
