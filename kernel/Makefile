@@ -26,7 +26,8 @@ kernel/isr.o \
 kernel/kprint.o \
 kernel/kpanic.o \
 kernel/util.o \
-kernel/acpi.o
+kernel/acpi.o \
+kernel/tick.o
 
 OBJS=$(KERNEL_OBJS)
 LINK_LIST=$(KERNEL_OBJS) $(LDFLAGS)
