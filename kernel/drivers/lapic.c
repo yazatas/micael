@@ -186,4 +186,46 @@ void lapic_register_dev(int cpu_id, int lapic_id)
 
     lapics[cpu_id].cpu_id    = cpu_id;
     lapics[cpu_id].lapic_id = lapic_id;
+
+    cpu_count++;
+}
+
+unsigned lapic_get_cpu_count(void)
+{
+    return cpu_count;
+}
+
+unsigned lapic_get_init_cpu_count(void)
+{
+    return cpu_init_count;
+}
+
+int lapic_get_lapic_id(unsigned cpu)
+{
+    if (cpu >= cpu_count)
+        return -ENXIO;
+
+    return lapics[cpu].lapic_id;
+}
+
+void lapic_send_ipi(uint32_t high, uint32_t low)
+{
+    write_32(lapic_base + LAPIC_REG_ICR_HI, high);
+    write_32(lapic_base + LAPIC_REG_ICR_LO, low);
+}
+
+void lapic_send_init(unsigned cpu)
+{
+    uint32_t high = (lapics[cpu].lapic_id << 24) & 0xff000000;
+    uint32_t low  = LAPIC_DM_INIT | LAPIC_TM_EDGE | LAPIC_LVL_ASSERT;
+
+    lapic_send_ipi(high, low);
+}
+
+void lapic_send_sipi(unsigned cpu, unsigned vec)
+{
+    uint32_t high = (lapics[cpu].lapic_id << 24) & 0xff000000;
+    uint32_t low  = (vec & 0xff) | LAPIC_DM_STARTUP | LAPIC_TM_EDGE | LAPIC_LVL_ASSERT;
+
+    lapic_send_ipi(high, low);
 }
