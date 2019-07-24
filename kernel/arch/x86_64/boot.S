@@ -28,7 +28,7 @@
 .set HEADER_LENGTH, header_end - header_start
 .set CHECKSUM, -(MULTIBOOT2_HEADER_MAGIC + MULTIBOOT_ARCHITECTURE_I386 + HEADER_LENGTH)
 
-.section .multiboot
+.section .boot.multiboot
 header_start:
     .long MULTIBOOT2_HEADER_MAGIC
     .long MULTIBOOT_ARCHITECTURE_I386
@@ -45,17 +45,16 @@ header_start:
 header_end:
 
 .code32
-.section .bss
+.section .boot.bss
 .comm boot_stack, BOOT_STACK_SIZE
 
-# mmu related stuff
 .comm pml4,  MM_STRUCT_SIZE, MM_ALIGN
 .comm lpdpt, MM_STRUCT_SIZE, MM_ALIGN
 .comm hpdpt, MM_STRUCT_SIZE, MM_ALIGN
 .comm lpdt,  MM_STRUCT_SIZE, MM_ALIGN
 .comm hpdt,  MM_STRUCT_SIZE, MM_ALIGN
 
-.section .data
+.section .boot.data
 .align 0x1000
 gdt_table_start:
     .8byte 0x0
@@ -65,7 +64,7 @@ gdt_ptr:
     .short 15
     .long gdt_table_start
 
-.section .text
+.section .boot.text
 .global _start
 
 # loader entry point
@@ -138,7 +137,16 @@ _start_64:
 
     # multiboot info
     movq %rbx, %rdi
-    call kmain
+
+    # SMP trampoline sets magic value to %rbx so we
+    # know here to call the correct init function
+    cmp $0x13371338, %ebx
+    je _init_ap
+
+    call init_bsp
+
+_init_ap:
+    call init_ap
 
     cli
     hlt

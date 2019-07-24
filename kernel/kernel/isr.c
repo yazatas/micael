@@ -1,13 +1,22 @@
-#include <arch/i386/gpf.h>
-#include <kernel/kpanic.h>
 #include <kernel/common.h>
-#include <mm/mmu.h>
-#include <sched/syscall.h>
+#include <kernel/isr.h>
+#include <kernel/kassert.h>
+#include <kernel/kpanic.h>
 #include <stdint.h>
 
-#define ISR_SYSCALL    0x80
-#define ISR_PAGE_FAULT 0x0e
-#define ISR_GPF        0x0d
+#define MAX_INT 256
+
+extern void mmu_pf_handler(isr_regs_t *cpu);
+extern void gpf_handler(isr_regs_t *cpu);
+extern void syscall_handler(isr_regs_t *cpu);
+
+typedef void (*isr_handler_t)(isr_regs_t *cpu);
+
+static isr_handler_t handlers[MAX_INT] = {
+    [VECNUM_SYSCALL]    = syscall_handler,
+    [VECNUM_PAGE_FAULT] = mmu_pf_handler,
+    [VECNUM_GPF]        = gpf_handler
+};
 
 const char *interrupts[] = {
     "division by zero",            "debug exception",          "non-maskable interrupt",
@@ -19,8 +28,26 @@ const char *interrupts[] = {
     "machine check",               "simd floating point",      "virtualization",
 };
 
-extern void interrupt_handler(isr_regs_t *cpu_state)
+void isr_install_handler(int num, void (*handler)(isr_regs_t *regs))
 {
+    kassert((num >= 0 && num < MAX_INT) && (handler != NULL));
+    handlers[num] = handler;
+}
+
+void isr_uninstall_handler(int num, void (*handler)(isr_regs_t *regs))
+{
+    kassert((num >= 0 && num < MAX_INT) && (handler != NULL));
+    handlers[num] = NULL;
+}
+
+void interrupt_handler(isr_regs_t *cpu_state)
+{
+    if (cpu_state->isr_num > MAX_INT)
+        kpanic("ISR number is too high");
+
+    if (handlers[cpu_state->isr_num] != NULL)
+        return handlers[cpu_state->isr_num](cpu_state);
+
     switch (cpu_state->isr_num) {
         case 0x00: case 0x01: case 0x02: case 0x03: 
         case 0x04: case 0x05: case 0x06: case 0x07: 
@@ -30,21 +57,8 @@ extern void interrupt_handler(isr_regs_t *cpu_state)
             kpanic(interrupts[cpu_state->isr_num]);
             break;
 
-        case ISR_GPF:
-            gpf_handler(cpu_state->err_num);
-            break;
-
-        case ISR_PAGE_FAULT:
-            mmu_pf_handler(cpu_state->err_num);
-            break;
-
-        case ISR_SYSCALL:
-            syscall_handler(cpu_state);
-            break;
-
         default:
             kpanic("unsupported interrut!");
             break;
     }
 }
-

@@ -1,34 +1,36 @@
-#include <arch/i386/gpf.h>
 #include <kernel/kprint.h>
+#include <kernel/common.h>
+#include <kernel/compiler.h>
 
-void __attribute__((noreturn))
-gpf_handler(uint32_t error_number)
+void __noreturn gpf_handler(isr_regs_t *cpu_state)
 {
-    kprint("General Protection Fault\n");
+    uint32_t error_number = cpu_state->err_num;
+
+    kprint("\nGeneral Protection Fault\n");
     kprint("Error number: %d 0x%x\n", error_number, error_number);
 
-    uint32_t table_index = (error_number & 0x6) >> 1;
+    uint32_t table_index = (error_number >> 1) & 0x3;
 
     switch (table_index) {
         case 0b00:
-            kdebug("Faulty descriptor in GDT!");
+            kprint("Faulty descriptor in GDT!\n");
             break;
 
         case 0b01:
-            kdebug("Faulty descriptor in IDT!");
+            kprint("Faulty descriptor in IDT!\n");
             break;
 
         case 0b10:
-            kdebug("Faulty descriptor in LDT!");
+            kprint("Faulty descriptor in LDT!\n");
             break;
 
         case 0b11:
-            kdebug("Faulty descriptor in IDT!");
+            kprint("Faulty descriptor in IDT!\n");
             break;
     }
 
-    uint32_t desc_index = (error_number & 0xfff8) >> 3;
-    kdebug("Faulty descriptor index: %u", desc_index);
+    uint32_t desc_index = (error_number >> 3) & 0x1fff;
+    kprint("Faulty descriptor index: %u\n", desc_index);
 
     while (1);
     __builtin_unreachable();

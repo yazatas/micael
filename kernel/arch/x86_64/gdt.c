@@ -21,3 +21,7 @@ void gdt_init(void)
 
     gdt_flush(&gdt_ptr);
 }
+
+void tss_init(void)
+{
+}
