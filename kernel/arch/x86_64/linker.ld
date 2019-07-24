@@ -1,65 +1,61 @@
 OUTPUT_FORMAT(elf64-x86-64)
 ENTRY(_start)
 
+PHDRS {
+	boot       PT_LOAD;
+	trampoline PT_LOAD;
+	kernel     PT_LOAD;
+}
+
+P_START = 0x0000000001000000;
+V_START = 0xffffffff81000000;
+
 SECTIONS
 {
 	. = 1M;
+	_boot_start = .;
 
-	.loader.text :
+	.boot : AT(ADDR(.boot))
 	{
-		arch/x86_64/boot.o (.multiboot)
-		arch/x86_64/boot.o (.text)
-	}	
+		*(.boot.multiboot)
+		*(.boot.text)
+		*(.boot.data)
+		*(.boot.bss)
+		*boot.o(COMMON)
+	} :boot
 
-	.loader.rodata :
+	_boot_end = ALIGN(16) + V_START - P_START;
+
+	.trampoline 0x55000 : AT(_boot_end - V_START + P_START) {
+		_trampoline_start = LOADADDR(.trampoline) + V_START - P_START;
+		*(.trampoline)
+		_trampoline_end = _trampoline_start + (. - 0x55000);
+		. = ALIGN(4K);
+	} :trampoline
+
+	. = _boot_end + SIZEOF(.trampoline);
+
+	.text ALIGN(4K) : AT(ADDR(.text) - V_START + P_START)
 	{
-		arch/x86_64/boot.o (.rodata)
-	}
-
-	.loader.data :
-	{
-		arch/x86_64/boot.o (.data)
-	}
-
-	.loader.bss :
-	{
-		arch/x86_64/boot.o (COMMON)
-		arch/x86_64/boot.o (.bss)
-	}
-
-	/* TODO: this looks ugly, is merging these statements possible?? */
-	. = ALIGN(0x1000);
-	_loader_end = .;
-
-	. += 0xffffffff80000000;
-
-	.text : AT (_loader_end)
-	{
-		*(.multiboot)
 		*(.text)
-	}
+	}:kernel =0x31
 
-	. = ALIGN(0x1000);
-
-	.rodata : AT ((LOADADDR(.text) + SIZEOF(.text) + 0xFFF) & 0xFFFFFFFFFFFFF000)
+	.rodata ALIGN(4K) : AT (ADDR(.rodata) - V_START + P_START)
 	{
-		*(.rodata*)
-	}
+		*(.rodata)
+		*(.rodata.*)
+	}:kernel =0x32
 
-	. = ALIGN(0x1000);
-
-	.data : AT ((LOADADDR(.rodata) + SIZEOF(.rodata) + 0xFFF) & 0xFFFFFFFFFFFFF000)
+	.data ALIGN(4K) : AT (ADDR(.data) - V_START + P_START)
 	{
 		*(.data)
-	}
+	}:kernel =0x33
 
-	. = ALIGN(0x1000);
-
-	.bss : AT ((LOADADDR(.data) + SIZEOF(.data) + 0xFFF) & 0xFFFFFFFFFFFFF000)
+	.bss ALIGN(4K) : AT (ADDR(.bss) - V_START + P_START)
 	{
 		*(.bss)
 		*(COMMON)
-	}
+	}:kernel =0x34
 
-	_kernel_physical_end = (LOADADDR(.bss) + SIZEOF(.bss) + 0xFFF) & 0xFFFFFFFFFFFFF000;
+	_kernel_physical_end = LOADADDR(.bss) + SIZEOF(.bss);
 }
