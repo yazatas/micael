@@ -33,7 +33,7 @@ int cdev_init(void)
     if ((bm_devnums = bm_alloc_bitmap(256)) == NULL)
         return -ENOMEM;
 
-    path = vfs_path_lookup("/dev", 0);
+    path = vfs_path_lookup("/dev", LOOKUP_OPEN);
 
     if (path->p_status == LOOKUP_STAT_ENOENT) {
         kdebug("failed to find /dev, unable to initialize cdev subsystem!");
