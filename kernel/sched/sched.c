@@ -125,7 +125,7 @@ static void __noreturn do_context_switch(struct isr_regs *cpu_state)
     disable_irq();
 
     if (cpu_state != NULL) {
-        if (get_sp() < (uint32_t)current->threads->kstack_top)
+        if (get_sp() < (unsigned long)current->threads->kstack_top)
             kpanic("kernel stack overflow!");
 
         /* because we've installed do_context_switch as timer interrupt routine
@@ -238,15 +238,17 @@ void __noreturn sched_enter_userland(void *eip, void *esp)
         "user_mode4", "user_mode5"
     };
 
-    current->threads->exec_state->eip      = (uint32_t)eip;
-    current->threads->exec_state->esp      = (uint32_t)esp;
-    current->threads->exec_state->useresp  = (uint32_t)esp;
-    current->threads->exec_state->eflags  |= (1 << 9); /* enable interrupts */
+    current->threads->exec_state->eip     = (unsigned long)eip;
+    current->threads->exec_state->esp     = (unsigned long)esp;
+    current->threads->exec_state->esp     = (unsigned long)esp;
+    current->threads->exec_state->eflags |= (1 << 9); /* enable interrupts */
 
+#ifdef __i386__
     current->threads->exec_state->gs = SEG_USER_DATA;
     current->threads->exec_state->fs = SEG_USER_DATA;
     current->threads->exec_state->es = SEG_USER_DATA;
     current->threads->exec_state->ds = SEG_USER_DATA;
+#endif
 
     current->threads->exec_state->cs = SEG_USER_CODE;
     current->threads->exec_state->ss = SEG_USER_DATA;
