@@ -7,25 +7,20 @@
 context_switch:
     cli
 
-    add $4, %rsp
-
     # address of new page dir and stack
-    pop %rcx
-    pop %rsp
+    mov %rdi, %cr3
+    mov %rsi, %rsp
 
-    mov %ecx, %cr3
-
-    # ignore segment registers
-    add $8, %rsp
-	/* popw %gs */
-	/* popw %fs */
-	/* popw %es */
-	/* popw %ds */
-
-    # general purpose registers (pusha)
-	/* popa */
+    # general-purpose registers
+    popq %rax
+    popq %rcx
+    popq %rdx
+    popq %rbx
+    popq %rbp
+    popq %rsi
+    popq %rdi
 
     # discard irq number and error code
-	addl $8, %esp
+    addq $16, %rsp
 
-    iret
+    iretq
