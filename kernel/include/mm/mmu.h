@@ -37,4 +37,10 @@ unsigned long mmu_v_to_p(void *vaddr);
 /* TODO:  */
 void *mmu_p_to_v(unsigned long paddr);
 
+/* TODO:  */
+void *mmu_build_dir(void);
+
+/* TODO: should this take something as parameter */
+void *mmu_duplicate_dir(void);
+
 #endif /* __MMU_H__ */

@@ -54,7 +54,7 @@ static struct cache_fixed_entry *alloc_fixed_entry(size_t capacity)
         return e;
     }
 
-    kdebug("allocating more memory!");
+    /* kdebug("allocating more memory!"); */
 
     unsigned long mem = mmu_bootmem_alloc_page();
     void *mem_v       = mmu_p_to_v(mem);
@@ -141,8 +141,8 @@ mm_cache_t *mmu_cache_create(size_t size, mm_flags_t flags)
     c->free_list = alloc_fixed_entry(c->capacity);
     c->used_list = NULL;
 
-    kdebug("one page holds %u items of size %u (%u)",
-            c->capacity, c->item_size, MULTIPLE_OF_2(c->item_size));
+    /* kdebug("one page holds %u items of size %u (%u)", */
+    /*         c->capacity, c->item_size, MULTIPLE_OF_2(c->item_size)); */
 
     return c;
 }
