@@ -263,7 +263,7 @@ found:
      *
      * if the item was file, no need allocate any memory/address space yet */
     inode->i_private      = kmalloc(sizeof(i_private_t));
-    uint32_t parent_start = (uint32_t)ip->pstart;
+    uint32_t parent_start = (unsigned long)ip->pstart;
     uint32_t parent_size  = parent->d_inode->i_size;
     uint32_t boundary     = ROUND_DOWN(parent_start, PAGE_SIZE);
     uint32_t off_start    = parent_start + i_offset - boundary;
@@ -332,6 +332,7 @@ static int initramfs_init(superblock_t *sb, void *args)
     multiboot_info_t *mbi;
     disk_header_t *dh;
 
+#if 0
     /* first check did we actually get any modules */
     /* mbi = mmu_alloc_addr(1); */
     mmu_map_page(args, mbi, MM_PRESENT | MM_READWRITE);
@@ -359,13 +360,14 @@ static int initramfs_init(superblock_t *sb, void *args)
         kdebug("invalid header magic: 0x%x", dh->magic);
         return -EINVAL;
     }
+#endif
 
     sb->s_root          = dentry_alloc_orphan("/", T_IFDIR);
     sb->s_root->d_inode = initramfs_inode_alloc(sb);
 
     sb->s_private = kmalloc(sizeof(fs_private_t));
     ((fs_private_t *)sb->s_private)->d_header   = dh;
-    ((fs_private_t *)sb->s_private)->phys_start = (char *)mod->mod_start;
+    ((fs_private_t *)sb->s_private)->phys_start = (char *)(unsigned long)mod->mod_start;
 
     sb->s_root->d_inode->i_ino     = 1;
     sb->s_root->d_inode->i_flags   = T_IFDIR;
@@ -374,7 +376,7 @@ static int initramfs_init(superblock_t *sb, void *args)
     
     /* physical start address of '/' */
     ((i_private_t *)sb->s_root->d_inode->i_private)->pstart =
-        ((char *)mod->mod_start) + sizeof(disk_header_t);
+        ((char *)(unsigned long)mod->mod_start) + sizeof(disk_header_t);
 
     /* virtual (mapped) start of '/' */
     ((i_private_t *)sb->s_root->d_inode->i_private)->vstart =
