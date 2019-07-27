@@ -31,10 +31,10 @@ _trmp_entry:
     # structure before we can actually execute lgdlt
     mov %cs, %ebx
     shl $4, %ebx
-	addl $0 + gdt_start - _trmp_entry, %ebx
-	movl %ebx, (gdt_ptr_ - _trmp_entry + 2)
+    addl $0 + gdt_start - _trmp_entry, %ebx
+    movl %ebx, (gdt_ptr_ - _trmp_entry + 2)
 
-	lgdtl (gdt_ptr_ - _trmp_entry)
+    lgdtl (gdt_ptr_ - _trmp_entry)
 
     # enable protected mode and disable paging
     mov %cr0, %eax
@@ -51,23 +51,23 @@ error:
 # null, code and data
 .align 0x10
 gdt_start:
-	.quad 0x0000000000000000
+    .quad 0x0000000000000000
 
     # kernel code
-    .word 	0xffff
-	.word	0x0000
-	.byte 	0x00
-    .byte 	0x9a
+    .word   0xffff
+    .word   0x0000
+    .byte   0x00
+    .byte   0x9a
     .byte   0xcf
-	.byte 	0x00
+    .byte   0x00
 
     # kernel data
-	.word 	0xffff
-	.word 	0x0000
-	.byte 	0x00
-	.byte 	0x92
-	.byte 	0xcf
-	.byte 	0x00
+    .word   0xffff
+    .word   0x0000
+    .byte   0x00
+    .byte   0x92
+    .byte   0xcf
+    .byte   0x00
 gdt_ptr_:
     .short 23
     .long gdt_start

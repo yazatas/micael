@@ -19,6 +19,11 @@ typedef enum {
 } thread_state_t;
 
 typedef struct exec_state {
+#ifdef __x86_64__
+    uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
+    uint64_t isr_num, err_num;
+    uint64_t eip, cs, eflags, esp, ss;
+#else
     /* pushed/popped manually */
     uint16_t gs, fs, es, ds;
 
@@ -30,7 +35,8 @@ typedef struct exec_state {
     uint32_t isr_num, err_num;
 
     /* pushed by the cpu */
-    uint32_t eip, cs, eflags, useresp, ss;
+    uint32_t eip, cs, eflags, esp, ss;
+#endif
 } exec_state_t;
 
 typedef struct thread {
@@ -63,10 +69,8 @@ typedef struct task {
     list_head_t list;
     list_head_t children;
 
-    /* cr3_t *dir; */
-    /* pdir_t *dir; */
-    void *dir;
-    uint32_t cr3;
+    void *dir;         /* virtual  address of the page directory  */
+    unsigned long cr3; /* physical address of the page directory */
 } task_t;
 
 int sched_task_add_thread(task_t *parent, thread_t *child);
