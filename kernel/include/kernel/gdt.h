@@ -67,7 +67,9 @@ struct tss_ptr_t {
 
 void tss_flush();
 void gdt_flush();
+
 void gdt_init(void);
+void tss_init(void);
 
 // defined in arch/*/gdt.c
 extern struct gdt_ptr_t gdt_ptr;
