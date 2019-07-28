@@ -227,7 +227,7 @@ static void __claim_range_preinit(unsigned type, unsigned long address, size_t l
 /* claim all memory but update only the page array */
 static void __claim_range_postinit(unsigned type, unsigned long address, size_t len)
 {
-    unsigned mm_type;
+    unsigned mm_type = MM_PT_INVALID;
 
     switch (type) {
         case MULTIBOOT_MEMORY_AVAILABLE:

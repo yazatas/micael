@@ -328,9 +328,11 @@ static int initramfs_inode_destroy(inode_t *ino)
 
 static int initramfs_init(superblock_t *sb, void *args)
 {
-    multiboot_module_t *mod;
-    multiboot_info_t *mbi;
-    disk_header_t *dh;
+    (void)args;
+
+    multiboot_module_t *mod = NULL;
+    multiboot_info_t *mbi   = NULL;
+    disk_header_t *dh       = NULL;
 
 #if 0
     /* first check did we actually get any modules */
@@ -366,8 +368,8 @@ static int initramfs_init(superblock_t *sb, void *args)
     sb->s_root->d_inode = initramfs_inode_alloc(sb);
 
     sb->s_private = kmalloc(sizeof(fs_private_t));
-    ((fs_private_t *)sb->s_private)->d_header   = dh;
-    ((fs_private_t *)sb->s_private)->phys_start = (char *)(unsigned long)mod->mod_start;
+    ((fs_private_t *)sb->s_private)->d_header   = NULL;
+    ((fs_private_t *)sb->s_private)->phys_start = NULL; //(char *)(unsigned long)mod->mod_start;
 
     sb->s_root->d_inode->i_ino     = 1;
     sb->s_root->d_inode->i_flags   = T_IFDIR;
@@ -375,12 +377,14 @@ static int initramfs_init(superblock_t *sb, void *args)
     sb->s_root->d_inode->i_private = kmalloc(sizeof(i_private_t));
     
     /* physical start address of '/' */
-    ((i_private_t *)sb->s_root->d_inode->i_private)->pstart =
-        ((char *)(unsigned long)mod->mod_start) + sizeof(disk_header_t);
+    /* ((i_private_t *)sb->s_root->d_inode->i_private)->pstart = */
+    /*     ((char *)(unsigned long)mod->mod_start) + sizeof(disk_header_t); */
+    ((i_private_t *)sb->s_root->d_inode->i_private)->pstart = NULL;
 
     /* virtual (mapped) start of '/' */
-    ((i_private_t *)sb->s_root->d_inode->i_private)->vstart =
-        ((char *)dh)            + sizeof(disk_header_t);
+    /* ((i_private_t *)sb->s_root->d_inode->i_private)->vstart = */
+    /*     ((char *)dh)            + sizeof(disk_header_t); */
+    ((i_private_t *)sb->s_root->d_inode->i_private)->vstart = NULL;
 
     /* mmu_free_addr(mbi, 1); */
     /* mmu_free_addr(mod, 1); */

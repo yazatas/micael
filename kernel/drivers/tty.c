@@ -91,6 +91,8 @@ static ssize_t __tty_write(file_t *file, off_t offset, size_t size, void *buf)
 
 static ssize_t __tty_read(file_t *file, off_t offset, size_t size, void *buf)
 {
+    (void)offset;
+
     if (!file || !buf)
         return -EINVAL;
 
