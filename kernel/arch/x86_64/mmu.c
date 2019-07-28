@@ -119,6 +119,8 @@ int mmu_native_unmap_page(unsigned long vaddr)
     unsigned long pdpti = (vaddr >> 30) & 0x1ff;
     unsigned long pdi   = (vaddr >> 21) & 0x1ff;
     unsigned long pti   = (vaddr >> 12) & 0x1ff;
+
+    return 0;
 }
 
 unsigned long mmu_native_v_to_p(void *vaddr)
@@ -203,4 +205,6 @@ void *mmu_native_duplicate_dir(void)
 
     return NULL;
 #endif
+
+    return NULL;
 }

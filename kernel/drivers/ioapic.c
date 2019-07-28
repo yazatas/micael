@@ -42,7 +42,7 @@ static uint32_t __read_reg(uint8_t *base, uint32_t reg)
     return read_32(base + IOAPIC_IOWIN);
 }
 
-static uint32_t __write_reg(uint8_t *base, uint32_t reg, uint32_t value)
+static void __write_reg(uint8_t *base, uint32_t reg, uint32_t value)
 {
     write_32(base + IOAPIC_IOREGSEL, reg);
     write_32(base + IOAPIC_IOWIN,    value);

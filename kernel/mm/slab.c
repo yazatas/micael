@@ -48,6 +48,8 @@ static list_head_t free_list;
 
 static struct cache_fixed_entry *alloc_fixed_entry(size_t capacity)
 {
+    (void)capacity; // TODO ?
+
     if (free_list.next != NULL) {
         cfe_t *e = container_of(free_list.next, struct cache_fixed_entry, list);
         list_remove(&e->list);

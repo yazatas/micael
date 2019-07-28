@@ -109,7 +109,7 @@ static int __dentry_init_children(dentry_t *parent, dentry_t *dntr, uint32_t fla
         goto error_dealloc;
 
     prnt->d_parent = parent;
-    prnt->d_flags  = T_IFREG;
+    prnt->d_flags  = T_IFREG | flags;
 
     if (parent)
         prnt->d_inode  = parent->d_inode;

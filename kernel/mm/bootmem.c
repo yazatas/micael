@@ -53,6 +53,8 @@ int mmu_bootmem_init(void *arg)
     mem_info.ptr = 0;
 
     multiboot2_map_memory(arg, bootmem_claim_range);
+
+    return 0;
 }
 
 struct bootmem_mmap **mmu_bootmem_release(int *num_entries)

@@ -6,9 +6,9 @@ int write(int fd, char *buf, size_t size);
 
 int main(int argc, char **argv)
 {
+    (void)argc, (void)argv;
+
     int ret         = 0;
-    int status      = 0;
-    pid_t pid       = 0;
     char buffer[50] = { 0 };
 
     while (1) {
