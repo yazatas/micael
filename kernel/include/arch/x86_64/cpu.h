@@ -4,6 +4,8 @@
 
 #include <stdint.h>
 
+#define MAX_CPU  64
+
 typedef struct isr_regs {
     uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
     uint64_t isr_num, err_num;
