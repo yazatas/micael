@@ -4,7 +4,10 @@
 
 #include <stdint.h>
 
-#define MAX_CPU  64
+#define MAX_CPU           64
+#define FS_BASE   0xC0000100
+#define GS_BASE   0xC0000101
+#define KGS_BASE  0xC0000102
 
 typedef struct isr_regs {
     uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
