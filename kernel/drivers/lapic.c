@@ -11,8 +11,6 @@
 #include <mm/types.h>
 #include <errno.h>
 
-#define MAX_CPU  64
-
 /* Local APIC general defines */
 #define IA32_APIC_BASE          0x0000001b  /* MSR index */
 #define IA32_LAPIC_MSR_BASE     0xfffff000  /* Base addr mask */
