@@ -8,10 +8,7 @@ static inline void spin_acquire(spinlock_t *s)
     spinlock_t tmp = 1;
 
     do {
-        asm volatile ("xchgb %0, %1"
-                : "=r" (tmp), "=m" (*s)
-                : "0"  (tmp), "1"  (*s)
-        );
+        asm volatile ("xchgb %0, %1" : "+r" (tmp), "+m" (*s));
     } while (tmp);
 }
 
@@ -19,10 +16,7 @@ static inline void spin_release(spinlock_t *s)
 {
     spinlock_t tmp = 0;
 
-    asm volatile ("xchgb %0, %1"
-            : "=r" (tmp), "=m" (*s)
-            : "0"  (tmp), "1"  (*s)
-    );
+    asm volatile ("xchgb %0, %1" : "+r" (tmp), "+m" (*s));
 }
 
 static inline void irq_spin_acquire(spinlock_t *s)
