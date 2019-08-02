@@ -7,6 +7,7 @@
 #include <kernel/pic.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/percpu.h>
 #include <kernel/tick.h>
 #include <kernel/util.h>
 #include <mm/heap.h>
@@ -21,23 +22,22 @@
 #include <errno.h>
 #include <stdint.h>
 
-extern uint8_t _boot_end;
-extern uint8_t _boot_start;
-extern uint8_t _ll_end;
-extern uint8_t _trampoline_load;
+extern uint8_t _percpu_start, __percpu_start;
+extern uint8_t _percpu_end,   __percpu_end;
+extern uint8_t _kernel_physical_end;
 
 void init_bsp(void *arg)
 {
     /* initialize console for pre-mmu prints */
     vga_init();
 
-    /* initialize all low-level stuff (GDT, IDT, IRQ, TSS, and keyboard) */
-    gdt_init(); idt_init(); irq_init(); tss_init(); ps2_init();
+    /* initialize all low-level stuff (GDT, IDT, IRQ) */
+    gdt_init(); idt_init(); irq_init();
 
     /* initialize archictecture-specific MMU, the boot memory allocator.
      * Use boot memory allocator to initialize PFA, SLAB and Heap 
      *
-     * VBE can be initialized after MMU */
+     * VBE can be initialized only after MMU */
     mmu_init(arg);
     vbe_init();
 
@@ -45,6 +45,24 @@ void init_bsp(void *arg)
     acpi_initialize();
     acpi_parse_madt();
     lapic_initialize();
+
+    /* initialize the percpu areas for all processors */
+    unsigned long kernel_end = (uint64_t)&_kernel_physical_end;
+    unsigned long pcpu_start = ROUND_UP(kernel_end, PAGE_SIZE);
+    size_t pcpu_size         = (uint64_t)&_percpu_end - (uint64_t)&_percpu_start;
+
+    for (size_t i = 0; i < lapic_get_cpu_count(); ++i) {
+        kmemcpy(
+            (uint8_t *)pcpu_start + i * pcpu_size,
+            (uint8_t *)&_percpu_start,
+            pcpu_size
+        );
+    }
+
+    /* initialize global percpu state and GS base for BSP
+     * TSS can be initialized after percpu */
+    percpu_init(0);
+    tss_init();
 
     /* enable Local APIC timer so tick_wait() works */
     enable_irq();
@@ -70,7 +88,18 @@ void init_ap(void *arg)
 {
     (void)arg;
 
-    asm volatile ("mov $0x1337, %r11");
+    gdt_init();
+    idt_init();
+    lapic_initialize();
+    percpu_init(lapic_get_init_cpu_count());
+    tss_init();
+
+    /* Initialize the idle task for this CPU and start it.
+     *
+     * BSP is waiting for us to jump to idle task and we do that,
+     * it will start the next CPU */
+    sched_init_cpu();
+    sched_start();
 
     for (;;);
 }
