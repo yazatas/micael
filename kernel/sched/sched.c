@@ -1,3 +1,4 @@
+#include <drivers/lapic.h>
 #include <drivers/pit.h>
 #include <fs/file.h>
 #include <fs/binfmt.h>
@@ -6,16 +7,19 @@
 #include <kernel/pic.h>
 #include <kernel/kpanic.h>
 #include <kernel/kprint.h>
+#include <kernel/percpu.h>
+#include <kernel/tick.h>
+#include <kernel/util.h>
 #include <mm/heap.h>
 #include <sched/sched.h>
 #include <errno.h>
 
-static list_head_t run_queue;
-static list_head_t wait_queue;
+__percpu static list_head_t run_queue;
+__percpu static list_head_t wait_queue;
+__percpu static task_t *current;
 
-static task_t *idle_task = NULL;
-static task_t *init_task = NULL;
-static task_t *current   = NULL;
+static task_t *idle_task        = NULL;
+static task_t *init_task        = NULL;
 
 /* defined in arch/i386/switch.s */
 extern void __noreturn context_switch(uint32_t, void *);
@@ -184,6 +188,17 @@ void sched_task_schedule(task_t *task)
     sched_enqueue_task(&run_queue, task);
 }
 
+void sched_init_cpu(void)
+{
+    list_init(get_thiscpu_ptr(run_queue));
+    list_init(get_thiscpu_ptr(wait_queue));
+
+    if (lapic_get_init_cpu_count() == 1)
+        sched_enqueue_task(get_thiscpu_ptr(run_queue), init_task);
+
+    get_thiscpu_var(current) = idle_task;
+}
+
 /* initialize idle task (and init in the future) and run/wait queues */
 void sched_init(void)
 {
@@ -208,11 +223,7 @@ void sched_init(void)
     sched_task_add_thread(init_task, init_thread);
     sched_task_add_thread(idle_task, idle_thread);
 
-    list_init(&run_queue);
-    list_init(&wait_queue);
-    sched_enqueue_task(&run_queue, init_task);
-
-    current = idle_task;
+    sched_init_cpu();
 }
 
 void sched_start(void)
@@ -297,6 +308,8 @@ task_t *sched_get_init(void)
 static void __noreturn do_nothing(struct isr_regs *cpu_state)
 {
     (void)cpu_state;
+
+    for (;;);
 }
 
 void sched_suspend(void)
