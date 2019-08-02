@@ -22,6 +22,6 @@ idt_flush:
     ret
 
 tss_flush:
-    movw $0x28, %ax 
+    movq %rdi, %rax
     ltr %ax
     ret

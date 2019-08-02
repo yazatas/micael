@@ -3,6 +3,6 @@
 
 void gdt_flush(void *ptr);
 void idt_flush(void *ptr);
-void tss_flush(void);
+void tss_flush(int index);
 
 #endif /* __X86_64_ASM_H____X86_64_ASM_H__ */
