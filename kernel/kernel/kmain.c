@@ -96,7 +96,7 @@ void init_ap(void *arg)
 
     /* Initialize the idle task for this CPU and start it.
      *
-     * BSP is waiting for us to jump to idle task and we do that,
+     * BSP is waiting for us to jump to idle task and when we do that,
      * it will start the next CPU */
     sched_init_cpu();
     sched_start();
