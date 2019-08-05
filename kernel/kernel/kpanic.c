@@ -1,6 +1,7 @@
-#include <kernel/kprint.h>
-#include <kernel/kpanic.h>
 #include <kernel/common.h>
+#include <kernel/kpanic.h>
+#include <kernel/kprint.h>
+#include <kernel/percpu.h>
 #include <mm/mmu.h>
 #include <errno.h>
 #include <stdint.h>
@@ -23,7 +24,8 @@ kpanic(const char *error)
 
     kdebug("error number: %d %x", tmp->err_num, tmp->err_num);
     kdebug("'%s'", error);
-    kdebug("%s", kstrerror(errno));
+    kdebug("errno: %s", kstrerror(errno));
+    kdebug("CPUID: %u", get_thiscpu_id());
 
     uint32_t eax, ebx, ecx, edx, edi, cr3, cr2;
 

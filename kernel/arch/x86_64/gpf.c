@@ -1,6 +1,7 @@
-#include <kernel/kprint.h>
 #include <kernel/common.h>
 #include <kernel/compiler.h>
+#include <kernel/kprint.h>
+#include <kernel/percpu.h>
 
 void __noreturn gpf_handler(isr_regs_t *cpu_state)
 {
@@ -8,6 +9,7 @@ void __noreturn gpf_handler(isr_regs_t *cpu_state)
 
     kprint("\nGeneral Protection Fault\n");
     kprint("Error number: %d 0x%x\n", error_number, error_number);
+    kprint("CPUID: %u", get_thiscpu_id());
 
     uint32_t table_index = (error_number >> 1) & 0x3;
 
