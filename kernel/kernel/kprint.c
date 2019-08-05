@@ -1,6 +1,7 @@
 #include <kernel/kprint.h>
 #include <kernel/util.h>
 #include <drivers/tty.h>
+#include <sync/spinlock.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -146,8 +147,13 @@ static void va_kprint(const char *fmt, va_list args)
 
 void kprint(const char *fmt, ...)
 {
+    static spinlock_t spin;
+    spin_acquire(&spin);
+
     va_list args;
     va_start(args, fmt);
     va_kprint(fmt, args);
     va_end(args);
+
+    spin_release(&spin);
 }
