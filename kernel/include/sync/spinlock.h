@@ -19,13 +19,13 @@ static inline void spin_release(spinlock_t *s)
     asm volatile ("xchgb %0, %1" : "+r" (tmp), "+m" (*s));
 }
 
-static inline void irq_spin_acquire(spinlock_t *s)
+static inline void spin_acquire_irq(spinlock_t *s)
 {
     disable_irq();
     spin_acquire(s);
 }
 
-static inline void irq_spin_release(spinlock_t *s)
+static inline void spin_release_irq(spinlock_t *s)
 {
     spin_release(s);
     enable_irq();
