@@ -50,5 +50,7 @@ static inline void set_msr(uint32_t msr, uint64_t reg)
     );
 }
 
+void arch_dump_registers(void);
+
 #endif /* __x86_64__ */
 #endif /* __X86_64_CPU_H__ */
