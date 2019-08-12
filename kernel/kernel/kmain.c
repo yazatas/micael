@@ -91,7 +91,7 @@ void init_ap(void *arg)
     gdt_init();
     idt_init();
     lapic_initialize();
-    percpu_init(lapic_get_init_cpu_count());
+    percpu_init(lapic_get_init_cpu_count() - 1);
     tss_init();
 
     /* Initialize the idle task for this CPU and start it.
