@@ -12,6 +12,11 @@
 typedef int pid_t;
 
 typedef enum {
+    TIF_NO_FLAGS     = 0 << 0,
+    TIF_NEED_RESCHED = 1 << 0,
+} THREAD_FLAGS;
+
+typedef enum {
     T_READY   = 0 << 0,
     T_RUNNING = 1 << 0,
     T_BLOCKED = 1 << 1,
@@ -42,6 +47,10 @@ typedef struct exec_state {
 typedef struct thread {
     thread_state_t state;
     list_head_t list;
+
+    unsigned flags;
+    unsigned exec_runtime;
+    unsigned total_runtime;
 
     void *kstack_top;
     void *kstack_bottom;
