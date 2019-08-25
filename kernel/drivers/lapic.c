@@ -9,6 +9,7 @@
 #include <kernel/tick.h>
 #include <mm/mmu.h>
 #include <mm/types.h>
+#include <sched/sched.h>
 #include <errno.h>
 
 /* Local APIC general defines */
@@ -139,6 +140,12 @@ static void __tmr_handler(isr_regs_t *cpu)
 
     write_32(lapic_base + LAPIC_REG_EOI, 0);
     tick_inc();
+
+    /* Update the running time of currently running process.
+     *
+     * If this thread has exhausted its time slice or if a task
+     * with higher priority is waiting, the task is preempted. */
+    sched_tick(cpu);
 }
 
 void lapic_initialize(void)

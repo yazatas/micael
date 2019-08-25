@@ -14,6 +14,9 @@
 #include <mm/heap.h>
 #include <sched/sched.h>
 #include <errno.h>
+#include <stdbool.h>
+
+#define TIMESLICE 100
 
 __percpu static list_head_t run_queue;
 __percpu static list_head_t wait_queue;
@@ -27,7 +30,8 @@ static task_t *init_task;
 extern uint8_t _trampoline_start;
 extern uint8_t _trampoline_end;
 
-static volatile unsigned ap_initialized = 0;
+static volatile unsigned ap_initialized    = 0;
+static volatile bool     sched_initialized = false;
 
 /* --------------- idle and init tasks --------------- */
 static void *idle_task_func(void *arg)
@@ -78,12 +82,11 @@ static void *init_task_func(void *arg)
         while (ap_initialized != i)
             asm volatile ("pause");
     }
+    sched_initialized = true;
 
     kdebug("All CPUs initialized");
 
     for (;;);
-
-    return NULL;
 
 #if 0
     file_t *file   = NULL;
@@ -160,30 +163,32 @@ static void __enqueue_task(list_head_t *queue, task_t *task)
 /* this function gets called when timer interrupt occurs. It saves
  * the state of currently running process and then calls sched_switch()
  * to perform the actual context switch */
-static void __noreturn do_context_switch(struct isr_regs *cpu_state)
+static void __noreturn __switch(struct isr_regs *cpu_state)
 {
-    disable_irq();
+    task_t *cur = get_thiscpu_var(current);
 
     if (cpu_state != NULL) {
-        if (get_sp() < (unsigned long)current->threads->kstack_top)
+        if (get_sp() < (unsigned long)cur->threads->kstack_top) {
+            kdebug("0x%x 0x%x", get_sp(), (unsigned long)cur->threads->kstack_top);
             kpanic("kernel stack overflow!");
-
-        /* because we've installed do_context_switch as timer interrupt routine
-         * and this function doesn't return, we must acknowledge the interrupt here */
-        irq_ack_interrupt(cpu_state->isr_num);
+        }
 
         /* cpu_state now points to the beginning of trap frame, 
          * update exec_state to point to it so next context switch succeeds */
-        current->threads->exec_state = (exec_state_t *)cpu_state;
-        current->threads->exec_state->eflags |= (1 << 9);
+        cur->threads->exec_state = (exec_state_t *)cpu_state;
+        cur->threads->exec_state->eflags |= (1 << 9);
+
+        /* Reschedule this thread by settings its */
+        cur->threads->flags         &= ~TIF_NEED_RESCHED;
+        cur->threads->total_runtime += cur->threads->exec_runtime;
+        cur->threads->exec_runtime   = 0;
     }
 
     /* all threads get the same amount of execution time (for now) */
-    if (current->nthreads > 1) {
-        current->threads =
-            container_of(current->threads->list.next, thread_t, list);
-    }
+    if (cur->nthreads > 1)
+        cur->threads = container_of(cur->threads->list.next, thread_t, list);
 
+    put_thiscpu_var(current);
     sched_switch();
 }
 
@@ -194,31 +199,33 @@ void __noreturn sched_switch(void)
      * If we enqueded this task before dequeuing, the run_queue would fill up with the same task 
      * which is obviously something we don't want */
     task_t *next = __dequeue_task(get_thiscpu_ptr(run_queue));
+    task_t *cur  = get_thiscpu_var(current);
 
     /* current may be zombie if user called sys_exit. Sys_exit releases
      * all memory that can be released, sets the state of its only thread to
      * T_ZOMBIE and then calls sched_switch. These zombie tasks should be
      * scheduled (obviously) */
-    if (get_thiscpu_var(current) != get_thiscpu_var(idle_task) &&
+    if (cur != get_thiscpu_var(idle_task) &&
         current->threads->state  != T_ZOMBIE)
-        __enqueue_task(get_thiscpu_ptr(run_queue), get_thiscpu_var(current));
+        __enqueue_task(get_thiscpu_ptr(run_queue), cur);
 
-    /* TODO:  */
-    get_thiscpu_var(current) = next;
-    if (get_thiscpu_var(current) == NULL) {
+    if ((cur = next) == NULL) {
         /* there was no task in the run_queue, select current task again */
-        get_thiscpu_var(current) = __dequeue_task(get_thiscpu_ptr(run_queue));
+        cur = __dequeue_task(get_thiscpu_ptr(run_queue));
 
-        if (get_thiscpu_var(current) == NULL)
-            get_thiscpu_var(current) = get_thiscpu_var(idle_task);
+        if (cur == NULL) {
+            cur = get_thiscpu_var(idle_task);
+            put_thiscpu_var(idle_task);
+        }
     }
 
     /* update tss for this CPU, important for user mode tasks */
     tss_update_rsp((unsigned long)current->threads->kstack_bottom);
+    put_thiscpu_var(current);
 
     context_switch(
-        (get_thiscpu_var(current))->cr3,
-        (get_thiscpu_var(current))->threads->exec_state
+        cur->cr3,
+        cur->threads->exec_state
     );
     kpanic("context_switch() returned!");
 }
@@ -271,19 +278,12 @@ void sched_start(void)
     disable_irq();
     sched_switch();
 
-    kpanic("do_context_switch() returned!");
+    kpanic("sched_switch() returned!");
 }
 
 void __noreturn sched_enter_userland(void *eip, void *esp)
 {
     disable_irq();
-
-    /* TODO: remove */
-    static int index = 0;
-    static const char *names[5] = {
-        "user_mode1", "user_mode2", "user_mode3",
-        "user_mode4", "user_mode5"
-    };
 
     current->threads->exec_state->eip     = (unsigned long)eip;
     current->threads->exec_state->esp     = (unsigned long)esp;
@@ -300,25 +300,7 @@ void __noreturn sched_enter_userland(void *eip, void *esp)
     current->threads->exec_state->cs = SEG_USER_CODE;
     current->threads->exec_state->ss = SEG_USER_DATA;
 
-    tss_update_rsp((unsigned long)current->threads->kstack_bottom);
-
-    /* TODO: remove */
-    current->name = names[index++];
-
     context_switch(current->cr3, current->threads->exec_state);
-}
-
-/* TODO: remove this! */
-void sched_print_tasks(void)
-{
-    kprint("-------\nlist of items:\n");
-    task_t *task  = NULL;
-
-    FOREACH(run_queue, t) {
-        task = container_of(t, task_t, list);
-        kprint("\t%s\n", task->name);
-    }
-    kprint("-------\n");
 }
 
 task_t *sched_get_current(void)
@@ -331,33 +313,20 @@ task_t *sched_get_init(void)
     return init_task;
 }
 
-/* this is just a temporary hack to make sys_read work 
- *
- * interrupts must be enabled in order to get keyboard input but 
- * we don't want to do context switch because that messes up the 
- * execution state of function.
- *
- * Thus, for a temporary hack, enable interrupts but assign timer interrupt
- * to a dummy function so nothing gets destroyed during when the timer fires 
- *
- * This will be removed when wait queues are added */
-static void __noreturn do_nothing(struct isr_regs *cpu_state)
+void sched_tick(isr_regs_t *cpu)
 {
-    (void)cpu_state;
+    if (!sched_initialized)
+        return;
 
-    for (;;);
-}
+    task_t *t = get_thiscpu_var(current);
 
-void sched_suspend(void)
-{
-    pit_phase(100); /* TODO:  */
-    irq_install_handler(do_nothing, 0);
-    enable_irq();
-}
+    if (++t->threads->exec_runtime > TIMESLICE)
+        t->threads->flags |= TIF_NEED_RESCHED;
 
-void sched_resume(void)
-{
-    disable_irq();
-    pit_phase(100); /* TODO:  */
-    irq_install_handler(do_context_switch, 0);
+    put_thiscpu_var(current);
+
+    /* If currently running process has used its timeslice, 
+     * TODO */
+    if (t->threads->flags & TIF_NEED_RESCHED)
+        __switch(cpu);
 }
