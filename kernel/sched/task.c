@@ -40,6 +40,9 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
     t->kstack_bottom = NULL;
     t->kstack_bottom = (uint8_t *)t->kstack_top + KSTACK_SIZE;
     t->exec_state    = (exec_state_t *)((uint8_t *)t->kstack_bottom - sizeof(exec_state_t));
+    t->exec_runtime  = 0;
+    t->total_runtime = 0;
+    t->flags         = 0;
 
     list_init(&t->list);
     kmemset(t->exec_state, 0, sizeof(exec_state_t));
