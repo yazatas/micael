@@ -20,7 +20,7 @@ typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 int32_t sys_read(isr_regs_t *cpu)
 {
     /* enable interrupts but disable context switching */
-    sched_suspend();
+    /* sched_suspend(); */
 
     int fd          = (int)cpu->edx;
     void *buf       = (void *)cpu->ebx;
@@ -43,7 +43,7 @@ int32_t sys_read(isr_regs_t *cpu)
     int32_t ret = file_read(current->file_ctx->fd[fd], 0, len, buf);
 
     /* re-enable context switching */
-    sched_resume();
+    /* sched_resume(); */
 
     return ret;
 }
@@ -131,7 +131,7 @@ int32_t sys_exit(isr_regs_t *cpu)
     task_t *parent  = current->parent;
 
     kdebug("exiting from %s ( pid %d): status %d", current->name, current->pid, status);
-    sched_print_tasks();
+    /* sched_print_tasks(); */
 
     /* reassign new parent for current task's children */
     if (LIST_EMPTY(current->children) == false) {
