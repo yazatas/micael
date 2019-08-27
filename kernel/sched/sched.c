@@ -30,8 +30,8 @@ static task_t *init_task;
 extern uint8_t _trampoline_start;
 extern uint8_t _trampoline_end;
 
-static volatile unsigned ap_initialized    = 0;
-static volatile bool     sched_initialized = false;
+static unsigned ap_initialized    = 0;
+static bool     sched_initialized = false;
 
 /* --------------- idle and init tasks --------------- */
 static void *idle_task_func(void *arg)
@@ -79,7 +79,8 @@ static void *init_task_func(void *arg)
 
         kdebug("Waiting for CPU %u to register itself...", i);
 
-        while (ap_initialized != i)
+        /* bool initialized = READ_ONCE(ap_initialized); */
+        while (READ_ONCE(ap_initialized) != i)
             asm volatile ("pause");
     }
     sched_initialized = true;
@@ -169,7 +170,6 @@ static void __noreturn __switch(struct isr_regs *cpu_state)
 
     if (cpu_state != NULL) {
         if (get_sp() < (unsigned long)cur->threads->kstack_top) {
-            kdebug("0x%x 0x%x", get_sp(), (unsigned long)cur->threads->kstack_top);
             kpanic("kernel stack overflow!");
         }
 
@@ -315,7 +315,7 @@ task_t *sched_get_init(void)
 
 void sched_tick(isr_regs_t *cpu)
 {
-    if (!sched_initialized)
+    if (!READ_ONCE(sched_initialized))
         return;
 
     task_t *t = get_thiscpu_var(current);
