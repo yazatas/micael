@@ -6,4 +6,6 @@
 #define __noreturn __attribute__((noreturn))
 #define __percpu   __attribute__((section(".percpu")))
 
+#define READ_ONCE(var) (*((volatile typeof(var) *)&(var)))
+
 #endif /* end of include guard: __COMPILER_H__ */
