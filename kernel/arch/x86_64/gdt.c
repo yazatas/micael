@@ -54,8 +54,8 @@ void tss_update_rsp(unsigned long rsp)
 {
     struct tss_ptr_t *tss = get_thiscpu_ptr(tss_ptr);
 
-    tss->rsp0_low  = rsp & 0xffffffff;
-    tss->rsp1_high = (rsp >> 32) & 0xffffffff;
+    tss->rsp0_low  = (rsp >>  0) & 0xffffffff;
+    tss->rsp0_high = (rsp >> 32) & 0xffffffff;
 
     put_thiscpu_ptr(tss);
 }
