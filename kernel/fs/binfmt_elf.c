@@ -3,14 +3,18 @@
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
 #include <mm/mmu.h>
+#include <mm/page.h>
 #include <sched/sched.h>
 #include <stdbool.h>
 
+#ifdef __x86_64__
+#define USER_STACK_START 0x7ffff777
+#else
 #define KSTART 768
-
 #define USER_STACK_START ((((KSTART - 1) << 22) | (1023 << 12)) | 0xfee)
+#endif
 
-static bool elf_check_header(Elf32_Ehdr *header)
+static bool __check_common_elf_header(Elf32_Ehdr *header)
 {
     if (header->e_ident[EI_MAG0] != ELFMAG0 ||
         header->e_ident[EI_MAG1] != ELFMAG1 ||
@@ -22,97 +26,43 @@ static bool elf_check_header(Elf32_Ehdr *header)
         return false;
     }
 
-    if (header->e_ident[EI_CLASS] != ELFCLASS32) {
-        kdebug("Object file is not 32-bit!");
-        return false;
-    }
-
     if (header->e_type != ET_EXEC) {
         kdebug("Object file is not executable: %u", header->e_type);
-        return false;
-    }
-
-    if (header->e_machine != EM_386) {
-        kdebug("Object file ISA is not 80386: %u", header->e_machine);
         return false;
     }
 
     return true;
 }
 
-bool binfmt_elf_loader(file_t *file, int argc, char **argv)
+static bool __loader_32(file_t *file, int argc, char **argv, void *addr)
 {
-    (void)argc, (void)argv;
-
-    kdebug("in binfmt_elf_loader...");
-
-    size_t fsize = file->f_dentry->d_inode->i_size;
-    size_t pages = (fsize / PAGE_SIZE) + 1;
-    void *addr   = NULL, *ptr = NULL;
-
-    /* if ((addr = ptr = mmu_alloc_addr(pages)) == NULL) { */
-    /*     kdebug("Failed to allocate address space for file!"); */
-    /*     return false; */
-    /* } */
-
-    for (size_t i = 0; i < pages; ++i) {
-        /* page_t page = mmu_alloc_page(); */
-        /* mmu_map_page((void *)page, ptr, MM_PRESENT | MM_READWRITE); */
-        ptr = (uint8_t *)ptr + PAGE_SIZE;
-    }
-
-    if (file_read(file, 0, fsize, addr) < 0) {
-        kdebug("Failed to read data from file!");
-        return false;
-    }
-
     Elf32_Ehdr *ehdr = (Elf32_Ehdr *)addr;
+    Elf32_Phdr *phdr = (Elf32_Phdr *)((uint8_t *)ehdr + ehdr->e_phoff);
 
-    if (!elf_check_header(ehdr)) {
+    if (!__check_common_elf_header(ehdr)) {
         kdebug("Invalid ELF header!");
         return false;
     }
 
-#if 0
-    kprint("\tentry point:                  0x%08x\n"
-           "\tprogram header table:         0x%08x\n"
-           "\tsection header table:         0x%08x\n"
-           "\tsizeof(program header entry):   %8u\n"
-           "\t# of program header entries:    %8u\n"
-           "\tsizeof(section header entry):   %8u\n"
-           "\t# of program header entries:    %8u\n",
-        ehdr->e_entry, ehdr->e_phoff, ehdr->e_shoff,
-        ehdr->e_phentsize, ehdr->e_phnum, 
-        ehdr->e_shentsize, ehdr->e_shnum);
-#endif
-
-    Elf32_Phdr *phdr = (Elf32_Phdr *)((uint8_t *)ehdr + ehdr->e_phoff);
+    if (ehdr->e_machine != EM_386) {
+        kdebug("Object file ISA is not 80386: %u", ehdr->e_machine);
+        return false;
+    }
 
     if (phdr->p_type == PT_LOAD) {
-#if 0
-        kprint("\tp_offset:   %8u\n", phdr->p_offset);
-        kprint("\tp_vaddr:  0x%08x\n", phdr->p_vaddr);
-        kprint("\tp_paddr:  0x%08x\n", phdr->p_paddr);
-        kprint("\tp_filesz:   %8u\n", phdr->p_filesz);
-        kprint("\tp_memsz:    %8u\n", phdr->p_memsz);
-        kprint("\tp_flags:    %8u\n", phdr->p_flags);
-        kprint("\tp_align:    %8u\n", phdr->p_align);
-        kdebug("loadable segment found!");
-#endif
-
-        uint32_t mm_flags = MM_PRESENT | MM_USER;
+        int mm_flags = MM_PRESENT | MM_USER;
 
         if ((phdr->p_flags & PF_W) == 0)
             mm_flags |= MM_READONLY;
 
-        uint32_t v_start = ROUND_DOWN(phdr->p_vaddr, PAGE_SIZE);
-        size_t nleft     = phdr->p_filesz;
-        size_t nwritten  = 0;
-        void *fptr       = (uint8_t *)phdr + phdr->p_offset + ehdr->e_phentsize;
+        unsigned long v_start = ROUND_DOWN(phdr->p_vaddr, PAGE_SIZE);
+        size_t nleft          = phdr->p_filesz;
+        void *fptr            = (uint8_t *)phdr + phdr->p_offset + ehdr->e_phentsize;
+        size_t nwritten       = 0;
 
         while (nwritten < nleft) {
-            /* page_t page = mmu_alloc_page(); */
-            /* mmu_map_page((void *)page, (void *)v_start, mm_flags); */
+            unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL);
+            mmu_map_page(page, v_start, mm_flags);
 
             size_t read_size = MIN(PAGE_SIZE, nleft);
             kmemcpy((void *)(unsigned long)ehdr->e_entry, fptr, read_size);
@@ -122,14 +72,96 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
         }
     }
 
-    /* create stack */
+    /* allocate user stack and copy argc + argv there */
     uint32_t mm_flags = MM_PRESENT | MM_READWRITE | MM_USER;
-    /* mmu_map_page((void *)mmu_alloc_page(), (void *)USER_STACK_START, mm_flags); */
+    mmu_map_page(mmu_page_alloc(MM_ZONE_NORMAL), USER_STACK_START, mm_flags);
 
+    /* TODO: where is argv mapped? */
     /* TODO: add argc + argv to stack */
+    (void)argc, (void)argv;
 
     sched_enter_userland(
         (void *)(unsigned long)ehdr->e_entry,
         (void *)(unsigned long)USER_STACK_START
     );
+}
+
+static bool __loader_64(file_t *file, int argc, char **argv, void *addr)
+{
+    Elf64_Ehdr *ehdr = (Elf64_Ehdr *)addr;
+    Elf64_Phdr *phdr = (Elf64_Phdr *)((uint8_t *)ehdr + ehdr->e_phoff);
+
+    if (!__check_common_elf_header((Elf32_Ehdr *)ehdr)) {
+        kdebug("Invalid ELF header!");
+        return false;
+    }
+
+    if (ehdr->e_machine != EM_X86_64) {
+        kdebug("Object file ISA is not amd64: %u", ehdr->e_machine);
+        return false;
+    }
+
+    if (phdr->p_type == PT_LOAD) {
+        int mm_flags = MM_PRESENT | MM_USER;
+
+        if ((phdr->p_flags & PF_W) == 0)
+            mm_flags |= MM_READONLY;
+
+        unsigned long v_start = ROUND_DOWN(phdr->p_vaddr, PAGE_SIZE);
+        size_t nleft          = phdr->p_filesz;
+        void *fptr            = (uint8_t *)phdr + phdr->p_offset + ehdr->e_phentsize;
+        size_t nwritten       = 0;
+
+        while (nwritten < nleft) {
+            unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL);
+            mmu_map_page(page, v_start, mm_flags);
+
+            size_t read_size = MIN(PAGE_SIZE, nleft);
+            kmemcpy((void *)(unsigned long)ehdr->e_entry, fptr, read_size);
+
+            nwritten += read_size;
+            v_start   = v_start + read_size;
+        }
+    }
+
+    /* allocate user stack and copy argc + argv there */
+    uint32_t mm_flags = MM_PRESENT | MM_READWRITE | MM_USER;
+    mmu_map_page(mmu_page_alloc(MM_ZONE_NORMAL), USER_STACK_START, mm_flags);
+
+    /* TODO: where is argv mapped? */
+    /* TODO: add argc + argv to stack */
+    (void)argc, (void)argv;
+
+    sched_enter_userland(
+        (void *)(unsigned long)ehdr->e_entry,
+        (void *)(unsigned long)USER_STACK_START
+    );
+}
+
+/* This is the ELF loader stub, it will just check whether the the
+ * file in question is 32 or 64-bit and call the appropriate handler */
+bool binfmt_elf_loader(file_t *file, int argc, char **argv)
+{
+    (void)argc, (void)argv;
+
+    kdebug("in binfmt_elf_loader...");
+
+    unsigned long mem = mmu_block_alloc(MM_ZONE_NORMAL, 1);
+    size_t fsize      = file->f_dentry->d_inode->i_size;
+    size_t pages      = (fsize / PAGE_SIZE) + 1;
+    void *addr        = (void *)mem;
+
+    if (file_read(file, 0, fsize, addr) < 0) {
+        kdebug("Failed to read data from file!");
+        return false;
+    }
+
+    Elf32_Ehdr *ehdr = (Elf32_Ehdr *)addr;
+
+    if (ehdr->e_ident[EI_CLASS] == ELFCLASS32)
+        return __loader_32(file, argc, argv, addr);
+    else if (ehdr->e_ident[EI_CLASS] == ELFCLASS64)
+        return __loader_64(file, argc, argv, addr);
+
+    return false;
 }
