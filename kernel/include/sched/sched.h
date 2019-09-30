@@ -15,8 +15,13 @@ void sched_task_schedule(task_t *t);
 /* Update the tick count of currently running task */
 void sched_tick(isr_regs_t *cpu);
 
-/* TODO: comment */
+/* Because we're using percpu variables, each sched_get_current()
+ * internally calls get_thiscpu_var() which must be coupled with
+ * put_thiscpu_var() [ie. sched_put_current()] */
 task_t *sched_get_current(void);
+void    sched_put_current(void);
+
+/* TODO: comment */
 task_t *sched_get_init(void);
 void sched_enter_userland(void *eip, void *esp) __noreturn;
 
