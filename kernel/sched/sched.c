@@ -223,10 +223,7 @@ void __noreturn sched_switch(void)
     tss_update_rsp((unsigned long)current->threads->kstack_bottom);
     put_thiscpu_var(current);
 
-    context_switch(
-        cur->cr3,
-        cur->threads->exec_state
-    );
+    context_switch(cur->cr3, cur->threads->exec_state);
     kpanic("context_switch() returned!");
 }
 
@@ -305,7 +302,12 @@ void __noreturn sched_enter_userland(void *eip, void *esp)
 
 task_t *sched_get_current(void)
 {
-    return current;
+    return get_thiscpu_var(current);
+}
+
+void sched_put_current(void)
+{
+    put_thiscpu_var(current);
 }
 
 task_t *sched_get_init(void)
