@@ -109,3 +109,8 @@ void *mmu_duplicate_dir(void)
 {
     return mmu_native_duplicate_dir();
 }
+
+void mmu_walk_addr(void *addr)
+{
+    return mmu_native_walk_addr(addr);
+}
