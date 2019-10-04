@@ -43,4 +43,6 @@ void *mmu_build_dir(void);
 /* TODO: should this take something as parameter */
 void *mmu_duplicate_dir(void);
 
+void mmu_walk_addr(void *addr);
+
 #endif /* __MMU_H__ */

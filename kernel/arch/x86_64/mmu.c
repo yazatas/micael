@@ -17,6 +17,9 @@ static uint64_t __pml4_;
 
 #define PML4_ATOEI(addr) (((addr) >> 39) & 0x1FF)
 #define PDPT_ATOEI(addr) (((addr) >> 30) & 0x1FF)
+#define PD_ATOEI(addr)   (((addr) >> 21) & 0x1FF)
+#define PT_ATOEI(addr)   (((addr) >> 12) & 0x1FF)
+
 #define V_TO_P(addr)     ((uint64_t)addr - KVSTART + KPSTART)
 
 static inline uint64_t native_get_cr3(void)
@@ -147,9 +150,57 @@ void *mmu_native_build_dir(void)
         pml4_v[i] = ~MM_PRESENT;
     }
 
-    pml4_v[0] = pml4_v[PML4_ATOEI(KVSTART)] = __pml4[PML4_ATOEI(KVSTART)];
+    pml4_v[0] = pml4_v[PML4_ATOEI(KVSTART)] = __pml4[PML4_ATOEI(KVSTART)] | MM_USER;
 
     return pml4_v;
+}
+
+void mmu_native_walk_addr(void *vaddr)
+{
+    kprint("----------------------\nWalk address\n");
+
+    if (!vaddr)
+        return;
+
+    unsigned long paddr = (unsigned long)vaddr;
+    uint64_t *pml4      = native_p_to_v(native_get_cr3());
+
+    uint16_t pml4i = PML4_ATOEI(paddr);
+    uint16_t pdpti = PDPT_ATOEI(paddr);
+    uint16_t pdi   = PD_ATOEI(paddr);
+    uint16_t pti   = PT_ATOEI(paddr);
+
+    kprint("\tPML4: 0x%x 0x%x\n", pml4, paddr);
+    kprint("\tPML4[%u] %spresent\n\n", pml4i, (pml4[pml4i] & MM_PRESENT) ? "" : "not ");
+
+    if ((pml4[pml4i] & MM_PRESENT) == 0) {
+        kprint("----------------------\n");
+        return;
+    }
+
+    uint64_t *pdpt = mmu_p_to_v(pml4[pml4i]);
+    kprint("\tPDPT: 0x%x 0x%x\n", pdpt, pml4[pml4i]);
+    kprint("\tPDPT[%u] %spresent\n\n", pdpti, (pdpt[pdpti] & MM_PRESENT) ? "" : "not ");
+
+    if ((pdpt[pdpti] & MM_PRESENT) == 0) {
+        kprint("----------------------\n");
+        return;
+    }
+
+    uint64_t *pd = mmu_p_to_v(pdpt[pdpti]);
+    kprint("\tPD: 0x%x 0x%x\n", pd, pdpt[pdpti]);
+    kprint("\tPD[%u] %spresent\n\n", pdi, (pd[pdi] & MM_PRESENT) ? "" : "not ");
+
+    if ((pd[pdi] & MM_PRESENT) == 0) {
+        kprint("----------------------\n");
+        return;
+    }
+
+    uint64_t *pt = mmu_p_to_v(pd[pdi]);
+    kprint("\tPT: 0x%x 0x%x\n", pt, pd[pdi]);
+    kprint("\tPD[%u] %spresent\n\n", pti, (pt[pti] & MM_PRESENT) ? "" : "not ");
+
+    kprint("----------------------\n");
 }
 
 void *mmu_native_duplicate_dir(void)
