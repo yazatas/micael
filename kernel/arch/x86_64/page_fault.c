@@ -82,7 +82,7 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
            pml4i, pml4i, pdpti, pdpti, pdi, pdi, pti, pti, cr2 & 0xfff, cr2 & 0xfff);
 
     kprint("physaddr of pdir: 0x%x\n", cr3);
-    kprint("CPUID: %u", get_thiscpu_id());
+    kprint("CPUID: %u\n", get_thiscpu_id());
 
     /* Walk the directory and the virtual address of each directory
      * and whether the entry is present or not */
