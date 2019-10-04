@@ -100,23 +100,25 @@ int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)
 
     if (!(pml4[pml4i] & MM_PRESENT))
         pml4[pml4i] = __alloc_entry();
+    pml4[pml4i] |= flags;
 
     uint64_t *pdpt = native_p_to_v(pml4[pml4i] & ~0xfff);
 
     if (!(pdpt[pdpti] & MM_PRESENT))
         pdpt[pdpti] = __alloc_entry();
+    pdpt[pdpti] |= flags;
 
     uint64_t *pd = native_p_to_v(pdpt[pdpti] & ~0xfff);
 
     if (!(pd[pdi] & MM_PRESENT))
         pd[pdi] = __alloc_entry();
+    pd[pdi] |= flags;
 
     uint64_t *pt = native_p_to_v(pd[pdi] & ~0xfff);
     pt[pti]      = paddr | flags | MM_PRESENT;
 
     asm volatile ("mov %cr3, %rcx \n \
                    mov %rcx, %cr3");
-
     return 0;
 }
 
