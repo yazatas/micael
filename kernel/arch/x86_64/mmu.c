@@ -1,3 +1,4 @@
+#include <kernel/common.h>
 #include <kernel/kassert.h>
 #include <kernel/kprint.h>
 #include <kernel/util.h>
@@ -87,6 +88,9 @@ static uint64_t __alloc_entry(void)
 
 int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)
 {
+    kassert(PAGE_ALIGNED(paddr));
+    kassert(PAGE_ALIGNED(vaddr));
+
     unsigned long pml4i = (vaddr >> 39) & 0x1ff;
     unsigned long pdpti = (vaddr >> 30) & 0x1ff;
     unsigned long pdi   = (vaddr >> 21) & 0x1ff;
