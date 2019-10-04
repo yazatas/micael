@@ -7,8 +7,10 @@
 #include <sched/sched.h>
 #include <stdbool.h>
 
+#include <arch/x86_64/mm/mmu.h>
+
 #ifdef __x86_64__
-#define USER_STACK_START 0x7ffff777
+#define USER_STACK_START 0xc0000000
 #else
 #define KSTART 768
 #define USER_STACK_START ((((KSTART - 1) << 22) | (1023 << 12)) | 0xfee)
@@ -34,7 +36,7 @@ static bool __check_common_elf_header(Elf32_Ehdr *header)
     return true;
 }
 
-static bool __loader_32(file_t *file, int argc, char **argv, void *addr)
+static bool __loader_32(void *addr, int argc, char **argv)
 {
     Elf32_Ehdr *ehdr = (Elf32_Ehdr *)addr;
     Elf32_Phdr *phdr = (Elf32_Phdr *)((uint8_t *)ehdr + ehdr->e_phoff);
@@ -74,7 +76,7 @@ static bool __loader_32(file_t *file, int argc, char **argv, void *addr)
 
     /* allocate user stack and copy argc + argv there */
     uint32_t mm_flags = MM_PRESENT | MM_READWRITE | MM_USER;
-    mmu_map_page(mmu_page_alloc(MM_ZONE_NORMAL), USER_STACK_START, mm_flags);
+    mmu_map_page(mmu_page_alloc(MM_ZONE_NORMAL), USER_STACK_START - PAGE_SIZE, mm_flags);
 
     /* TODO: where is argv mapped? */
     /* TODO: add argc + argv to stack */
@@ -82,11 +84,11 @@ static bool __loader_32(file_t *file, int argc, char **argv, void *addr)
 
     sched_enter_userland(
         (void *)(unsigned long)ehdr->e_entry,
-        (void *)(unsigned long)USER_STACK_START
+        (void *)(unsigned long)USER_STACK_START - 4
     );
 }
 
-static bool __loader_64(file_t *file, int argc, char **argv, void *addr)
+static bool __loader_64(void *addr, int argc, char **argv)
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)addr;
     Elf64_Phdr *phdr = (Elf64_Phdr *)((uint8_t *)ehdr + ehdr->e_phoff);
@@ -126,7 +128,7 @@ static bool __loader_64(file_t *file, int argc, char **argv, void *addr)
 
     /* allocate user stack and copy argc + argv there */
     uint32_t mm_flags = MM_PRESENT | MM_READWRITE | MM_USER;
-    mmu_map_page(mmu_page_alloc(MM_ZONE_NORMAL), USER_STACK_START, mm_flags);
+    mmu_map_page(mmu_page_alloc(MM_ZONE_NORMAL), USER_STACK_START - PAGE_SIZE, mm_flags);
 
     /* TODO: where is argv mapped? */
     /* TODO: add argc + argv to stack */
@@ -134,7 +136,7 @@ static bool __loader_64(file_t *file, int argc, char **argv, void *addr)
 
     sched_enter_userland(
         (void *)(unsigned long)ehdr->e_entry,
-        (void *)(unsigned long)USER_STACK_START
+        (void *)(unsigned long)USER_STACK_START - 8
     );
 }
 
@@ -159,9 +161,9 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
     Elf32_Ehdr *ehdr = (Elf32_Ehdr *)addr;
 
     if (ehdr->e_ident[EI_CLASS] == ELFCLASS32)
-        return __loader_32(file, argc, argv, addr);
+        return __loader_32(addr, argc, argv);
     else if (ehdr->e_ident[EI_CLASS] == ELFCLASS64)
-        return __loader_64(file, argc, argv, addr);
+        return __loader_64(addr, argc, argv);
 
     return false;
 }
