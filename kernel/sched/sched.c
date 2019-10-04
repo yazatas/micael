@@ -64,6 +64,7 @@ static void *init_task_func(void *arg)
 
     kdebug("in init task!");
 
+#if 0
     /* Initialize SMP trampoline and wake up all APs one by one
      * The SMP trampoline is located at 0x55000 and the trampoline switches
      * the AP from real mode to protected mode and calls _start (in boot.S)
@@ -79,19 +80,16 @@ static void *init_task_func(void *arg)
 
         kdebug("Waiting for CPU %u to register itself...", i);
 
-        /* bool initialized = READ_ONCE(ap_initialized); */
         while (READ_ONCE(ap_initialized) != i)
             asm volatile ("pause");
     }
     sched_initialized = true;
 
     kdebug("All CPUs initialized");
+#endif
 
-    for (;;);
-
-#if 0
-    file_t *file   = NULL;
-    path_t *path   = NULL;
+    file_t *file = NULL;
+    path_t *path = NULL;
 
     if ((path = vfs_path_lookup("/sbin/init", 0))->p_dentry == NULL)
         kpanic("failed to find init script from file system");
@@ -106,7 +104,6 @@ static void *init_task_func(void *arg)
     kpanic("binfmt_load() returned, failed to start init task!");
 
     return NULL;
-#endif
 }
 
 /* --------------- /idle and init tasks --------------- */
@@ -268,6 +265,8 @@ void sched_init(void)
 
     sched_task_add_thread(init_task, init_thread);
     __enqueue_task(get_thiscpu_ptr(run_queue), init_task);
+
+    kdebug("sched initialized");
 }
 
 void sched_start(void)
@@ -280,24 +279,28 @@ void sched_start(void)
 
 void __noreturn sched_enter_userland(void *eip, void *esp)
 {
-    disable_irq();
+    task_t *cur = get_thiscpu_var(current);
 
-    current->threads->exec_state->eip     = (unsigned long)eip;
-    current->threads->exec_state->esp     = (unsigned long)esp;
-    current->threads->exec_state->esp     = (unsigned long)esp;
-    current->threads->exec_state->eflags |= (1 << 9); /* enable interrupts */
+    cur->threads->exec_state->eip     = (unsigned long)eip;
+    cur->threads->exec_state->ebp     = (unsigned long)esp;
+    cur->threads->exec_state->esp     = (unsigned long)esp;
+    cur->threads->exec_state->eflags |= (1 << 9); /* enable interrupts */
 
 #ifdef __i386__
-    current->threads->exec_state->gs = SEG_USER_DATA;
-    current->threads->exec_state->fs = SEG_USER_DATA;
-    current->threads->exec_state->es = SEG_USER_DATA;
-    current->threads->exec_state->ds = SEG_USER_DATA;
+    cur->threads->exec_state->gs = SEG_USER_DATA;
+    cur->threads->exec_state->fs = SEG_USER_DATA;
+    cur->threads->exec_state->es = SEG_USER_DATA;
+    cur->threads->exec_state->ds = SEG_USER_DATA;
 #endif
 
-    current->threads->exec_state->cs = SEG_USER_CODE;
-    current->threads->exec_state->ss = SEG_USER_DATA;
+    cur->threads->exec_state->cs = SEG_USER_CODE;
+    cur->threads->exec_state->ss = SEG_USER_DATA;
 
-    context_switch(current->cr3, current->threads->exec_state);
+    /* update tss for this CPU, important for user mode tasks */
+    tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
+    put_thiscpu_var(cur);
+
+    context_switch(cur->cr3, cur->threads->exec_state);
 }
 
 task_t *sched_get_current(void)
