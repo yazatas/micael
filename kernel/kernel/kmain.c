@@ -22,8 +22,7 @@
 #include <errno.h>
 #include <stdint.h>
 
-extern uint8_t _percpu_start, __percpu_start;
-extern uint8_t _percpu_end,   __percpu_end;
+extern uint8_t _percpu_start, _percpu_end;
 extern uint8_t _kernel_physical_end;
 
 void init_bsp(void *arg)
@@ -47,9 +46,9 @@ void init_bsp(void *arg)
     lapic_initialize();
 
     /* initialize the percpu areas for all processors */
-    unsigned long kernel_end = (uint64_t)&_kernel_physical_end;
+    unsigned long kernel_end = (unsigned long)&_kernel_physical_end;
     unsigned long pcpu_start = ROUND_UP(kernel_end, PAGE_SIZE);
-    size_t pcpu_size         = (uint64_t)&_percpu_end - (uint64_t)&_percpu_start;
+    size_t pcpu_size         = (unsigned long)&_percpu_end - (unsigned long)&_percpu_start;
 
     for (size_t i = 0; i < lapic_get_cpu_count(); ++i) {
         kmemcpy(
