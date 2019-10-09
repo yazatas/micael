@@ -4,6 +4,7 @@
 #include <kernel/acpi.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
+#include <kernel/isr.h>
 #include <kernel/pic.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
@@ -43,7 +44,12 @@ void init_bsp(void *arg)
     /* parse ACPI tables and initialize the Local APIC of BSP and all I/O APICs */
     acpi_initialize();
     acpi_parse_madt();
+    ioapic_initialize_all();
     lapic_initialize();
+
+    /* Enable PS/2 */
+    ioapic_enable_irq(0, VECNUM_KEYBOARD);
+    isr_install_handler(VECNUM_KEYBOARD, ps2_isr_handler);
 
     /* initialize the percpu areas for all processors */
     unsigned long kernel_end = (unsigned long)&_kernel_physical_end;

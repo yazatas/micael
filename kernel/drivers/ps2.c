@@ -1,6 +1,6 @@
+#include <drivers/lapic.h>
 #include <drivers/ps2.h>
 #include <drivers/tty.h>
-#include <kernel/pic.h>
 #include <kernel/io.h>
 #include <stdbool.h>
 
@@ -90,7 +90,8 @@ unsigned char ps2_read_next(void)
     return ret;
 }
 
-void ps2_init(void)
+void ps2_isr_handler(isr_regs_t *cpu)
 {
-    irq_install_handler(ps2_read_char, 1);
+    lapic_ack_interrupt();
+    ps2_read_char();
 }
