@@ -264,14 +264,8 @@ found:
     /* if the offset from page boundary of the initrd + directory size is more than PAGE_SIZE,
      * it means that this directory overlaps two pages and we must allocate space for two pages */
     if ((i_flags & T_IFDIR) && (off_start + i_size) > PAGE_SIZE) {
-#if 0
-        uint32_t *vstart      = mmu_alloc_addr(2);
-        size_t off_from_start = parent_start + i_offset - boundary;
-        mmu_map_range((void *)boundary, vstart, 2, MM_PRESENT | MM_READONLY);
-
         GET_INO_PRIVATE(inode)->pstart = (void *)((uint8_t *)ip->pstart + i_offset);
-        GET_INO_PRIVATE(inode)->vstart = (void *)((uint8_t *)vstart + off_start);
-#endif
+        GET_INO_PRIVATE(inode)->vstart = (void *)((uint8_t *)ip->pstart + i_offset);
     } else {
         if (i_flags & T_IFDIR)
             GET_INO_PRIVATE(inode)->vstart = (char *)ip->vstart + i_offset;
