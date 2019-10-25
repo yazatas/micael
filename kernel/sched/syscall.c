@@ -93,18 +93,17 @@ int32_t sys_fork(isr_regs_t *cpu)
 
 int32_t sys_execv(isr_regs_t *cpu)
 {
-    char *p  = (char *)cpu->ebx;
+    char *p      = (char *)cpu->ebx;
+    file_t *file = NULL;
+    path_t *path = NULL;
 
-    file_t *file   = NULL;
-    path_t *path   = NULL;
-
-    if ((path = vfs_path_lookup(p, 0))->p_status != LOOKUP_STAT_SUCCESS) {
-        kdebug("looup error %d", path->p_status);
+    if ((path = vfs_path_lookup(p, LOOKUP_OPEN))->p_status != LOOKUP_STAT_SUCCESS) {
+        kdebug("Path lookup failed for %s, status %d", p, path->p_status);
         goto error;
     }
 
     if ((file = file_open(path->p_dentry, O_RDONLY)) == NULL) {
-        kdebug("open error %s", kstrerror(errno));
+        kdebug("file_open(%s): %s", p, kstrerror(errno));
         goto error;
     }
 
