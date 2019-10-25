@@ -107,7 +107,7 @@ task_t *sched_task_create(const char *name)
     path_t *path = NULL;
     file_t *file = NULL;
 
-    if ((path = vfs_path_lookup("/dev/tty1", 0))->p_status == LOOKUP_STAT_SUCCESS) {
+    if ((path = vfs_path_lookup("/dev/tty1", LOOKUP_OPEN))->p_status == LOOKUP_STAT_SUCCESS) {
         if ((file = file_open(path->p_dentry, O_RDWR)) != NULL) {
 
             /* allocate space for three file descriptors (std{in,out,err}) and allocate

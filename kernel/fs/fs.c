@@ -427,7 +427,7 @@ end:
 path_t *vfs_path_lookup(char *path, int flags)
 {
     path_t *retpath   = kmalloc(sizeof(path_t));
-    retpath->p_status = LOOKUP_STAT_SUCCESS;
+    retpath->p_status = LOOKUP_STAT_ENOENT;
     retpath->p_flags  = flags;
 
     if (path == NULL || kstrlen(path) == 0) {
@@ -456,8 +456,8 @@ path_t *vfs_path_lookup(char *path, int flags)
             if ((flags & LOOKUP_CREATE) && (start != NULL))
                 retpath->p_status = LOOKUP_STAT_EEXISTS;
 
-            if (start == NULL)
-                retpath->p_status = LOOKUP_STAT_ENOENT;
+            if ((flags & LOOKUP_OPEN) && (start != NULL))
+                retpath->p_status = LOOKUP_STAT_SUCCESS;
 
             goto end;
         }
@@ -513,8 +513,12 @@ path_t *vfs_path_lookup(char *path, int flags)
     }
 
     /* intention was to create file but it already exists -> path lookup "failed" */
-    /* if (flags & LOOKUP_CREATE) */
-    /*     retpath->p_status = LOOKUP_STAT_EEXISTS; */
+    if (flags & LOOKUP_CREATE && !(flags & LOOKUP_PARENT))
+        retpath->p_status = LOOKUP_STAT_EEXISTS;
+
+    /* intention was to open file and it exists -> success */
+    if (flags & LOOKUP_OPEN)
+        retpath->p_status = LOOKUP_STAT_SUCCESS;
 
     retpath->p_dentry->d_count++;
 
