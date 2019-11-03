@@ -217,7 +217,7 @@ void __noreturn sched_switch(void)
     }
 
     /* update tss for this CPU, important for user mode tasks */
-    tss_update_rsp((unsigned long)current->threads->kstack_bottom);
+    tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
     put_thiscpu_var(current);
 
     context_switch(cur->cr3, cur->threads->exec_state);
