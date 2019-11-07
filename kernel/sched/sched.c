@@ -19,9 +19,9 @@
 #define TIMESLICE 100
 
 __percpu static list_head_t run_queue;
-__percpu static list_head_t wait_queue;
 __percpu static task_t *current;
-__percpu static task_t *idle_task;
+__percpu static task_t *idle_task; /* TODO: why is percpu idle task needed? */
+         static list_head_t wait_queue;
 
 /* only used by the BSP */
 static task_t *init_task;
@@ -60,11 +60,6 @@ static void *idle_task_func(void *arg)
  * it's very unlikely) */
 static void *init_task_func(void *arg)
 {
-    (void)arg;
-
-    kdebug("in init task!");
-
-#if 0
     /* Initialize SMP trampoline and wake up all APs one by one
      * The SMP trampoline is located at 0x55000 and the trampoline switches
      * the AP from real mode to protected mode and calls _start (in boot.S)
@@ -86,8 +81,8 @@ static void *init_task_func(void *arg)
     sched_initialized = true;
 
     kdebug("All CPUs initialized");
-#endif
 
+#if 1
     file_t *file = NULL;
     path_t *path = NULL;
 
@@ -104,11 +99,15 @@ static void *init_task_func(void *arg)
     kpanic("binfmt_load() returned, failed to start init task!");
 
     return NULL;
+#endif
 }
 
 /* --------------- /idle and init tasks --------------- */
 
-/* TODO: add comment */
+/* Select the next task from "queue"
+ *
+ * Return pointer to task on success
+ * Return NULL if the queue doesn't have any tasks */
 static task_t *__dequeue_task(list_head_t *queue)
 {
     if (!queue)
@@ -116,13 +115,11 @@ static task_t *__dequeue_task(list_head_t *queue)
 
     task_t *ret = NULL;
 
-    /* queue is empty if it's next elements points to itself */
+    /* queue is empty if its next element points to itself */
     if (queue->next != queue) {
         ret = container_of(queue->next, task_t, list);
-        queue->next = ret->list.next;
-
-        if (queue->next == queue)
-            list_init(queue);
+        list_remove(&ret->list);
+        list_init(&ret->list);
     }
 
     return ret;
@@ -161,7 +158,7 @@ static void __enqueue_task(list_head_t *queue, task_t *task)
 /* this function gets called when timer interrupt occurs. It saves
  * the state of currently running process and then calls sched_switch()
  * to perform the actual context switch */
-static void __noreturn __switch(struct isr_regs *cpu_state)
+static void __prepare_switch(struct isr_regs *cpu_state)
 {
     task_t *cur = get_thiscpu_var(current);
 
@@ -189,7 +186,7 @@ static void __noreturn __switch(struct isr_regs *cpu_state)
     sched_switch();
 }
 
-void __noreturn sched_switch(void)
+static task_t *__switch_common(void)
 {
     /* first remove next task from run_queue and then and current queue to run_queue.
      * There's a chance that system has only one task running (very unlikely in the future).
@@ -197,17 +194,20 @@ void __noreturn sched_switch(void)
      * which is obviously something we don't want */
     task_t *next = __dequeue_task(get_thiscpu_ptr(run_queue));
     task_t *cur  = get_thiscpu_var(current);
+    task_t *prev = cur;
 
-    /* current may be zombie if user called sys_exit. Sys_exit releases
-     * all memory that can be released, sets the state of its only thread to
-     * T_ZOMBIE and then calls sched_switch. These zombie tasks should be
-     * scheduled (obviously) */
-    if (cur != get_thiscpu_var(idle_task) &&
-        current->threads->state  != T_ZOMBIE)
-        __enqueue_task(get_thiscpu_ptr(run_queue), cur);
+    /* By default, current task's state is T_READY/T_RUNNING and in that case,
+     * it must be moved to run queue again.
+     *
+     * If on the other hand the tasks's state is T_BLOCKED, it means that currently
+     * running task has voluntarily yielded its timeslice and shoul
+     * TODO
+     * */
+    if (cur->threads->state != T_BLOCKED)
+        sched_task_set_state(cur, T_READY);
 
     if ((cur = next) == NULL) {
-        /* there was no task in the run_queue, select current task again */
+        /* there was no task in the run_queue, select current task again if possible */
         cur = __dequeue_task(get_thiscpu_ptr(run_queue));
 
         if (cur == NULL) {
@@ -218,15 +218,109 @@ void __noreturn sched_switch(void)
 
     /* update tss for this CPU, important for user mode tasks */
     tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
+    get_thiscpu_var(current) = cur;
     put_thiscpu_var(current);
 
-    context_switch(cur->cr3, cur->threads->exec_state);
-    kpanic("context_switch() returned!");
+    if (cur->threads->state != T_UNSTARTED)
+        cur->threads->state = T_READY;
+
+    return cur;
 }
 
-void sched_task_schedule(task_t *task)
+void sched_switch_init(void)
 {
-    __enqueue_task(get_thiscpu_ptr(run_queue), task);
+    task_t *cur = get_thiscpu_var(current);
+    cur->threads->state = T_RUNNING;
+
+    /* do a manual context switch because context_switch()/context_switch_user()
+     * require the address of previous task's kernel stack (which doesn't exist)
+     *
+     * This is not a long-term solution though because now the scheduler
+     * is only amd64 compatible
+     *
+     * TODO maybe split the context switching into two parts: the part where the current
+     * context is saved and the one where new context is initialized?
+     *
+     * asm_save_ctx();
+     * asm_switch_ctx(); */
+    asm volatile (
+        "movq %0, %%rax\n"
+        "movq %%rax, %%cr3\n"
+        "movq %1, %%rsp\n"
+        "popq %%rax \n"
+        "popq %%rcx \n"
+        "popq %%rdx \n"
+        "popq %%rbx \n"
+        "popq %%rbp \n"
+        "popq %%rsi \n"
+        "popq %%rdi \n"
+        "addq $16, %%rsp \n"
+        "iretq"
+        :                                 /* outputs */
+        : "g" (cur->cr3),                 /* inputs */
+          "g" (cur->threads->exec_state)
+        : "memory", "rax"                 /* clobbers */
+    );
+
+
+    kpanic("returned from init task!");
+
+    for (;;);
+}
+
+void sched_switch(void)
+{
+    task_t *prev = get_thiscpu_var(current);
+    task_t *cur  = __switch_common();
+
+    /* If prev is cur, it's most likely an idle task that
+     * was rescheduled. In this case we don't need to flush TLB
+     * or switch stacks */
+    if (prev == cur) {
+        cur->threads->state = T_RUNNING;
+        return;
+    }
+
+    mmu_switch_ctx(cur);
+
+    if (cur->threads->state == T_UNSTARTED) {
+        cur->threads->state = T_RUNNING;
+        context_switch_user(&prev->threads->kstack_bottom, cur->threads->exec_state);
+    } else {
+        cur->threads->state = T_RUNNING;
+        context_switch(&prev->threads->kstack_bottom, cur->threads->kstack_bottom);
+    }
+}
+
+void sched_task_set_state(task_t *task, int state)
+{
+    if (!task)
+        return;
+
+    if ((int)task->threads->state == state)
+        return;
+
+    /* moving active or waiting-to-become-active task to a wait queue */
+    if (state == T_BLOCKED)  {
+        if (task->threads->state == T_READY)
+            list_remove(&task->list);
+
+        task->threads->state = T_BLOCKED;
+        __enqueue_task(&wait_queue, task);
+    }
+
+    if (state == T_READY) {
+        if (task->threads->state == T_BLOCKED) {
+            task->threads->state = T_READY;
+            __enqueue_task(get_percpu_ptr(run_queue, 0), task);
+            return;
+        } else {
+            if (task->threads->state == T_RUNNING && task != get_thiscpu_var(idle_task)) {
+                task->threads->state = T_READY;
+                __enqueue_task(get_thiscpu_ptr(run_queue), task);
+            }
+        }
+    }
 }
 
 void sched_init_cpu(void)
@@ -234,7 +328,7 @@ void sched_init_cpu(void)
     thread_t *idle_thread = NULL;
 
     list_init(get_thiscpu_ptr(run_queue));
-    list_init(get_thiscpu_ptr(wait_queue));
+    list_init(&wait_queue);
 
     get_thiscpu_var(idle_task) = sched_task_create("idle_task");
     if ((get_thiscpu_var(idle_task)) == NULL)
@@ -264,7 +358,7 @@ void sched_init(void)
     sched_init_cpu();
 
     sched_task_add_thread(init_task, init_thread);
-    __enqueue_task(get_thiscpu_ptr(run_queue), init_task);
+    get_thiscpu_var(current) = init_task;
 
     kdebug("sched initialized");
 }
@@ -272,9 +366,9 @@ void sched_init(void)
 void sched_start(void)
 {
     disable_irq();
-    sched_switch();
+    sched_switch_init();
 
-    kpanic("sched_switch() returned!");
+    for (;;);
 }
 
 void __noreturn sched_enter_userland(void *eip, void *esp)
@@ -295,12 +389,32 @@ void __noreturn sched_enter_userland(void *eip, void *esp)
 
     cur->threads->exec_state->cs = SEG_USER_CODE;
     cur->threads->exec_state->ss = SEG_USER_DATA;
+    cur->threads->state          = T_RUNNING;
 
     /* update tss for this CPU, important for user mode tasks */
     tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
     put_thiscpu_var(cur);
 
-    context_switch(cur->cr3, cur->threads->exec_state);
+    asm volatile (
+        "movq %0, %%rax\n"
+        "movq %%rax, %%cr3\n"
+        "movq %1, %%rsp\n"
+        "popq %%rax \n"
+        "popq %%rcx \n"
+        "popq %%rdx \n"
+        "popq %%rbx \n"
+        "popq %%rbp \n"
+        "popq %%rsi \n"
+        "popq %%rdi \n"
+        "addq $16, %%rsp \n"
+        "iretq"
+        :                                 /* outputs */
+        : "g" (cur->cr3),                 /* inputs */
+          "g" (cur->threads->exec_state)
+        : "memory", "rax"                 /* clobbers */
+    );
+
+    kpanic("returned from init task!");
 }
 
 task_t *sched_get_current(void)
@@ -333,5 +447,5 @@ void sched_tick(isr_regs_t *cpu)
     /* If currently running process has used its timeslice, 
      * TODO */
     if (t->threads->flags & TIF_NEED_RESCHED)
-        __switch(cpu);
+        __prepare_switch(cpu);
 }
