@@ -1,15 +1,59 @@
 .section .text
 .global context_switch
+.global context_switch_user
 
-# @brief:  switch page directory and update register contents
-# @param1: physical address of thread's page directory
-# @param2: new stack containing exec state of the thread
+# switch kernel stacks, this is the new way of context switching
+#
+# instead of just jumping to new task from sched_switch(), switch
+# the kernel stacks of prev and cur and rewind curren's stack until
+# we're back where we came from [probably __tmr_handler()]
+#
+# This kind of context switching allows micael to call schedule within
+# kernel and is necessary to support f.ex blocking I/O
+# (or rather it gives a clean of implementing wait queues and voluntary sleep)
 context_switch:
-    cli
+    # callee-saved store (sysv abi)
+    pushq %r15
+    pushq %r14
+    pushq %r13
+    pushq %r12
+    pushq %rsi
+    pushq %rdi
+    pushq %rbx
+    pushq %rbp
 
-    # address of new page dir and stack
-    mov %rdi, %cr3
-    mov %rsi, %rsp
+    # switch kernel stacks
+    movq %rsp, (%rdi)
+    movq %rsi, %rsp
+
+    # callee-saved restore (sysv abi)
+    popq %rbp
+    popq %rbx
+    popq %rdi
+    popq %rsi
+    popq %r12
+    popq %r13
+    popq %r14
+    popq %r15
+
+    ret
+
+# Tasks must be started a little differently, we need to use iretq
+# to load the correct segment registers
+context_switch_user:
+    # callee-saved store (sysv abi)
+    pushq %r15
+    pushq %r14
+    pushq %r13
+    pushq %r12
+    pushq %rsi
+    pushq %rdi
+    pushq %rbx
+    pushq %rbp
+
+    # switch kernel stacks
+    movq %rsp, (%rdi)
+    movq %rsi, %rsp
 
     # general-purpose registers
     popq %rax
@@ -20,7 +64,6 @@ context_switch:
     popq %rsi
     popq %rdi
 
-    # discard irq number and error code
     addq $16, %rsp
 
     iretq

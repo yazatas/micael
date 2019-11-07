@@ -83,7 +83,8 @@ int32_t sys_fork(isr_regs_t *cpu)
     if (!t)
         return -1;
 
-    sched_task_schedule(t);
+    /* set the task's state T_READY and schedule it */
+    sched_task_set_state(t, T_READY);
 
     /* return pid to child, 0 to parent */
     t->threads->exec_state->eax = t->pid;

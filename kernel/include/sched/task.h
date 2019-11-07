@@ -17,10 +17,11 @@ typedef enum {
 } THREAD_FLAGS;
 
 typedef enum {
-    T_READY   = 0 << 0,
-    T_RUNNING = 1 << 0,
-    T_BLOCKED = 1 << 1,
-    T_ZOMBIE  = 1 << 2,
+    T_READY     = 0 << 0,
+    T_RUNNING   = 1 << 0,
+    T_BLOCKED   = 1 << 1,
+    T_ZOMBIE    = 1 << 2,
+    T_UNSTARTED = 1 << 3,
 } thread_state_t;
 
 typedef struct exec_state {

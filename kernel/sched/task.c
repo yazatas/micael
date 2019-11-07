@@ -35,7 +35,7 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
 
     thread_t *t = mmu_cache_alloc_entry(thread_cache, MM_NO_FLAG);
 
-    t->state         = T_READY;
+    t->state         = T_UNSTARTED;
     t->kstack_top    = (void *)mmu_p_to_v(mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL));
     t->kstack_bottom = NULL;
     t->kstack_bottom = (uint8_t *)t->kstack_top + KSTACK_SIZE;
@@ -162,7 +162,7 @@ task_t *sched_task_fork(task_t *parent)
     for (size_t i = 0; i < parent->nthreads; ++i) {
         child_t = mmu_cache_alloc_entry(thread_cache, MM_NO_FLAG);
 
-        child_t->state         = parent_t->state;
+        child_t->state         = T_UNSTARTED;
         child_t->kstack_top    = (void *)mmu_p_to_v(mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL));
         child_t->kstack_bottom = (uint8_t *)child_t->kstack_top + KSTACK_SIZE;
         child_t->exec_state    =

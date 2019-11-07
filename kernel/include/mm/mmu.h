@@ -4,6 +4,8 @@
 #include <mm/types.h>
 #include <sys/types.h>
 
+typedef struct task task_t;
+
 /* Initialize the Memory Management Unit:
  *  - native MMU
  *  - boot memory allocator
@@ -42,6 +44,8 @@ void *mmu_build_dir(void);
 
 /* TODO: should this take something as parameter */
 void *mmu_duplicate_dir(void);
+
+void mmu_switch_ctx(task_t *task);
 
 void mmu_walk_addr(void *addr);
 

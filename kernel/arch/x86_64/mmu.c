@@ -4,6 +4,7 @@
 #include <kernel/util.h>
 #include <mm/mmu.h>
 #include <mm/page.h>
+#include <sched/task.h>
 #include <sys/types.h>
 
 static uint64_t __pml4[512]   __attribute__((aligned(PAGE_SIZE)));
@@ -263,5 +264,13 @@ void *mmu_native_duplicate_dir(void)
     return NULL;
 #endif
 
-    return NULL;
+    return mmu_native_build_dir();
+}
+
+void mmu_native_switch_ctx(task_t *task)
+{
+    if (!task)
+        return;
+
+    native_set_cr3(task->cr3);
 }

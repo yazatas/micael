@@ -114,3 +114,8 @@ void mmu_walk_addr(void *addr)
 {
     return mmu_native_walk_addr(addr);
 }
+
+void mmu_switch_ctx(task_t *task)
+{
+    return mmu_native_switch_ctx(task);
+}
