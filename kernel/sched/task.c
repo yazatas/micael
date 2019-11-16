@@ -1,11 +1,12 @@
 #include <kernel/gdt.h>
 #include <kernel/kpanic.h>
+#include <kernel/util.h>
 #include <mm/heap.h>
 #include <mm/mmu.h>
 #include <mm/page.h>
 #include <mm/slab.h>
 #include <sched/task.h>
-#include <kernel/util.h>
+#include <sync/wait.h>
 #include <errno.h>
 
 static mm_cache_t *task_cache = NULL;
@@ -103,6 +104,8 @@ task_t *sched_task_create(const char *name)
     t->dir = mmu_build_dir();
     t->cr3 = (unsigned long)mmu_v_to_p(t->dir);
 
+    wq_init(&t->wq, t);
+
     /* initialize file context of task (stdio) */
     path_t *path = NULL;
     file_t *file = NULL;
@@ -154,6 +157,8 @@ task_t *sched_task_fork(task_t *parent)
     child->pid      = sched_get_pid();
     child->name     = "forked_task";
     child->nthreads = 0;
+
+    wq_init(&child->wq, child);
 
     /* copy all data form parent threads but allocate new stack for each thread */
     thread_t *child_t  = NULL;
