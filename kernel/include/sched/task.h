@@ -5,6 +5,7 @@
 #include <lib/list.h>
 #include <mm/mmu.h>
 #include <kernel/common.h>
+#include <sync/wait.h>
 
 #define MAX_THREADS 16
 #define KSTACK_SIZE 0x400 /* 1024 bytes */
@@ -78,6 +79,8 @@ typedef struct task {
 
     list_head_t list;
     list_head_t children;
+
+    wait_queue_t wq;   /* wait queue object used for blocking the task execution */
 
     void *dir;         /* virtual  address of the page directory  */
     unsigned long cr3; /* physical address of the page directory */

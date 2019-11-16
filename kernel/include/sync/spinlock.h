@@ -1,6 +1,8 @@
 #ifndef __SPINLOCK_H__
 #define __SPINLOCK_H__
 
+#include <kernel/cpu.h>
+
 typedef unsigned char spinlock_t;
 
 static inline void spin_acquire(spinlock_t *s)
