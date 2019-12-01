@@ -1,7 +1,16 @@
+#include <drivers/ioapic.h>
 #include <drivers/lapic.h>
 #include <drivers/ps2.h>
 #include <drivers/tty.h>
+#include <fs/fs.h>
+#include <fs/char.h>
+#include <fs/pipe.h>
+#include <fs/devfs.h>
 #include <kernel/io.h>
+#include <kernel/isr.h>
+#include <mm/heap.h>
+#include <sync/wait.h>
+#include <errno.h>
 #include <stdbool.h>
 
 enum {
@@ -55,11 +64,12 @@ unsigned char codes[256] = {
 
 };
 
-static int char_read = 256;
-static volatile int __read = 1;
+static pipe_t *ps2_pipe = NULL;
 
-static void ps2_read_char(void)
+static void __kbd_handler(isr_regs_t *cpu)
 {
+    (void)cpu;
+
     static bool shift_down = false;
 
     uint8_t sc = inb(0x60);
@@ -73,25 +83,94 @@ static void ps2_read_char(void)
         if (sc == R_SHIFT || sc == L_SHIFT) {
             shift_down = true;
         } else {
-            char_read = codes[shift_down ? sc + 130 : sc];
-            __read = 0;
+            pipe_write(ps2_pipe, &codes[shift_down ? sc + 130 : sc], 1);
         }
     }
-}
 
-unsigned char ps2_read_next(void)
-{
-    while (__read == 1)
-        ;
-
-    unsigned char ret = (unsigned char)char_read;
-    __read = 1;
-
-    return ret;
-}
-
-void ps2_isr_handler(isr_regs_t *cpu)
-{
     lapic_ack_interrupt();
-    ps2_read_char();
+}
+
+static ssize_t __read(file_t *file, off_t offset, size_t size, void *buf)
+{
+    (void)offset;
+
+    if (!file || !buf || size == 0)
+        return -EINVAL;
+
+    return pipe_read(file->f_private, buf, size);
+}
+
+static file_t *__open(dentry_t *dntr, int mode)
+{
+    if (mode != O_RDONLY) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    file_t *file = file_generic_alloc();
+
+    if (!file)
+        return NULL;
+
+    file->f_ops     = dntr->d_inode->i_fops;
+    file->f_mode    = mode;
+    file->f_private = ps2_pipe;
+
+    dntr->d_inode->i_count++;
+
+    return file;
+}
+
+static int __close(file_t *file)
+{
+    return file_generic_dealloc(file);
+}
+
+int ps2_init(void)
+{
+    file_ops_t *ops = NULL;
+    cdev_t *dev     = NULL;
+    int ret         = 0;
+
+    if ((ps2_pipe = pipe_create(64)) == NULL)
+        return -errno;
+
+    if ((ops = kmalloc(sizeof(file_ops_t))) == NULL)
+        goto error;
+
+    ops->read  = __read;
+    ops->open  = __open;
+    ops->close = __close;
+    ops->write = NULL;
+    ops->seek  = NULL;
+
+    if ((dev = cdev_alloc("kbd", ops, 0)) == NULL)
+        goto error_ops;
+
+    if ((ret = devfs_register_cdev(dev, "kbd")) < 0)
+        goto error_cdev;
+
+    /* open the pipe for writing, all ttys and other
+     * devices using /dev/kbd must open it with mode O_WRONLY */
+    if (pipe_open(ps2_pipe, O_WRONLY) < 0)
+        goto error_cdev_unregister;
+
+    ioapic_enable_irq(0, VECNUM_KEYBOARD);
+    isr_install_handler(VECNUM_KEYBOARD, __kbd_handler);
+
+    return 0;
+
+error_cdev_unregister:
+    (void)devfs_unregister_cdev(dev);
+
+error_cdev:
+    (void)cdev_dealloc(dev);
+
+error_ops:
+    kfree(ops);
+
+error:
+    kfree(ps2_pipe);
+
+    return -errno;
 }
