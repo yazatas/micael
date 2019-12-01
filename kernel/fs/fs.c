@@ -4,6 +4,7 @@
 #include <fs/devfs.h>
 #include <fs/fs.h>
 #include <fs/initramfs.h>
+#include <fs/pipe.h>
 #include <lib/hashmap.h>
 #include <lib/list.h>
 #include <kernel/kassert.h>
@@ -118,6 +119,7 @@ void vfs_init(void)
     dentry_init();
     inode_init();
     file_init();
+    pipe_init();
 
     binfmt_init();
     binfmt_add_loader(binfmt_elf_loader);
