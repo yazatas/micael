@@ -4,6 +4,8 @@
 
 #include <stdint.h>
 
+typedef struct task task_t;
+
 #define MAX_CPU           64
 #define FS_BASE   0xC0000100
 #define GS_BASE   0xC0000101
@@ -52,6 +54,7 @@ static inline void set_msr(uint32_t msr, uint64_t reg)
 
 void arch_dump_registers(void);
 void arch_context_load(unsigned long cr3, void *exec_state);
+void arch_context_prepare(task_t *task, void *ip, void *sp);
 
 #endif /* __x86_64__ */
 #endif /* __X86_64_CPU_H__ */

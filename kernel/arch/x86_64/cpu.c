@@ -1,5 +1,7 @@
 #include <kernel/cpu.h>
+#include <kernel/gdt.h>
 #include <kernel/kprint.h>
+#include <sched/task.h>
 
 #define REG(reg) reg, reg
 
@@ -25,4 +27,16 @@ void arch_dump_registers(void)
            "\tcr3: 0x%09x %10u\n\n\n", REG(eax), REG(ebx), REG(ecx),
            REG(edx), REG(edi),    REG(cr2), REG(cr3));
 
+}
+
+void arch_context_prepare(task_t *task, void *ip, void *sp)
+{
+    task->threads->bootstrap.eip    = (unsigned long)ip;
+    task->threads->bootstrap.ebp    = (unsigned long)sp;
+    task->threads->bootstrap.esp    = (unsigned long)sp;
+    task->threads->bootstrap.eflags = (1 << 9); /* enable interrupts */
+
+    task->threads->bootstrap.cs     = SEG_USER_CODE;
+    task->threads->bootstrap.ss     = SEG_USER_DATA;
+    task->threads->state            = T_RUNNING;
 }
