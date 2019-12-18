@@ -232,40 +232,11 @@ void sched_switch_init(void)
     task_t *cur = get_thiscpu_var(current);
     cur->threads->state = T_RUNNING;
 
-    /* do a manual context switch because context_switch()/context_switch_user()
-     * require the address of previous task's kernel stack (which doesn't exist)
-     *
-     * This is not a long-term solution though because now the scheduler
-     * is only amd64 compatible
-     *
-     * TODO maybe split the context switching into two parts: the part where the current
-     * context is saved and the one where new context is initialized?
-     *
-     * asm_save_ctx();
-     * asm_switch_ctx(); */
-    asm volatile (
-        "movq %0, %%rax\n"
-        "movq %%rax, %%cr3\n"
-        "movq %1, %%rsp\n"
-        "popq %%rax \n"
-        "popq %%rcx \n"
-        "popq %%rdx \n"
-        "popq %%rbx \n"
-        "popq %%rbp \n"
-        "popq %%rsi \n"
-        "popq %%rdi \n"
-        "addq $16, %%rsp \n"
-        "iretq"
-        :                                 /* outputs */
-        : "g" (cur->cr3),                 /* inputs */
-          "g" (cur->threads->exec_state)
-        : "memory", "rax"                 /* clobbers */
-    );
+    /* arch_context_load() loads a new context from cr3/exec_state discarding
+     * the current context entirely. Used only for task bootstrapping */
+    arch_context_load(cur->cr3, cur->threads->exec_state);
 
-
-    kpanic("returned from init task!");
-
-    for (;;);
+    kpanic("arch_context_load() returned!");
 }
 
 void sched_switch(void)
@@ -394,27 +365,12 @@ void __noreturn sched_enter_userland(void *eip, void *esp)
     /* update tss for this CPU, important for user mode tasks */
     tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
     put_thiscpu_var(cur);
+    
+    /* arch_context_load() loads a new context from cr3/exec_state discarding
+     * the current context entirely. Used only for task bootstrapping */
+    arch_context_load(cur->cr3, &cur->threads->bootstrap);
 
-    asm volatile (
-        "movq %0, %%rax\n"
-        "movq %%rax, %%cr3\n"
-        "movq %1, %%rsp\n"
-        "popq %%rax \n"
-        "popq %%rcx \n"
-        "popq %%rdx \n"
-        "popq %%rbx \n"
-        "popq %%rbp \n"
-        "popq %%rsi \n"
-        "popq %%rdi \n"
-        "addq $16, %%rsp \n"
-        "iretq"
-        :                                 /* outputs */
-        : "g" (cur->cr3),                 /* inputs */
-          "g" (cur->threads->exec_state)
-        : "memory", "rax"                 /* clobbers */
-    );
-
-    kpanic("returned from init task!");
+    kpanic("arch_context_load() returned!");
 }
 
 task_t *sched_get_current(void)

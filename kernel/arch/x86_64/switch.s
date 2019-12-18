@@ -1,6 +1,7 @@
 .section .text
 .global context_switch
 .global context_switch_user
+.global arch_context_load
 
 # switch kernel stacks, this is the new way of context switching
 #
@@ -66,4 +67,18 @@ context_switch_user:
 
     addq $16, %rsp
 
+    iretq
+
+arch_context_load:
+    movq %rdi, %rax
+    movq %rax, %cr3
+    movq %rsi, %rsp
+    popq %rax
+    popq %rcx
+    popq %rdx
+    popq %rbx
+    popq %rbp
+    popq %rsi
+    popq %rdi
+    addq $16, %rsp
     iretq
