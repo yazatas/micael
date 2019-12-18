@@ -342,25 +342,12 @@ void sched_start(void)
     for (;;);
 }
 
-void __noreturn sched_enter_userland(void *eip, void *esp)
+void sched_enter_userland(void *eip, void *esp)
 {
     task_t *cur = get_thiscpu_var(current);
 
-    cur->threads->exec_state->eip     = (unsigned long)eip;
-    cur->threads->exec_state->ebp     = (unsigned long)esp;
-    cur->threads->exec_state->esp     = (unsigned long)esp;
-    cur->threads->exec_state->eflags |= (1 << 9); /* enable interrupts */
-
-#ifdef __i386__
-    cur->threads->exec_state->gs = SEG_USER_DATA;
-    cur->threads->exec_state->fs = SEG_USER_DATA;
-    cur->threads->exec_state->es = SEG_USER_DATA;
-    cur->threads->exec_state->ds = SEG_USER_DATA;
-#endif
-
-    cur->threads->exec_state->cs = SEG_USER_CODE;
-    cur->threads->exec_state->ss = SEG_USER_DATA;
-    cur->threads->state          = T_RUNNING;
+    /* prepare the context for this architecture */
+    arch_context_prepare(cur, eip, esp);
 
     /* update tss for this CPU, important for user mode tasks */
     tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
