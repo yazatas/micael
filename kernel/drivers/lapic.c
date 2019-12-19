@@ -9,9 +9,8 @@
 #include <kernel/tick.h>
 #include <mm/mmu.h>
 #include <mm/types.h>
+#include <sched/sched.h>
 #include <errno.h>
-
-#define MAX_CPU  64
 
 /* Local APIC general defines */
 #define IA32_APIC_BASE          0x0000001b  /* MSR index */
@@ -130,7 +129,7 @@ static void __configure_timer(void)
 static void __svr_handler(isr_regs_t *cpu)
 {
     (void)cpu;
-    write_32(lapic_base + LAPIC_REG_EOI, 0);
+    lapic_ack_interrupt();
 
     /* TODO: do something here? */
 }
@@ -139,8 +138,14 @@ static void __tmr_handler(isr_regs_t *cpu)
 {
     (void)cpu;
 
-    write_32(lapic_base + LAPIC_REG_EOI, 0);
+    lapic_ack_interrupt();
     tick_inc();
+
+    /* Update the running time of currently running process.
+     *
+     * If this thread has exhausted its time slice or if a task
+     * with higher priority is waiting, the task is preempted. */
+    sched_tick(cpu);
 }
 
 void lapic_initialize(void)
@@ -228,4 +233,9 @@ void lapic_send_sipi(unsigned cpu, unsigned vec)
     uint32_t low  = (vec & 0xff) | LAPIC_DM_STARTUP | LAPIC_TM_EDGE | LAPIC_LVL_ASSERT;
 
     lapic_send_ipi(high, low);
+}
+
+void lapic_ack_interrupt(void)
+{
+    write_32(lapic_base + LAPIC_REG_EOI, 0);
 }

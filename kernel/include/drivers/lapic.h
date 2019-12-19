@@ -13,6 +13,9 @@ void lapic_send_sipi(unsigned cpu, unsigned vec);
 void lapic_send_ipi(uint32_t high, uint32_t low);
 void lapic_send_init(unsigned cpu);
 
+/* Acknowledge the pending interrupt */
+void lapic_ack_interrupt(void);
+
 /* Return the number of detected CPUs */
 unsigned lapic_get_cpu_count(void);
 

@@ -2,7 +2,9 @@
 #define __GDT_H__
 
 #include <sys/types.h>
+#include <kernel/asm.h>
 #include <kernel/common.h>
+#include <kernel/compiler.h>
 
 #define DPL_KERNEL 0x00
 #define DPL_USER   0x03
@@ -31,10 +33,10 @@ struct gdt_entry_t {
     uint8_t  access;
     uint8_t  granularity;
     uint8_t  base_high;
-} __attribute__((packed));
+} __packed;
 
 struct tss_ptr_t {
-#ifndef __x86_64__
+#ifdef __x86_64__
     uint32_t rsrvd;
     uint32_t rsp0_low, rsp0_high;
 
@@ -63,14 +65,10 @@ struct tss_ptr_t {
     uint32_t eax,  ecx, edx,  ebx, esp, ebp, esi, edi, trap;
     uint32_t es,   cs,  ss,   ds,  fs,  gs,  ldt, iomap_base;
 #endif
-} __attribute__((packed));
+} __packed;
 
-void tss_flush();
-void gdt_flush();
 void gdt_init(void);
-
-// defined in arch/*/gdt.c
-extern struct gdt_ptr_t gdt_ptr;
-extern struct tss_ptr_t tss_ptr;
+void tss_init(void);
+void tss_update_rsp(unsigned long rsp);
 
 #endif /* end of include guard: __GDT_H__ */

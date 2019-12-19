@@ -4,6 +4,8 @@ ENTRY(_start)
 PHDRS {
 	boot       PT_LOAD;
 	trampoline PT_LOAD;
+	percpu     PT_LOAD;
+	ramfs      PT_LOAD;
 	kernel     PT_LOAD;
 }
 
@@ -24,9 +26,10 @@ SECTIONS
 		*boot.o(COMMON)
 	} :boot
 
-	_boot_end = ALIGN(16) + V_START - P_START;
+	_boot_end = ALIGN(4K) + V_START - P_START;
 
-	.trampoline 0x55000 : AT(_boot_end - V_START + P_START) {
+	.trampoline 0x55000 : AT(_boot_end - V_START + P_START)
+	{
 		_trampoline_start = LOADADDR(.trampoline) + V_START - P_START;
 		*(.trampoline)
 		_trampoline_end = _trampoline_start + (. - 0x55000);
@@ -35,27 +38,41 @@ SECTIONS
 
 	. = _boot_end + SIZEOF(.trampoline);
 
+	.percpu ALIGN(64) : AT(ADDR(.percpu) - V_START + P_START)
+	{
+		_percpu_start = LOADADDR(.percpu) + V_START - P_START;
+		*(.percpu)
+		_percpu_end = .;
+	}:percpu
+
+	.ramfs ALIGN(4K) : AT(ADDR(.ramfs) - V_START + P_START)
+	{
+		_ramfs_start =  LOADADDR(.ramfs) + V_START - P_START;
+		*(.ramfs)
+		_ramfs_end = .;
+	}:ramfs
+
 	.text ALIGN(4K) : AT(ADDR(.text) - V_START + P_START)
 	{
 		*(.text)
-	}:kernel =0x31
+	}:kernel
 
 	.rodata ALIGN(4K) : AT (ADDR(.rodata) - V_START + P_START)
 	{
 		*(.rodata)
 		*(.rodata.*)
-	}:kernel =0x32
+	}:kernel
 
 	.data ALIGN(4K) : AT (ADDR(.data) - V_START + P_START)
 	{
 		*(.data)
-	}:kernel =0x33
+	}:kernel
 
 	.bss ALIGN(4K) : AT (ADDR(.bss) - V_START + P_START)
 	{
 		*(.bss)
 		*(COMMON)
-	}:kernel =0x34
+	}:kernel
 
 	_kernel_physical_end = LOADADDR(.bss) + SIZEOF(.bss);
 }

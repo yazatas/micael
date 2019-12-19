@@ -4,8 +4,10 @@
 #include <fs/devfs.h>
 #include <fs/fs.h>
 #include <fs/initramfs.h>
+#include <fs/pipe.h>
 #include <lib/hashmap.h>
 #include <lib/list.h>
+#include <kernel/kassert.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
@@ -95,7 +97,7 @@ static int vfs_mount_pseudo(char *target, char *type, dentry_t *mountpoint)
 
     mnt->mnt_sb      = fs->get_sb(fs, NULL, 0, NULL);
     mnt->mnt_type    = type;
-    mnt->mnt_devname = NULL;
+    mnt->mnt_devname = kstrdup(type);
     mnt->mnt_mount   = mountpoint;
     mnt->mnt_root    = mnt->mnt_sb->s_root;
 
@@ -117,6 +119,7 @@ void vfs_init(void)
     dentry_init();
     inode_init();
     file_init();
+    pipe_init();
 
     binfmt_init();
     binfmt_add_loader(binfmt_elf_loader);
@@ -426,7 +429,7 @@ end:
 path_t *vfs_path_lookup(char *path, int flags)
 {
     path_t *retpath   = kmalloc(sizeof(path_t));
-    retpath->p_status = LOOKUP_STAT_SUCCESS;
+    retpath->p_status = LOOKUP_STAT_ENOENT;
     retpath->p_flags  = flags;
 
     if (path == NULL || kstrlen(path) == 0) {
@@ -445,7 +448,7 @@ path_t *vfs_path_lookup(char *path, int flags)
 
     if (_path[0] == '/') {
         start = vfs_find_bootstrap(&_path);
-        
+
         if (_path == NULL) {
             if (flags & LOOKUP_PARENT)
                 retpath->p_dentry = root_fs->mnt_root;
@@ -455,8 +458,8 @@ path_t *vfs_path_lookup(char *path, int flags)
             if ((flags & LOOKUP_CREATE) && (start != NULL))
                 retpath->p_status = LOOKUP_STAT_EEXISTS;
 
-            if (start == NULL)
-                retpath->p_status = LOOKUP_STAT_ENOENT;
+            if ((flags & LOOKUP_OPEN) && (start != NULL))
+                retpath->p_status = LOOKUP_STAT_SUCCESS;
 
             goto end;
         }
@@ -467,8 +470,9 @@ path_t *vfs_path_lookup(char *path, int flags)
          * check if the bootstrap dentry is NULL.
          * if it is means that the first element after first '/' wasn't a mountpoint
          * and we must default to root_fs */
-        if (start == NULL)
-            start = root_fs->mnt_root;
+        if (start == NULL && (start = root_fs->mnt_root) == NULL) {
+            kassert(start == NULL);
+        }
     } else {
         if ((current = sched_get_current()) == NULL) {
             kdebug("scheduler has not been started, but relative path was given!");
@@ -487,20 +491,36 @@ path_t *vfs_path_lookup(char *path, int flags)
 
     if (start == NULL) {
         kdebug("bootstrap dentry is NULL for %s!", _path_ptr);
+        retpath->p_status = LOOKUP_STAT_EINVAL;
         errno = EINVAL;
         goto end;
     }
 
     if ((retpath->p_dentry = vfs_walk_path(start, _path, flags)) == NULL) {
+
         /* intention was to open file but it doesn't exist -> path lookup "failed" */
         if (flags & LOOKUP_OPEN)
             retpath->p_status = LOOKUP_STAT_ENOENT;
+
+        if (flags & LOOKUP_CREATE) {
+            retpath->p_status = LOOKUP_STAT_SUCCESS;
+
+            if (flags & LOOKUP_PARENT)
+                retpath->p_dentry = start;
+            else
+                retpath->p_dentry = NULL;
+        }
+
         goto end;
     }
 
     /* intention was to create file but it already exists -> path lookup "failed" */
-    /* if (flags & LOOKUP_CREATE) */
-    /*     retpath->p_status = LOOKUP_STAT_EEXISTS; */
+    if (flags & LOOKUP_CREATE && !(flags & LOOKUP_PARENT))
+        retpath->p_status = LOOKUP_STAT_EEXISTS;
+
+    /* intention was to open file and it exists -> success */
+    if (flags & LOOKUP_OPEN)
+        retpath->p_status = LOOKUP_STAT_SUCCESS;
 
     retpath->p_dentry->d_count++;
 

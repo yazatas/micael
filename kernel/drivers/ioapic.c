@@ -7,6 +7,8 @@
 #include <kernel/pic.h>
 #include <mm/mmu.h>
 
+#define MAX_IOAPIC         20
+
 #define IOAPIC_IOREGSEL   0x00
 #define IOAPIC_IOWIN      0x10
 #define IOAPIC_IOAPICID   0x00
@@ -30,7 +32,7 @@ static struct {
         uint8_t *base;
         uint8_t *mapped;
         uint32_t intr_base;
-    } apics[20];
+    } apics[MAX_IOAPIC];
 
 } io_apic;
 
@@ -42,7 +44,7 @@ static uint32_t __read_reg(uint8_t *base, uint32_t reg)
     return read_32(base + IOAPIC_IOWIN);
 }
 
-static uint32_t __write_reg(uint8_t *base, uint32_t reg, uint32_t value)
+static void __write_reg(uint8_t *base, uint32_t reg, uint32_t value)
 {
     write_32(base + IOAPIC_IOREGSEL, reg);
     write_32(base + IOAPIC_IOWIN,    value);
@@ -62,7 +64,7 @@ void ioapic_initialize_all(void)
         mmu_map_page((unsigned long)ioapic_v, (unsigned long)ioapic_v, MM_PRESENT | MM_READWRITE);
 
         uint32_t id  = __read_reg(ioapic_v, IOAPIC_REG_ID);
-        uint32_t ver = __read_reg(ioapic_v, IOAPIC_REG_TABLE);
+        uint32_t ver = __read_reg(ioapic_v, IOAPIC_REG_VER);
 
         /* Disabling the interrupt happens in two writes:
          *  - first write  (offset 0) disables the irq line itself
@@ -78,7 +80,7 @@ void ioapic_initialize_all(void)
 
 void ioapic_register_dev(uint8_t ioapic_id, uint32_t ioapic_addr, uint32_t intr_base)
 {
-    kassert(ioapic_id < 20);
+    kassert(ioapic_id < MAX_IOAPIC);
 
     io_apic.apics[ioapic_id].id        = ioapic_id;
     io_apic.apics[ioapic_id].base      = (uint8_t *)(unsigned long)ioapic_addr;
@@ -89,10 +91,10 @@ void ioapic_register_dev(uint8_t ioapic_id, uint32_t ioapic_addr, uint32_t intr_
 
 void ioapic_enable_irq(unsigned cpu, unsigned irq)
 {
-    unsigned offset   = IOAPIC_REG_TABLE + 2 * irq;
+    unsigned offset   = IOAPIC_REG_TABLE + 2 * (irq - VECNUM_IRQ_START);
     uint8_t *ioapic_v = (uint8_t *)io_apic.apics[cpu].base;
     mmu_map_page((unsigned long)ioapic_v, (unsigned long)ioapic_v, MM_PRESENT | MM_READWRITE);
 
-    __write_reg(ioapic_v, offset + 0, IOAPIC_INT_DISABLED | (VECNUM_IRQ_START + irq));
-    __write_reg(ioapic_v, offset + 1, (cpu << 24) & 0xff000000);
+    __write_reg(ioapic_v, offset + 0, irq);
+    __write_reg(ioapic_v, offset + 1, cpu << 24);
 }

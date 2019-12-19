@@ -11,5 +11,6 @@ toolchain/programs/bin
 toolchain/mkinitrd
 toolchain/verify
 toolchain/initrd.bin
+toolchain/ramfs.bin
 .todo.list
 .todo

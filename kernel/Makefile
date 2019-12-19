@@ -1,4 +1,5 @@
 ROOTDIR?=$(shell pwd)/..
+
 include $(ROOTDIR)/Makefile.config
 include $(ARCHDIR)/make.config
 include $(DRIVERDIR)/make.config
@@ -13,24 +14,27 @@ DESTDIR=$(realpath $(shell pwd)/../sysroot)
 CFLAGS  := $(CFLAGS) --sysroot=$(DESTDIR) $(KERNEL_ARCH_CFLAGS)
 LDFLAGS := $(LDFLAGS) -nostdlib -lgcc $(KERNEL_ARCH_LDFLAGS)
 
-KERNEL_OBJS=\
-$(KERNEL_ARCH_OBJS) \
-$(KERNEL_DRIVER_OBJS) \
-$(KERNEL_SCHED_OBJS) \
-$(KERNEL_SYNC_OBJS) \
-$(KERNEL_MM_OBJS) \
-$(KERNEL_FS_OBJS) \
-$(KERNEL_LIB_OBJS) \
-kernel/kmain.o \
-kernel/isr.o \
-kernel/kprint.o \
-kernel/kpanic.o \
-kernel/util.o \
-kernel/acpi.o \
-kernel/tick.o
+OTHER_OBJS = \
+	$(ROOTDIR)/toolchain/ramfs.bin
 
-OBJS=$(KERNEL_OBJS)
-LINK_LIST=$(KERNEL_OBJS) $(LDFLAGS)
+KERNEL_OBJS= \
+	$(KERNEL_ARCH_OBJS) \
+	$(KERNEL_DRIVER_OBJS) \
+	$(KERNEL_SCHED_OBJS) \
+	$(KERNEL_SYNC_OBJS) \
+	$(KERNEL_MM_OBJS) \
+	$(KERNEL_FS_OBJS) \
+	$(KERNEL_LIB_OBJS) \
+	kernel/kmain.o \
+	kernel/isr.o \
+	kernel/kprint.o \
+	kernel/kpanic.o \
+	kernel/util.o \
+	kernel/acpi.o \
+	kernel/tick.o
+
+OBJS = $(KERNEL_OBJS) $(OTHER_OBJS)
+LINK_LIST = $(OBJS) $(LDFLAGS)
 
 .PHONY: all clean install copy-headers install-kernel
 .SUFFIXES: .o .c .S
@@ -60,6 +64,14 @@ endif
 
 .S.o:
 	$(CC) -MD -c $< -o $@ $(CFLAGS)
+
+$(ROOTDIR)/toolchain/ramfs.bin:
+	@x86_64-elf-objcopy \
+	 	--input binary \
+		--output elf64-x86-64 \
+		--binary-architecture=i386 \
+		--rename-section .data=.ramfs \
+		$(ROOTDIR)/toolchain/initrd.bin $(ROOTDIR)/toolchain/ramfs.bin
 
 clean:
 	rm -f micael.kernel kernel.map

@@ -6,6 +6,7 @@
 #define VECNUM_SPURIOUS   0xff
 #define VECNUM_IRQ_START  0x20
 #define VECNUM_TIMER      0x20
+#define VECNUM_KEYBOARD   0x21
 #define VECNUM_SYSCALL    0x80
 #define VECNUM_PAGE_FAULT 0x0e
 #define VECNUM_GPF        0x0d
