@@ -8,7 +8,7 @@
 #include <sync/wait.h>
 
 #define MAX_THREADS 16
-#define KSTACK_SIZE 0x400 /* 1024 bytes */
+#define KSTACK_SIZE 0x1000 /* 4096 bytes */
 
 typedef int pid_t;
 
