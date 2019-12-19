@@ -36,6 +36,7 @@ int wq_wakeup(wait_queue_head_t *head)
         wait_queue_t *wq = container_of(iter, wait_queue_t, list);
         task_t *task     = container_of(wq, task_t, wq);
         sched_task_set_state(task, T_READY);
+        list_remove(&wq->list);
     }
 
     spin_release(&head->lock);

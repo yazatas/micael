@@ -47,10 +47,6 @@ void init_bsp(void *arg)
     ioapic_initialize_all();
     lapic_initialize();
 
-    /* Enable PS/2 */
-    ioapic_enable_irq(0, VECNUM_KEYBOARD);
-    isr_install_handler(VECNUM_KEYBOARD, ps2_isr_handler);
-
     /* initialize the percpu areas for all processors */
     unsigned long kernel_end = (unsigned long)&_kernel_physical_end;
     unsigned long pcpu_start = ROUND_UP(kernel_end, PAGE_SIZE);
@@ -78,9 +74,9 @@ void init_bsp(void *arg)
     if (vfs_install_rootfs("initramfs", arg) < 0)
         kpanic("failed to install rootfs!");
 
-    /* initialize tty to /dev/tty1 */
-    if (tty_init() == NULL)
-        kpanic("failed to init tty1");
+    /* initialize /dev/kdb and /dev/tty1 */
+    if (ps2_init() != 0 || tty_init() == NULL )
+        kpanic("failed to init tty1 or keyboard");
 
     /* create init and idle tasks and start the scheduler */
     sched_init();

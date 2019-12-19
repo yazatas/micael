@@ -16,7 +16,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#define TIMESLICE 100
+#define TIMESLICE 50
 
 __percpu static list_head_t run_queue;
 __percpu static task_t *current;
@@ -38,7 +38,7 @@ static void *idle_task_func(void *arg)
 {
     (void)arg;
 
-    kdebug("Starting idle task for CPUID %u...", get_thiscpu_id());
+    /* kdebug("Starting idle task for CPUID %u...", get_thiscpu_id()); */
 
     ap_initialized++;
 
@@ -60,6 +60,7 @@ static void *idle_task_func(void *arg)
  * it's very unlikely) */
 static void *init_task_func(void *arg)
 {
+#if 0
     /* Initialize SMP trampoline and wake up all APs one by one
      * The SMP trampoline is located at 0x55000 and the trampoline switches
      * the AP from real mode to protected mode and calls _start (in boot.S)
@@ -78,11 +79,11 @@ static void *init_task_func(void *arg)
         while (READ_ONCE(ap_initialized) != i)
             asm volatile ("pause");
     }
+#endif
     sched_initialized = true;
 
     kdebug("All CPUs initialized");
 
-#if 1
     file_t *file = NULL;
     path_t *path = NULL;
 
@@ -99,7 +100,6 @@ static void *init_task_func(void *arg)
     kpanic("binfmt_load() returned, failed to start init task!");
 
     return NULL;
-#endif
 }
 
 /* --------------- /idle and init tasks --------------- */
@@ -118,8 +118,10 @@ static task_t *__dequeue_task(list_head_t *queue)
     /* queue is empty if its next element points to itself */
     if (queue->next != queue) {
         ret = container_of(queue->next, task_t, list);
-        list_remove(&ret->list);
-        list_init(&ret->list);
+        queue->next = ret->list.next;
+        
+        if (queue->next == queue)
+            list_init(queue);
     }
 
     return ret;
@@ -135,6 +137,8 @@ static void __enqueue_task(list_head_t *queue, task_t *task)
 {
     if (!queue || !task)
         return;
+
+    list_init(&task->list);
 
     if (queue->next == queue->prev) {
         if (queue->next != queue) {
@@ -192,17 +196,15 @@ static task_t *__switch_common(void)
      * There's a chance that system has only one task running (very unlikely in the future).
      * If we enqueded this task before dequeuing, the run_queue would fill up with the same task 
      * which is obviously something we don't want */
-    task_t *next = __dequeue_task(get_thiscpu_ptr(run_queue));
     task_t *cur  = get_thiscpu_var(current);
+    task_t *next = __dequeue_task(get_thiscpu_ptr(run_queue));
     task_t *prev = cur;
 
     /* By default, current task's state is T_READY/T_RUNNING and in that case,
      * it must be moved to run queue again.
      *
      * If on the other hand the tasks's state is T_BLOCKED, it means that currently
-     * running task has voluntarily yielded its timeslice and shoul
-     * TODO
-     * */
+     * running task has voluntarily yielded its timeslice and shoul */
     if (cur->threads->state != T_BLOCKED)
         sched_task_set_state(cur, T_READY);
 
@@ -212,12 +214,11 @@ static task_t *__switch_common(void)
 
         if (cur == NULL) {
             cur = get_thiscpu_var(idle_task);
-            put_thiscpu_var(idle_task);
         }
     }
 
-    /* update tss for this CPU, important for user mode tasks */
-    tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
+    /* Set TSS's RSP point to the end of kernel stack (discarding previous state) */
+    tss_update_rsp((unsigned long)cur->threads->kstack_top + KSTACK_SIZE);
     get_thiscpu_var(current) = cur;
     put_thiscpu_var(current);
 
@@ -272,7 +273,7 @@ void sched_task_set_state(task_t *task, int state)
         return;
 
     /* moving active or waiting-to-become-active task to a wait queue */
-    if (state == T_BLOCKED)  {
+    if (state == T_BLOCKED) {
         if (task->threads->state == T_READY)
             list_remove(&task->list);
 
@@ -283,8 +284,7 @@ void sched_task_set_state(task_t *task, int state)
     if (state == T_READY) {
         if (task->threads->state == T_BLOCKED) {
             task->threads->state = T_READY;
-            __enqueue_task(get_percpu_ptr(run_queue, 0), task);
-            return;
+            __enqueue_task(get_thiscpu_ptr(run_queue), task);
         } else {
             if (task->threads->state == T_RUNNING && task != get_thiscpu_var(idle_task)) {
                 task->threads->state = T_READY;
@@ -353,8 +353,6 @@ void sched_enter_userland(void *eip, void *esp)
     tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
     put_thiscpu_var(cur);
     
-    /* arch_context_load() loads a new context from cr3/exec_state discarding
-     * the current context entirely. Used only for task bootstrapping */
     arch_context_load(cur->cr3, &cur->threads->bootstrap);
 
     kpanic("arch_context_load() returned!");

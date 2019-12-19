@@ -25,6 +25,30 @@ typedef enum {
     T_UNSTARTED = 1 << 3,
 } thread_state_t;
 
+struct exec_state {
+#ifdef __x86_64__
+    uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
+    uint64_t isr_num, err_num;
+    uint64_t eip, cs, eflags, esp, ss;
+#else
+    /* pushed/popped manually */
+    uint16_t gs, fs, es, ds;
+
+    /* pusha */
+    uint32_t edi, esi, ebp, esp;
+    uint32_t ebx, edx, ecx, eax;
+
+    /* pushed manually */
+    uint32_t isr_num, err_num;
+
+    /* pushed by the cpu */
+    uint32_t eip, cs, eflags, esp, ss;
+#endif
+} __attribute__((packed));
+
+typedef struct exec_state exec_state_t;
+
+#if 0
 typedef struct exec_state {
 #ifdef __x86_64__
     uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
@@ -45,6 +69,7 @@ typedef struct exec_state {
     uint32_t eip, cs, eflags, esp, ss;
 #endif
 } exec_state_t;
+#endif
 
 typedef struct thread {
     thread_state_t state;
@@ -56,6 +81,8 @@ typedef struct thread {
 
     void *kstack_top;
     void *kstack_bottom;
+
+    exec_state_t bootstrap;
 
     exec_state_t *exec_state;
 } thread_t;
