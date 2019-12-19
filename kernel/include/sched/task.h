@@ -5,20 +5,32 @@
 #include <lib/list.h>
 #include <mm/mmu.h>
 #include <kernel/common.h>
+#include <sync/wait.h>
 
 #define MAX_THREADS 16
-#define KSTACK_SIZE 0x400 /* 1024 bytes */
+#define KSTACK_SIZE 0x1000 /* 4096 bytes */
 
 typedef int pid_t;
 
 typedef enum {
-    T_READY   = 0 << 0,
-    T_RUNNING = 1 << 0,
-    T_BLOCKED = 1 << 1,
-    T_ZOMBIE  = 1 << 2,
+    TIF_NO_FLAGS     = 0 << 0,
+    TIF_NEED_RESCHED = 1 << 0,
+} THREAD_FLAGS;
+
+typedef enum {
+    T_READY     = 0 << 0,
+    T_RUNNING   = 1 << 0,
+    T_BLOCKED   = 1 << 1,
+    T_ZOMBIE    = 1 << 2,
+    T_UNSTARTED = 1 << 3,
 } thread_state_t;
 
-typedef struct exec_state {
+struct exec_state {
+#ifdef __x86_64__
+    uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
+    uint64_t isr_num, err_num;
+    uint64_t eip, cs, eflags, esp, ss;
+#else
     /* pushed/popped manually */
     uint16_t gs, fs, es, ds;
 
@@ -30,15 +42,47 @@ typedef struct exec_state {
     uint32_t isr_num, err_num;
 
     /* pushed by the cpu */
-    uint32_t eip, cs, eflags, useresp, ss;
+    uint32_t eip, cs, eflags, esp, ss;
+#endif
+} __attribute__((packed));
+
+typedef struct exec_state exec_state_t;
+
+#if 0
+typedef struct exec_state {
+#ifdef __x86_64__
+    uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
+    uint64_t isr_num, err_num;
+    uint64_t eip, cs, eflags, esp, ss;
+#else
+    /* pushed/popped manually */
+    uint16_t gs, fs, es, ds;
+
+    /* pusha */
+    uint32_t edi, esi, ebp, esp;
+    uint32_t ebx, edx, ecx, eax;
+
+    /* pushed manually */
+    uint32_t isr_num, err_num;
+
+    /* pushed by the cpu */
+    uint32_t eip, cs, eflags, esp, ss;
+#endif
 } exec_state_t;
+#endif
 
 typedef struct thread {
     thread_state_t state;
     list_head_t list;
 
+    unsigned flags;
+    unsigned exec_runtime;
+    unsigned total_runtime;
+
     void *kstack_top;
     void *kstack_bottom;
+
+    exec_state_t bootstrap;
 
     exec_state_t *exec_state;
 } thread_t;
@@ -63,10 +107,10 @@ typedef struct task {
     list_head_t list;
     list_head_t children;
 
-    /* cr3_t *dir; */
-    /* pdir_t *dir; */
-    void *dir;
-    uint32_t cr3;
+    wait_queue_t wq;   /* wait queue object used for blocking the task execution */
+
+    void *dir;         /* virtual  address of the page directory  */
+    unsigned long cr3; /* physical address of the page directory */
 } task_t;
 
 int sched_task_add_thread(task_t *parent, thread_t *child);

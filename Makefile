@@ -9,21 +9,19 @@ copy-headers:
 	@mkdir -p $(SYSROOT)
 	$(MAKE) --directory=kernel copy-headers
 
-kernel:
-	$(MAKE) --directory=kernel install
-
 toolchain:
 	$(MAKE) --directory=toolchain all
 
+kernel: toolchain
+	$(MAKE) --directory=kernel install
+
 iso:
 	@mkdir -p isodir/boot/grub
-	@cp toolchain/initrd.bin isodir/boot
 	@cp sysroot/boot/micael.kernel isodir/boot/micael.kernel
-	@echo "set timeout=0"                   > isodir/boot/grub/grub.cfg
-	@echo "set default=0"                  >> isodir/boot/grub/grub.cfg
-	@echo "menuentry micael {"              >> isodir/boot/grub/grub.cfg
-	@echo "multiboot2 /boot/micael.kernel}" >> isodir/boot/grub/grub.cfg
-	#@echo "module /boot/initrd.bin }"     >> isodir/boot/grub/grub.cfg
+	@echo "set timeout=0"                    > isodir/boot/grub/grub.cfg
+	@echo "set default=0"                   >> isodir/boot/grub/grub.cfg
+	@echo "menuentry micael {"               >> isodir/boot/grub/grub.cfg
+	@echo "multiboot2 /boot/micael.kernel }" >> isodir/boot/grub/grub.cfg
 	@grub-mkrescue -o micael.iso isodir
 
 run:
@@ -36,4 +34,4 @@ debug:
 clean:
 	$(MAKE) --directory=kernel clean
 	$(MAKE) --directory=toolchain clean
-	@rm -rf sysroot isodir micael.iso kernel.sym
+	@rm -rf sysroot isodir micael.iso kernel.sym toolchain/ramfs.bin

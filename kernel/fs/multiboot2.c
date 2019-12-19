@@ -39,4 +39,6 @@ size_t multiboot2_map_memory(unsigned long *address, void (*callback)(unsigned, 
             break;
         }
     }
+
+    return 0;
 }

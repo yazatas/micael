@@ -64,6 +64,20 @@ static file_t *__tty_open(dentry_t *dntr, int mode)
 
     dntr->d_inode->i_count++;
 
+    path_t *path = NULL;
+
+    if ((path = vfs_path_lookup("/dev/kbd", LOOKUP_OPEN))->p_status != LOOKUP_STAT_SUCCESS) {
+        kdebug("/dev/kbd not found!");
+        errno = ENOENT;
+        return NULL;
+    }
+
+    if ((file->f_private = file_open(path->p_dentry, O_RDONLY)) == NULL) {
+        kdebug("Failed to open /dev/kbd");
+        vfs_path_release(path);
+        return NULL;
+    }
+
     return file;
 }
 
@@ -91,24 +105,28 @@ static ssize_t __tty_write(file_t *file, off_t offset, size_t size, void *buf)
 
 static ssize_t __tty_read(file_t *file, off_t offset, size_t size, void *buf)
 {
-    if (!file || !buf)
+    (void)offset;
+
+    if (!file || !file->f_private || !buf)
         return -EINVAL;
 
     if (file->f_mode & O_WRONLY)
         return -ENOTSUP;
 
     size_t i;
+    char c;
 
     for (i = 0; i < size; ++i) {
-        char c = ps2_read_next();
+        file_read(file->f_private, 0, 1, &c);
 
-        if (c == '\n')
+        if (c == '\n') {
+            kprint("\n");
             break;
+        }
 
         ((char *)buf)[i] = c;
         kprint("%c", ((char *)buf)[i]);
     }
-    kprint("\n");
 
     return (ssize_t)i;
 }

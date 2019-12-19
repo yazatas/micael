@@ -4,9 +4,11 @@
 #include <kernel/acpi.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
+#include <kernel/isr.h>
 #include <kernel/pic.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
+#include <kernel/percpu.h>
 #include <kernel/tick.h>
 #include <kernel/util.h>
 #include <mm/heap.h>
@@ -21,87 +23,84 @@
 #include <errno.h>
 #include <stdint.h>
 
-extern uint8_t _boot_end;
-extern uint8_t _boot_start;
-extern uint8_t _trampoline_start;
-extern uint8_t _trampoline_end;
-extern uint8_t _ll_end;
-extern uint8_t _trampoline_load;
+extern uint8_t _percpu_start, _percpu_end;
+extern uint8_t _kernel_physical_end;
 
 void init_bsp(void *arg)
 {
     /* initialize console for pre-mmu prints */
     vga_init();
 
-    /* initialize all low-level stuff (GDT, IDT, IRQ, etc.) */
+    /* initialize all low-level stuff (GDT, IDT, IRQ) */
     gdt_init(); idt_init(); irq_init();
-
-    /* initialize keyboard */
-    ps2_init();
 
     /* initialize archictecture-specific MMU, the boot memory allocator.
      * Use boot memory allocator to initialize PFA, SLAB and Heap 
      *
-     * VBE can be initialized after MMU */
+     * VBE can be initialized only after MMU */
     mmu_init(arg);
     vbe_init();
 
     /* parse ACPI tables and initialize the Local APIC of BSP and all I/O APICs */
     acpi_initialize();
     acpi_parse_madt();
+    ioapic_initialize_all();
     lapic_initialize();
 
-    /* Enable Local APIC timer so tick_wait() works */
-    enable_irq();
+    /* initialize the percpu areas for all processors */
+    unsigned long kernel_end = (unsigned long)&_kernel_physical_end;
+    unsigned long pcpu_start = ROUND_UP(kernel_end, PAGE_SIZE);
+    size_t pcpu_size         = (unsigned long)&_percpu_end - (unsigned long)&_percpu_start;
 
-    kdebug("starting smp initialization...");
-    /* Initialize SMP trampoline and wake up all APs one by one 
-     * The SMP trampoline is located at 0x55000 and the trampoline switches
-     * the AP from real mode to protected mode and calls _start (in boot.S)
-     *
-     * 0x55000 is below 0x100000 so the memory is indetity mapped */
-    size_t trmp_size = (size_t)&_trampoline_end - (size_t)&_trampoline_start;
-
-    kmemcpy((uint8_t *)0x55000, &_trampoline_start, trmp_size);
-    kdebug("copy done");
-
-    for (int i = 1; i < 4; ++i) {
-        kdebug("send init");
-        lapic_send_init(i);
-        tick_wait(tick_ms_to_ticks(10));
-
-        kdebug("send sipi");
-        lapic_send_sipi(i, 0x55);
-        tick_wait(tick_ms_to_ticks(1));
-
-        kdebug("Waiting for CPU %u to register itself...", i);
-        for (;;);
+    for (size_t i = 0; i < lapic_get_cpu_count(); ++i) {
+        kmemcpy(
+            (uint8_t *)pcpu_start + i * pcpu_size,
+            (uint8_t *)&_percpu_start,
+            pcpu_size
+        );
     }
 
-    for (;;);
+    /* initialize global percpu state and GS base for BSP
+     * TSS can be initialized after percpu */
+    percpu_init(0);
+    tss_init();
 
-#if 0
+    /* enable Local APIC timer so tick_wait() works */
+    enable_irq();
+
     /* initialize inode and dentry caches, mount pseudo rootfs and devfs */
     vfs_init();
 
-    if (vfs_install_rootfs("initramfs", mbinfo) < 0)
+    if (vfs_install_rootfs("initramfs", arg) < 0)
         kpanic("failed to install rootfs!");
 
-    /* initialize tty to /dev/tty1 */
-    if (tty_init() == NULL)
-        kpanic("failed to init tty1");
+    /* initialize /dev/kdb and /dev/tty1 */
+    if (ps2_init() != 0 || tty_init() == NULL )
+        kpanic("failed to init tty1 or keyboard");
 
     /* create init and idle tasks and start the scheduler */
     sched_init();
     sched_start();
-#endif
 
     for (;;);
 }
 
 void init_ap(void *arg)
 {
-    asm volatile ("mov $0x1337, %r11");
+    (void)arg;
+
+    gdt_init();
+    idt_init();
+    lapic_initialize();
+    percpu_init(lapic_get_init_cpu_count() - 1);
+    tss_init();
+
+    /* Initialize the idle task for this CPU and start it.
+     *
+     * BSP is waiting for us to jump to idle task and when we do that,
+     * it will start the next CPU */
+    sched_init_cpu();
+    sched_start();
 
     for (;;);
 }

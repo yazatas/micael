@@ -13,6 +13,7 @@ int mmu_init(void *arg)
 #ifdef __i386__
     return mmu_native_init(arg);
 #endif
+
     /* initialize all components of the memory management unit
      * these functions don't return any status codes because it is assumed that
      * they succeed and if not, the condition is fatal enough to cause kernel panic */
@@ -97,4 +98,24 @@ unsigned long mmu_v_to_p(void *vaddr)
 void *mmu_p_to_v(unsigned long paddr)
 {
     return mmu_native_p_to_v(paddr);
+}
+
+void *mmu_build_dir(void)
+{
+    return mmu_native_build_dir();
+}
+
+void *mmu_duplicate_dir(void)
+{
+    return mmu_native_duplicate_dir();
+}
+
+void mmu_walk_addr(void *addr)
+{
+    return mmu_native_walk_addr(addr);
+}
+
+void mmu_switch_ctx(task_t *task)
+{
+    return mmu_native_switch_ctx(task);
 }

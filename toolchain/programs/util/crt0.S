@@ -1,10 +1,11 @@
+.code64
 .text
 .global _start
 
 _start:
-    mov %esp, %ebp
-    mov 0(%ebp), %edi
-    lea 4(%ebp), %esi
+    mov %rsp, %rbp
+    mov 0(%rbp), %rdi
+    lea 4(%rbp), %rsi
 
     call main
 

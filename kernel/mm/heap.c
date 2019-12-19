@@ -46,7 +46,7 @@ static meta_t *morecore(size_t size)
         /* mmu_map_page((void *)mmu_alloc_page(), HEAP_BREAK, MM_PRESENT | MM_READWRITE); */
         HEAP_BREAK = (unsigned long *)((uint8_t *)HEAP_BREAK + 0x1000);
     }
-    mmu_flush_TLB();
+    /* mmu_flush_TLB(); */
 
     /* place the new block at the beginning of block list */
     tmp->size = pgcount * 0x1000 - META_SIZE;
@@ -196,18 +196,20 @@ void kfree(void *ptr)
     /* TODO: call mmu_kfree_frame */
 }
 
-static int __heap_init(void *heap_start)
+static int __heap_init(void *heap_start, unsigned order)
 {
     if (heap_start == NULL)
         return -EINVAL;
 
+    size_t HEAP_SIZE = PAGE_SIZE * (1 << order);
+
     HEAP_START = heap_start;
     kernel_base = heap_start;
-    kernel_base->size = PAGE_SIZE;
+    kernel_base->size = HEAP_SIZE;
     kernel_base->next = NULL;
     kernel_base->prev = NULL;
     MARK_FREE(kernel_base);
-    HEAP_BREAK = (unsigned long *)((unsigned long)HEAP_START + 0x1000);
+    HEAP_BREAK = (unsigned long *)((unsigned long)HEAP_START + HEAP_SIZE);
 
     return 0;
 }
@@ -222,19 +224,19 @@ int mmu_heap_preinit(void)
         return -ENOMEM;
     }
 
-    return __heap_init(mmu_p_to_v(mem));
+    return __heap_init(mmu_p_to_v(mem), 0);
 }
 
 int mmu_heap_init(void)
 {
-    unsigned long mem = mmu_page_alloc(MM_ZONE_NORMAL);
+    unsigned long mem = mmu_block_alloc(MM_ZONE_NORMAL, 3);
 
     if (mem == INVALID_ADDRESS) {
         kdebug("failed to allocate memory for heap!");
         return -ENOMEM;
     }
 
-    return __heap_init(mmu_p_to_v(mem));
+    return __heap_init(mmu_p_to_v(mem), 4);
 }
 
 void heap_initialize(uint32_t *heap_start_v)

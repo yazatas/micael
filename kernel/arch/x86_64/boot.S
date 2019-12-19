@@ -88,9 +88,7 @@ _start:
     movl %eax, hpdpt + (PDPT_ATOEI(KVSTART) * MM_ENTRY_SIZE)
 
     mov $0, %ecx
-    movl $_kernel_physical_end, %esi
-    shrl $21, %esi
-    addl $1, %esi
+    mov $512, %esi
 
 loop:
     movl $(1 << 21), %eax # two megabytes

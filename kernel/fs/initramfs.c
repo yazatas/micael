@@ -1,5 +1,5 @@
 #include <fs/fs.h>
-#include <fs/multiboot.h>
+#include <fs/multiboot2.h>
 #include <fs/super.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
+
+extern uint8_t _ramfs_start, _ramfs_end;
 
 /* This implementation of the initrd is very naive.
  * It only supports the most necessary features,
@@ -107,18 +109,9 @@ static ssize_t initramfs_file_read(file_t *file, off_t offset, size_t count, voi
 
     /* allocate address space for file and map the bytes there */
     if (GET_FILE_PRIVATE(file)->mapped == false) {
-#if 0
-        size_t range = (file->f_dentry->d_inode->i_size / 4096) + 2;
-        void *vaddr  = mmu_alloc_addr(range);
-        void *paddr  = GET_FILE_PRIVATE(file)->pstart;
-        size_t off   = (uint32_t)paddr - ROUND_DOWN(((uint32_t)paddr), PAGE_SIZE);
-
-        mmu_map_range(paddr, vaddr, range, MM_PRESENT | MM_READONLY);
-
         GET_FILE_PRIVATE(file)->mapped     = true;
-        GET_FILE_PRIVATE(file)->num_mapped = range;
-        GET_FILE_PRIVATE(file)->vstart     = (char *)((uint32_t)vaddr + off);
-#endif
+        GET_FILE_PRIVATE(file)->num_mapped = -1;
+        GET_FILE_PRIVATE(file)->vstart     = GET_FILE_PRIVATE(file)->pstart;
     }
 
     int ret    = initramfs_file_seek(file, offset);
@@ -263,7 +256,7 @@ found:
      *
      * if the item was file, no need allocate any memory/address space yet */
     inode->i_private      = kmalloc(sizeof(i_private_t));
-    uint32_t parent_start = (uint32_t)ip->pstart;
+    uint32_t parent_start = (unsigned long)ip->pstart;
     uint32_t parent_size  = parent->d_inode->i_size;
     uint32_t boundary     = ROUND_DOWN(parent_start, PAGE_SIZE);
     uint32_t off_start    = parent_start + i_offset - boundary;
@@ -271,14 +264,8 @@ found:
     /* if the offset from page boundary of the initrd + directory size is more than PAGE_SIZE,
      * it means that this directory overlaps two pages and we must allocate space for two pages */
     if ((i_flags & T_IFDIR) && (off_start + i_size) > PAGE_SIZE) {
-#if 0
-        uint32_t *vstart      = mmu_alloc_addr(2);
-        size_t off_from_start = parent_start + i_offset - boundary;
-        mmu_map_range((void *)boundary, vstart, 2, MM_PRESENT | MM_READONLY);
-
         GET_INO_PRIVATE(inode)->pstart = (void *)((uint8_t *)ip->pstart + i_offset);
-        GET_INO_PRIVATE(inode)->vstart = (void *)((uint8_t *)vstart + off_start);
-#endif
+        GET_INO_PRIVATE(inode)->vstart = (void *)((uint8_t *)ip->pstart + i_offset);
     } else {
         if (i_flags & T_IFDIR)
             GET_INO_PRIVATE(inode)->vstart = (char *)ip->vstart + i_offset;
@@ -328,61 +315,35 @@ static int initramfs_inode_destroy(inode_t *ino)
 
 static int initramfs_init(superblock_t *sb, void *args)
 {
-    multiboot_module_t *mod;
-    multiboot_info_t *mbi;
-    disk_header_t *dh;
+    (void)args;
 
-    /* first check did we actually get any modules */
-    /* mbi = mmu_alloc_addr(1); */
-    mmu_map_page(args, mbi, MM_PRESENT | MM_READWRITE);
+    uint8_t *ramfs_start = &_ramfs_start;
+    size_t  ramfs_len    = (uint64_t)&_ramfs_end - (uint64_t)&_ramfs_start;
+    disk_header_t *dh    = (disk_header_t *)ramfs_start;
 
-    if (mbi->mods_count == 0) {
-        kdebug("trying to init initrd, module count 0!");
-        /* mmu_free_addr(mbi, 1); */
+    if (ramfs_len == 0 || dh->magic != HEADER_MAGIC) {
+        kdebug("initramfs does not exist: 0x%x", dh->magic);
         return -ENXIO;
-    }
-
-    /* kdebug("mbi->mods_count %u mbi->mods_addr 0x%x", mbi->mods_count, mbi->mods_addr); */
-
-    /* then check that header was loaded correctly */
-    /* mod = mmu_alloc_addr(1); */
-    mmu_map_page((char *)mbi->mods_addr, mod, MM_PRESENT | MM_READWRITE);
-    mod = (multiboot_module_t *)((uint32_t)mod + 0x9c);
-
-    /* kdebug("start 0x%x | end 0x%x | size %u", mod->mod_start, mod->mod_end, */
-    /*         mod->mod_end - mod->mod_start); */
-
-    /* dh = mmu_alloc_addr(1); */
-    mmu_map_page((char *)mod->mod_start, dh, MM_PRESENT | MM_READWRITE);
-
-    if (dh->magic != HEADER_MAGIC) {
-        kdebug("invalid header magic: 0x%x", dh->magic);
-        return -EINVAL;
     }
 
     sb->s_root          = dentry_alloc_orphan("/", T_IFDIR);
     sb->s_root->d_inode = initramfs_inode_alloc(sb);
 
     sb->s_private = kmalloc(sizeof(fs_private_t));
-    ((fs_private_t *)sb->s_private)->d_header   = dh;
-    ((fs_private_t *)sb->s_private)->phys_start = (char *)mod->mod_start;
+    ((fs_private_t *)sb->s_private)->d_header   = NULL;
+    ((fs_private_t *)sb->s_private)->phys_start = (uint8_t *)(unsigned long)ramfs_start;
 
     sb->s_root->d_inode->i_ino     = 1;
     sb->s_root->d_inode->i_flags   = T_IFDIR;
 
     sb->s_root->d_inode->i_private = kmalloc(sizeof(i_private_t));
     
-    /* physical start address of '/' */
+    /* physical and virtual start address of '/' (memory is identity mapped) */
     ((i_private_t *)sb->s_root->d_inode->i_private)->pstart =
-        ((char *)mod->mod_start) + sizeof(disk_header_t);
-
-    /* virtual (mapped) start of '/' */
     ((i_private_t *)sb->s_root->d_inode->i_private)->vstart =
-        ((char *)dh)            + sizeof(disk_header_t);
+        ((char *)(unsigned long)ramfs_start) + sizeof(disk_header_t);
 
-    /* mmu_free_addr(mbi, 1); */
-    /* mmu_free_addr(mod, 1); */
-
+    kdebug("initramfs initialized!");
     return 0;
 }
 

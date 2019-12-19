@@ -1,7 +1,7 @@
 .PHONY: all bin clean
 
-CC = i686-elf-gcc
-LD = i686-elf-ld
+CC = x86_64-elf-gcc
+LD = x86_64-elf-ld
 CFLAGS = -Wall -Wextra -O0
 SOURCES=$(wildcard src/*.c)
 OBJECTS=$(addprefix bin/,$(notdir $(SOURCES:.c=.o)))
