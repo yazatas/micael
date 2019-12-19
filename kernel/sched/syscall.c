@@ -12,16 +12,10 @@
 
 #define MAX_SYSCALLS 7
 
-// TODO REMOVE
-#define KSTART 768
-
 typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
 int32_t sys_read(isr_regs_t *cpu)
 {
-    /* enable interrupts but disable context switching */
-    /* sched_suspend(); */
-
     int fd          = (int)cpu->edx;
     void *buf       = (void *)cpu->ebx;
     size_t len      = (size_t)cpu->ecx;
@@ -40,12 +34,10 @@ int32_t sys_read(isr_regs_t *cpu)
         return -1;
     }
 
-    int32_t ret = file_read(current->file_ctx->fd[fd], 0, len, buf);
+    int nread = file_read(current->file_ctx->fd[fd], 0, len, buf);
+    current->threads->exec_state = (exec_state_t *)cpu;
 
-    /* re-enable context switching */
-    /* sched_resume(); */
-
-    return ret;
+    return nread;
 }
 
 int32_t sys_write(isr_regs_t *cpu)
@@ -113,6 +105,7 @@ int32_t sys_execv(isr_regs_t *cpu)
     /* clear page tables of current process:
      * mark all user page tables as not present and try to free
      * as many page frames as possible (all pages not marked as CoW) */
+    /* TODO:  */
     /* mmu_unmap_pages(0, KSTART - 1); */
 
     /* binfmt_load either jumps to user land and starts to execute
@@ -130,8 +123,7 @@ int32_t sys_exit(isr_regs_t *cpu)
     task_t *current = sched_get_current();
     task_t *parent  = current->parent;
 
-    kdebug("exiting from %s ( pid %d): status %d", current->name, current->pid, status);
-    /* sched_print_tasks(); */
+    kdebug("exiting from %s (pid %d): status %d", current->name, current->pid, status);
 
     /* reassign new parent for current task's children */
     if (LIST_EMPTY(current->children) == false) {
@@ -166,10 +158,10 @@ void syscall_handler(isr_regs_t *cpu)
     if (cpu->eax >= MAX_SYSCALLS) {
         kpanic("unsupported system call");
     } else {
-        int32_t ret = syscalls[cpu->eax](cpu);
+        task_t *current = sched_get_current();
+        int32_t ret     = syscalls[cpu->eax](cpu);
 
         /* return value is transferred in eax */
-        task_t *current = sched_get_current();
         current->threads->exec_state->eax = ret;
     }
 }

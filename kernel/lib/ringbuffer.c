@@ -1,9 +1,9 @@
-/* #include <kernel/wait.h> */
 #include <kernel/kprint.h>
 #include <lib/ringbuffer.h>
 #include <mm/heap.h>
 #include <mm/slab.h>
 #include <sync/spinlock.h>
+#include <sync/wait.h>
 #include <errno.h>
 
 struct ringbuffer {
