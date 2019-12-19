@@ -46,6 +46,24 @@ static void __walk_dir(uint64_t cr3, uint16_t pml4i, uint16_t pdpti, uint16_t pd
     kprint("\tPD[%u] %spresent\n\n", pti, (pt[pti] & MM_PRESENT) ? "" : "not ");
 }
 
+static void __print_error(uint32_t error)
+{
+    const char *s[3] = {
+        ((error >> 1) & 0x1) ? "Page write"       : "Page read",
+        ((error >> 0) & 0x1) ? "protection fault" : "not present",
+        ((error >> 2) & 0x1) ? "user"             : "supervisor"
+    };
+
+    kprint("\n\n----------------------------------\n");
+    kprint("%s, %s (%s)\n", s[0], s[1], s[2]);
+
+    if ((error >> 3) & 0x1)
+        kprint("CPU read 1 from reserved field!\n");
+
+    if ((error >> 4) & 0x1)
+        kprint("Faulted due to instruction fetch (NXE set?)\n");
+}
+
 void mmu_pf_handler(isr_regs_t *cpu_state)
 {
     uint64_t cr2, cr3;
@@ -59,30 +77,18 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
     unsigned long pdi   = (cr2 >> 21) & 0x1ff;
     unsigned long pti   = (cr2 >> 12) & 0x1ff;
 
-    const char *strerr = "";
-    switch (error) {
-        case 0: strerr = "page read, not present (supervisor)";       break;
-        case 1: strerr = "page read, protection fault (supervisor)";  break;
-        case 2: strerr = "page write, not present (supervisor)";      break;
-        case 3: strerr = "page write, protection fault (supervisor)"; break;
-        case 4: strerr = "page read, not present (user)";             break;
-        case 5: strerr = "page read, protection fault (user)";        break;
-        case 6: strerr = "page write, not present (user)";            break;
-        case 7: strerr = "page write, protection fault (user)";       break;
-        default: kpanic("undocumented error code");
-    }
-
-    kprint("\n\n%s\n", strerr);
-    kprint("\tfaulting address: 0x%08x\n", cr2);
-    kprint("\tPML4 index: 0x%03x %3u\n"
-           "\tPDPT index: 0x%03x %3u\n"
-           "\tPD index:   0x%03x %3u\n"
-           "\tPTindex:    0x%03x %3u\n"
-           "\toffset:     0x%03x %3u\n",
+    __print_error(error);
+    kprint("\nFaulting address: 0x%08x %10u\n", cr2, cr2);
+    kprint("PML4 index:       0x%08x %10u\n"
+           "PDPT index:       0x%08x %10u\n"
+           "PD index:         0x%08x %10u\n"
+           "PT index:         0x%08x %10u\n"
+           "Offset:           0x%08x %10u\n\n",
            pml4i, pml4i, pdpti, pdpti, pdi, pdi, pti, pti, cr2 & 0xfff, cr2 & 0xfff);
 
-    kprint("physaddr of pdir: 0x%x\n", cr3);
-    kprint("CPUID: %u\n", get_thiscpu_id());
+    kprint("CPUID:            0x%08x %10u\n", get_thiscpu_id(), get_thiscpu_id());
+    kprint("CR3:              0x%08x %10u\n", cr3, cr3);
+    for (;;);
 
     /* Walk the directory and the virtual address of each directory
      * and whether the entry is present or not */
