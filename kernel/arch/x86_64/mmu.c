@@ -1,3 +1,6 @@
+#include <arch/x86_64/mm/mmu.h>
+#include <drivers/ioapic.h>
+#include <drivers/lapic.h>
 #include <kernel/common.h>
 #include <kernel/kassert.h>
 #include <kernel/kprint.h>
@@ -13,47 +16,12 @@ static uint64_t __pd[512 * 2] __attribute__((aligned(PAGE_SIZE)));
 
 static uint64_t __pml4_;
 
-#define KPSTART 0x0000000000100000
-#define KVSTART 0xffffffff80100000
-#define KPML4I  511
-
 #define PML4_ATOEI(addr) (((addr) >> 39) & 0x1FF)
 #define PDPT_ATOEI(addr) (((addr) >> 30) & 0x1FF)
 #define PD_ATOEI(addr)   (((addr) >> 21) & 0x1FF)
 #define PT_ATOEI(addr)   (((addr) >> 12) & 0x1FF)
 
 #define V_TO_P(addr)     ((uint64_t)addr - KVSTART + KPSTART)
-
-static inline uint64_t native_get_cr3(void)
-{
-    uint64_t address;
-
-    asm volatile ("mov %%cr3, %%rax \n"
-                  "mov %%rax, %0" : "=r" (address));
-
-    return address;
-}
-
-static inline void native_set_cr3(uint64_t address)
-{
-    asm volatile ("mov %0, %%rax \n"
-                  "mov %%rax, %%cr3" :: "r" (address));
-}
-
-static inline uint64_t *native_p_to_v(uint64_t paddr)
-{
-    /* TODO: check is this really a physical address 
-     * ie. that the the addition doesn't overflow */
-    kassert(paddr < (uint64_t)(1 << 31));
-
-    return (uint64_t *)(paddr + (KVSTART - KPSTART));
-}
-
-static inline uint64_t native_v_to_p(void *vaddr)
-{
-    /* TODO: check if this highmen ie not idetity mapped */
-    return ((uint64_t)vaddr - (KVSTART - KPSTART));
-}
 
 int mmu_native_init(void)
 {

@@ -4,6 +4,52 @@
 
 #include <mm/types.h>
 
+#define KPSTART 0x0000000000100000
+#define KVSTART 0xffffffff80100000
+#define KPML4I  511
+
+static inline uint64_t native_get_cr3(void)
+{
+    uint64_t address;
+
+    asm volatile ("mov %%cr3, %%rax \n"
+                  "mov %%rax, %0" : "=r" (address));
+
+    return address;
+}
+
+static inline void native_set_cr3(uint64_t address)
+{
+    asm volatile ("mov %0, %%rax \n"
+                  "mov %%rax, %%cr3" :: "r" (address));
+}
+
+static inline uint64_t *native_p_to_v(uint64_t paddr)
+{
+    /* TODO: check is this really a physical address
+     * ie. that the the addition doesn't overflow */
+
+    return (uint64_t *)(paddr + (KVSTART - KPSTART));
+}
+
+static inline uint64_t native_v_to_p(void *vaddr)
+{
+    /* TODO: check if this highmen ie not idetity mapped */
+    return ((uint64_t)vaddr - (KVSTART - KPSTART));
+}
+
+static inline void native_flush_tlb(void)
+{
+    asm volatile ("mov %cr3, %rcx \n \
+                   mov %rcx, %cr3");
+}
+
+static inline void native_invld_page(uint64_t address)
+{
+    (void)address;
+    /* TODO:  */
+}
+
 typedef struct task task_t;
 
 int mmu_native_init(void);
