@@ -113,13 +113,9 @@ task_t *sched_task_create(const char *name)
     if ((path = vfs_path_lookup("/dev/tty1", LOOKUP_OPEN))->p_status == LOOKUP_STAT_SUCCESS) {
         if ((file = file_open(path->p_dentry, O_RDWR)) != NULL) {
 
-            /* allocate space for three file descriptors (std{in,out,err}) and allocate
-             * more space only when user opens more files */
-            t->file_ctx     = kmalloc(sizeof(file_ctx_t));
-            t->file_ctx->fd = kmalloc(sizeof(file_t *) * 3);
-
-            t->file_ctx->count = 1;
-            t->file_ctx->numfd = 3;
+            /* allocate space for three file descriptors
+             * (std{in,out,err}) and allocate more only when user opens more files */
+            t->file_ctx = vfs_alloc_file_ctx(3);
 
             for (int i = 0; i < 3; ++i) {
                 t->file_ctx->fd[i] = file;
