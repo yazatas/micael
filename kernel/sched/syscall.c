@@ -2,6 +2,7 @@
 #include <fs/binfmt.h>
 #include <fs/fs.h>
 #include <fs/file.h>
+#include <kernel/kassert.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
@@ -10,7 +11,7 @@
 #include <sched/sched.h>
 #include <sched/syscall.h>
 
-#define MAX_SYSCALLS 7
+#define MAX_SYSCALLS 8
 
 typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
@@ -146,12 +147,40 @@ int32_t sys_exit(isr_regs_t *cpu)
     sched_switch();
 }
 
+int32_t sys_wait(isr_regs_t *cpu)
+{
+    task_t *current = sched_get_current();
+    task_t *child   = NULL;
+
+    /* wait for one of the children to wake us up so we can reap it */
+    wq_wait_event(&current->wqh_child, current, NULL);
+
+    /* One of current's children called exit(),
+     * reap all zombies and return back to user land */
+    FOREACH(current->children, iter) {
+        child = container_of(iter, task_t, p_children);
+
+        kassert(child != NULL);
+
+        if (child->threads->state != T_ZOMBIE)
+            continue;
+
+        /* sched_task_destroy() releases all memory the child still has,
+         * including kernel stack and page directory, and removes it
+         * from all possible lists and finally deallocates the task object */
+        sched_task_destroy(child);
+    }
+
+    return 0;
+}
+
 static syscall_t syscalls[MAX_SYSCALLS] = {
     [0] = sys_read,
     [1] = sys_write,
     [2] = sys_fork,
     [3] = sys_execv,
     [6] = sys_exit,
+    [7] = sys_wait,
 };
 
 void syscall_handler(isr_regs_t *cpu)

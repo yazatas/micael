@@ -62,6 +62,7 @@ void *mmu_native_p_to_v(unsigned long paddr);
 
 void *mmu_native_build_dir(void);
 void *mmu_native_duplicate_dir(void);
+void  mmu_native_destroy_dir(void *dir);
 
 void mmu_native_walk_addr(void *addr);
 

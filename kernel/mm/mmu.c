@@ -110,6 +110,11 @@ void *mmu_duplicate_dir(void)
     return mmu_native_duplicate_dir();
 }
 
+void mmu_destroy_dir(void *dir)
+{
+    return mmu_native_destroy_dir(dir);
+}
+
 void mmu_walk_addr(void *addr)
 {
     return mmu_native_walk_addr(addr);

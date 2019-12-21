@@ -259,6 +259,67 @@ void *mmu_native_duplicate_dir(void)
     return pml4_cv;
 }
 
+void mmu_native_destroy_dir(void *dir)
+{
+    if (!dir)
+        return;
+
+    uint64_t *pml4 = dir;
+    uint64_t *pdpt = NULL;
+    uint64_t *pd   = NULL;
+    uint64_t *pt   = NULL;
+    uint64_t page  = 0;
+    unsigned flags = 0;
+
+    /* level 3 */
+    for (size_t pml4i = 0; pml4i < 511; ++pml4i) {
+        if (!(pml4[pml4i] & MM_PRESENT))
+            continue;
+
+        pdpt = native_p_to_v(pml4[pml4i] & ~(PAGE_SIZE - 1));
+
+        /* level 2 */
+        for (size_t pdpti = 0; pdpti < 512; ++pdpti)  {
+            if (!(pdpt[pdpti] & MM_PRESENT))
+                continue;
+
+            pd = native_p_to_v(pdpt[pdpti] & ~(PAGE_SIZE - 1));
+
+            /* level 1 */
+            for (size_t pdi = 0; pdi < 512; ++pdi)  {
+                if (!(pd[pdi] & MM_PRESENT))
+                    continue;
+
+                flags = MM_PRESENT | MM_USER;
+                pt    = native_p_to_v(pd[pdi] & ~(PAGE_SIZE - 1));
+
+                for (size_t pti = 0; pti < 512; ++pti) {
+                    if ((pt[pti] & flags) == flags && !(pt[pti] & MM_COW)) {
+                        page = pt[pti] & ~(PAGE_SIZE - 1);
+                        /* kdebug("free 4kb page 0x%x", page); */
+                        kmemset(native_p_to_v(page), 0, PAGE_SIZE);
+                        mmu_page_free(page);
+                    }
+                }
+
+                page = pd[pdi] & ~(PAGE_SIZE - 1);
+                kmemset(native_p_to_v(page), 0, PAGE_SIZE);
+                mmu_page_free(page);
+            }
+
+            page = pdpt[pdpti] & ~(PAGE_SIZE - 1);
+            kmemset(native_p_to_v(page), 0, PAGE_SIZE);
+            mmu_page_free(page);
+        }
+
+        page = pml4[pml4i] & ~(PAGE_SIZE - 1);
+        kmemset(native_p_to_v(page), 0, PAGE_SIZE);
+        mmu_page_free(page);
+    }
+
+    mmu_page_free(native_v_to_p(dir));
+}
+
 void mmu_native_switch_ctx(task_t *task)
 {
     if (!task)
