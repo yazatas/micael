@@ -26,4 +26,8 @@ unsigned lapic_get_init_cpu_count(void);
  * Return -ENXIO if "cpu" doesn't not exist */
 int lapic_get_lapic_id(unsigned cpu);
 
+/* Return the Local APIC base address
+ * Return INVALID_ADDRESS if an error occurred */
+unsigned long lapic_get_base(void);
+
 #endif /* __LAPIC_H__ */

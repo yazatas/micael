@@ -55,7 +55,8 @@ static uint64_t __alloc_entry(void)
     return addr | MM_PRESENT | MM_READWRITE;
 }
 
-int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)
+/* TODO: should this do some error checking */
+static void __map_page(uint64_t *pml4, uint64_t paddr, uint64_t vaddr, int flags)
 {
     kassert(PAGE_ALIGNED(paddr));
     kassert(PAGE_ALIGNED(vaddr));
@@ -64,8 +65,6 @@ int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)
     unsigned long pdpti = (vaddr >> 30) & 0x1ff;
     unsigned long pdi   = (vaddr >> 21) & 0x1ff;
     unsigned long pti   = (vaddr >> 12) & 0x1ff;
-
-    uint64_t *pml4 = native_p_to_v(native_get_cr3());
 
     if (!(pml4[pml4i] & MM_PRESENT))
         pml4[pml4i] = __alloc_entry();
@@ -85,9 +84,17 @@ int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)
 
     uint64_t *pt = native_p_to_v(pd[pdi] & ~0xfff);
     pt[pti]      = paddr | flags | MM_PRESENT;
+}
 
-    asm volatile ("mov %cr3, %rcx \n \
-                   mov %rcx, %cr3");
+int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)
+{
+    uint64_t *pml4 = native_p_to_v(native_get_cr3());
+
+    __map_page(pml4, paddr, vaddr, flags);
+
+    /* TODO: use native_invld_page() instead! */
+    native_flush_tlb();
+
     return 0;
 }
 
@@ -122,10 +129,20 @@ void *mmu_native_build_dir(void)
     pml4_v = native_p_to_v(pml4_p);
 
     for (size_t i = 0; i < 511; ++i) {
-        pml4_v[i] = ~MM_PRESENT;
+        pml4_v[i] = 0;
     }
 
-    pml4_v[0] = pml4_v[PML4_ATOEI(KVSTART)] = __pml4[PML4_ATOEI(KVSTART)] | MM_USER;
+    pml4_v[PML4_ATOEI(KVSTART)] = __pml4[PML4_ATOEI(KVSTART)];
+
+    /* TODO: create some kind of iomem device mapper, this is disgusting! */
+    unsigned long lapic  = lapic_get_base();
+    unsigned long ioapic = ioapic_get_base();
+
+    kassert(lapic  != INVALID_ADDRESS);
+    kassert(ioapic != INVALID_ADDRESS);
+
+    __map_page(pml4_v, lapic,  lapic,  MM_PRESENT | MM_READWRITE);
+    __map_page(pml4_v, ioapic, ioapic, MM_PRESENT | MM_READWRITE);
 
     return pml4_v;
 }
@@ -153,7 +170,7 @@ void mmu_native_walk_addr(void *vaddr)
         return;
     }
 
-    uint64_t *pdpt = mmu_p_to_v(pml4[pml4i]);
+    uint64_t *pdpt = mmu_p_to_v(pml4[pml4i] & ~(PAGE_SIZE - 1));
     kprint("\tPDPT: 0x%x 0x%x\n", pdpt, pml4[pml4i]);
     kprint("\tPDPT[%u] %spresent\n\n", pdpti, (pdpt[pdpti] & MM_PRESENT) ? "" : "not ");
 
@@ -162,7 +179,7 @@ void mmu_native_walk_addr(void *vaddr)
         return;
     }
 
-    uint64_t *pd = mmu_p_to_v(pdpt[pdpti]);
+    uint64_t *pd = mmu_p_to_v(pdpt[pdpti] & ~(PAGE_SIZE - 1));
     kprint("\tPD: 0x%x 0x%x\n", pd, pdpt[pdpti]);
     kprint("\tPD[%u] %spresent\n\n", pdi, (pd[pdi] & MM_PRESENT) ? "" : "not ");
 
@@ -171,7 +188,7 @@ void mmu_native_walk_addr(void *vaddr)
         return;
     }
 
-    uint64_t *pt = mmu_p_to_v(pd[pdi]);
+    uint64_t *pt = mmu_p_to_v(pd[pdi] & ~(PAGE_SIZE - 1));
     kprint("\tPT: 0x%x 0x%x\n", pt, pd[pdi]);
     kprint("\tPD[%u] %spresent\n\n", pti, (pt[pti] & MM_PRESENT) ? "" : "not ");
 
