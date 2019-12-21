@@ -239,3 +239,10 @@ void lapic_ack_interrupt(void)
 {
     write_32(lapic_base + LAPIC_REG_EOI, 0);
 }
+
+unsigned long lapic_get_base(void)
+{
+    if (!lapic_base)
+        return INVALID_ADDRESS;
+    return (unsigned long)lapic_base;
+}

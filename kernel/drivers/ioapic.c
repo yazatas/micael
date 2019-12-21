@@ -98,3 +98,10 @@ void ioapic_enable_irq(unsigned cpu, unsigned irq)
     __write_reg(ioapic_v, offset + 0, irq);
     __write_reg(ioapic_v, offset + 1, cpu << 24);
 }
+
+unsigned long ioapic_get_base(void)
+{
+    kassert(io_apic.num_apics == 1);
+
+    return (unsigned long)io_apic.apics[0].base;
+}
