@@ -197,59 +197,66 @@ void mmu_native_walk_addr(void *vaddr)
 
 void *mmu_native_duplicate_dir(void)
 {
-#if 0
-    kdebug("starting address space duplication..");
+    uint64_t *pml4_cv = mmu_native_build_dir();          /* copy,     virtual */
+    uint64_t *pml4_ov = native_p_to_v(native_get_cr3()); /* original, virtual */
+    uint64_t *pdpt_ov = NULL, *pdpt_cv = NULL;
+    uint64_t *pd_ov   = NULL, *pd_cv   = NULL;
+    uint64_t *pt_ov   = NULL, *pt_cv   = NULL;
 
-    uint32_t *pdir   = mmu_build_pagedir();
-    uint32_t *d_iter = (uint32_t *)0xfffff000;
-    uint32_t *t_iter = NULL;
-    uint32_t *tbl_v  = NULL;
+    /* TODO: this code looks pretty ugly, use recursion maybe? */
 
-    for (size_t i = 0; i < KSTART; ++i) {
-        if (MM_TEST_FLAG(d_iter[i], MM_PRESENT)) {
-            pdir[i] = mmu_alloc_page() | (d_iter[i] & 0xfff);
-            t_iter  = ((uint32_t *)0xffc00000) + (0x400 * i);
+    /* level 3 */
+    for (size_t pml4i = 0; pml4i < 511; ++pml4i) {
+        if (pml4_ov[pml4i] & MM_PRESENT) {
 
-            for (size_t k = 0; k < 1024; ++k) {
-                if (MM_TEST_FLAG(t_iter[k], MM_PRESENT)) {
-                    /* TODO: rewrite this!! */
-                    void *new_addr = mmu_alloc_addr(1);
-                    if (tbl_v != NULL)
-                        mmu_free_addr(tbl_v, 1);
-                    tbl_v = new_addr;
+            /* create new PML4 entry and set up pdpt pointers */
+            pml4_cv[pml4i] = __alloc_entry() | MM_PRESENT | MM_USER;
+            pdpt_ov        = native_p_to_v(pml4_ov[pml4i] & ~(PAGE_SIZE - 1));
+            pdpt_cv        = native_p_to_v(pml4_cv[pml4i] & ~(PAGE_SIZE - 1));
 
-                    mmu_map_page((void *)pdir[i], tbl_v, MM_PRESENT | MM_READWRITE);
+            /* level 2 */
+            for (size_t pdpti = 0; pdpti < 512; ++pdpti)  {
+                if (pdpt_ov[pdpti] & MM_PRESENT) {
 
-                    t_iter[k] &= ~MM_READWRITE; /* rw must be cleared explicitly */
-                    t_iter[k] |= (MM_COW | MM_READONLY);
-                    tbl_v[k]   = t_iter[k];
+                    /* create new pdpt entry and set up pd pointers */
+                    pdpt_cv[pdpti] = __alloc_entry() | MM_PRESENT | MM_USER;
+                    pd_ov          = native_p_to_v(pdpt_ov[pdpti] & ~(PAGE_SIZE - 1));
+                    pd_cv          = native_p_to_v(pdpt_cv[pdpti] & ~(PAGE_SIZE - 1));
+
+                    /* level 1 */
+                    for (size_t pdi = 0; pdi < 512; ++pdi)  {
+                        if (pd_ov[pdi] & MM_PRESENT) {
+
+                            /* 2MB pages should not be mapped like 4KB pages */
+                            if ((pd_ov[pdi] & MM_2MB)) {
+                                pd_ov[pdi] &= ~(PAGE_SIZE - 1); /* reset flags */
+                                pd_ov[pdi] |= (MM_COW | MM_READONLY | MM_PRESENT | MM_USER | MM_2MB);
+                                pd_cv[pdi]  = pd_ov[pdi];
+                            }
+
+                            /* create new pd entry and set up pt pointers */
+                            pd_cv[pdi] = __alloc_entry() | MM_PRESENT | MM_USER;
+                            pt_ov      = native_p_to_v(pd_ov[pdi] & ~(PAGE_SIZE - 1));
+                            pt_cv      = native_p_to_v(pd_cv[pdi] & ~(PAGE_SIZE - 1));
+
+                            for (size_t pti = 0; pti < 512; ++pti) {
+                                if (pt_ov[pti] & MM_PRESENT) {
+                                    pt_ov[pti] &= ~(PAGE_SIZE - 1); /* reset flags */
+                                    pt_ov[pti] |= (MM_COW | MM_READONLY | MM_PRESENT | MM_USER);
+                                    pt_cv[pti]  = pt_ov[pti];
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
-    return pdir;
 
-    uint64_t *pml4_cv = mmu_native_build_dir();          /* copy,     virtual */
-    uint64_t *pml4_ov = native_p_to_v(native_get_cr3()); /* original, virtual */
-    uint64_t *pdpt_ov = NULL;
-    uint64_t *pd_ov   = NULL;
-    uint64_t *pt_ov   = NULL;
+    /* TODO: use native_invld_page() instead! */
+    native_flush_tlb();
 
-    for (size_t pml4i = 0; pml4i < KPML4I; ++pml4i) {
-        if (pml4_ov[pml4i] & MM_PRESENT) {
-
-
-            for (size_t pdpti = 0; pdpti < 512; ++pdpti)  {
-
-
-            }
-        }
-    }
-
-    return NULL;
-#endif
-
-    return mmu_native_build_dir();
+    return pml4_cv;
 }
 
 void mmu_native_switch_ctx(task_t *task)
