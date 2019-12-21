@@ -113,10 +113,10 @@ static ssize_t __tty_read(file_t *file, off_t offset, size_t size, void *buf)
     if (file->f_mode & O_WRONLY)
         return -ENOTSUP;
 
-    size_t i;
-    char c;
+    size_t i = 0;
+    char c   = 0;
 
-    for (i = 0; i < size; ++i) {
+    while (c != '\n' && i < size) {
         file_read(file->f_private, 0, 1, &c);
 
         if (c == '\n') {
@@ -124,8 +124,17 @@ static ssize_t __tty_read(file_t *file, off_t offset, size_t size, void *buf)
             break;
         }
 
+        if (c == '\b') {
+            if (i != 0) {
+                ((char *)buf)[--i] = '\0';
+                kprint("\b");
+            }
+            continue;
+        }
+
         ((char *)buf)[i] = c;
         kprint("%c", ((char *)buf)[i]);
+        i++;
     }
 
     return (ssize_t)i;
