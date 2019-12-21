@@ -21,6 +21,8 @@
 #define NUM_FS 1
 
 static mm_cache_t *path_cache;
+static mm_cache_t *fs_ctx_cache;
+static mm_cache_t *file_ctx_cache;
 
 static list_head_t mountpoints;
 static list_head_t superblocks;
@@ -168,6 +170,9 @@ void vfs_init(void)
         kdebug("error: %s", kstrerror(-errno));
         kpanic("cdev_init() failed!");
     }
+
+    fs_ctx_cache   = mmu_cache_create(sizeof(fs_ctx_t), MM_NO_FLAG);
+    file_ctx_cache = mmu_cache_create(sizeof(file_ctx_t), MM_NO_FLAG);
 }
 
 int vfs_install_rootfs(char *type, void *data)
@@ -538,6 +543,66 @@ int vfs_path_release(path_t *path)
         dentry_dealloc(path->p_dentry);
 
     kfree(path);
+
+    return 0;
+}
+
+fs_ctx_t *vfs_alloc_fs_ctx(dentry_t *pwd)
+{
+    fs_ctx_t *ctx = mmu_cache_alloc_entry(fs_ctx_cache, MM_NO_FLAG);
+
+    if (!ctx)
+        return NULL;
+
+    ctx->pwd   = pwd;
+    ctx->root  = root_fs->mnt_root;
+    ctx->count = 1;
+
+    return ctx;
+}
+
+file_ctx_t *vfs_alloc_file_ctx(int numfd)
+{
+    file_ctx_t *ctx = mmu_cache_alloc_entry(file_ctx_cache, MM_NO_FLAG);
+
+    if (!ctx)
+        return NULL;
+
+    ctx->count = 1;
+    ctx->numfd = numfd;
+    ctx->fd    = kmalloc(sizeof(file_t *) * numfd);
+
+    return ctx;
+}
+
+int vfs_free_fs_ctx(fs_ctx_t *ctx)
+{
+    if (!ctx)
+        return -EINVAL;
+
+    if (ctx->count >= 2) {
+        ctx->count--;
+        return -EBUSY;
+    }
+
+    (void)dentry_dealloc(ctx->root);
+    (void)dentry_dealloc(ctx->pwd);
+
+    return 0;
+}
+
+int vfs_free_file_ctx(file_ctx_t *ctx)
+{
+    if (!ctx)
+        return -EINVAL;
+
+    if (ctx->count >= 2) {
+        ctx->count--;
+        return -EBUSY;
+    }
+
+    if (ctx->numfd > 0)
+        kfree(ctx->fd);
 
     return 0;
 }

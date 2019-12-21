@@ -91,7 +91,7 @@ static inode_t *devfs_inode_alloc(superblock_t *sb)
     ino->i_iops->put_link = NULL; ino->i_iops->truncate    = NULL; ino->i_iops->permission = NULL;
 
     list_append(&ino->i_sb->s_ino, &ino->i_list);
-    
+ 
     return ino;
 }
 

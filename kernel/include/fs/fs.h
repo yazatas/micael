@@ -67,7 +67,7 @@ typedef struct path {
  * - register all known filesystem
  * - initialize char and block device drivers
  * - initialize binfmt
- * - create dentries for /, /sys, /tmp, /dev and /proc 
+ * - create dentries for /, /sys, /tmp, /dev and /proc
  * - mount pseudo filesystems
  *   - devfs  to /dev
  *   - tmpfs  to /tmp
@@ -75,29 +75,29 @@ typedef struct path {
  *   - sysfs  to /sys */
 void vfs_init(void);
 
-/* register filesystem 
- * after registeration the filesystem can be mounted 
+/* register filesystem
+ * after registeration the filesystem can be mounted
  *
  * return 0 on success
  * return -EINVAL if some of the given values are invalid
- * return -EEXIST if the filesystem has already been registered 
+ * return -EEXIST if the filesystem has already been registered
  * (see what hm_insert returns to get the full list of possible return values) */
 int vfs_register_fs(fs_type_t *fs);
 
-/* unregister filesystem (remove it from the fs_types hashmap) 
+/* unregister filesystem (remove it from the fs_types hashmap)
  *
- * return 0 on success, 
- * return -EINVAL if the type is invalid 
+ * return 0 on success,
+ * return -EINVAL if the type is invalid
  * return -EBUSY if the filesystem is in use (mounted) */
 int vfs_unregister_fs(char *type);
 
-/* mount filesystem of type "type" to "target" from "source" using "flags" 
+/* mount filesystem of type "type" to "target" from "source" using "flags"
  *
  * @param source: points to devfs (f.ex. /dev/sda1)
  * @param target: points to the mount point of file system
  *                target must NOT contain any filesystem when vfs_mount() is called
  * @param type:   name of the mounted filesystem
- * @flags:        flags used for mounting (such as VFS_REMOUNT) 
+ * @flags:        flags used for mounting (such as VFS_REMOUNT)
  *
  * return 0 on success
  * return -EINVAL if some of the given parameters are invalid
@@ -107,17 +107,17 @@ int vfs_unregister_fs(char *type);
  * return -ENOMEM if allocating mount_t object failed */
 int vfs_mount(char *source, char *target, char *type, uint32_t flags);
 
-/* install new root file system of type "type" 
+/* install new root file system of type "type"
  * for now this is just a temporary hack to get initrd to work
  * Release Calypso adds support for real block devices and that
  * release will remove this hack and give support for proper initrd too
  *
- * Basically this function just installs filesystem "initramfs" to current 
+ * Basically this function just installs filesystem "initramfs" to current
  * root (root_fs). After that user can execute programs from f.ex. /sbin/init
  *
- * return 0 on success 
- * return -ENOSYS if filesystem has not been registered 
- * return -EBUSY if root_fs already has a filesystem installed on it 
+ * return 0 on success
+ * return -ENOSYS if filesystem has not been registered
+ * return -EBUSY if root_fs already has a filesystem installed on it
  * (see what initramfs_get_sb sets as errno to get the full list of possible return values) */
 int vfs_install_rootfs(char *type, void *data);
 
@@ -125,18 +125,46 @@ int vfs_install_rootfs(char *type, void *data);
  *
  * NOTE: returned path must be explicitly freed by calling vfs_path_release()
  *
- * vfs_path_lookup() always returns a path_t object but on error or if the path 
+ * vfs_path_lookup() always returns a path_t object but on error or if the path
  * did not resolve to anything (e.g. nothing was found) nthe path_t->p_dentry
  * is NULL and errno is set.
  *
  * If something was indeed found, path->p_dentry points to the object in question */
 path_t *vfs_path_lookup(char *path, int flags);
 
-/* 
- * return 0 on success 
+/* Allocate file system context
+ * Root dentry is set automatically, "pwd" may be NULL
+ *
+ * Return file system context on success
+ * Return NULL on error and set errno to:
+ *  ENOMEM if object allocation failed */
+fs_ctx_t *vfs_alloc_fs_ctx(dentry_t *pwd);
+
+/* Allocate file context object for "numfd" file system descriptors
+ * This routine allocates pointers for the descriptors but not
+ * the actual memory for the them
+ *
+ * Return file context object on success
+ * Return NULL on error and set errno to:
+ *  ENOMEM if object allocation failed
+ *  EINVAL if "numfd" is 0 */
+file_ctx_t *vfs_alloc_file_ctx(int numfd);
+
+/* Free the file system context pointed to by "ctx"
+ *
+ * Return 0 on success
+ * Return -EBUSY if "ctx" is in use by someone else
+ * Return -EINVAL if "ctx" is NULL */
+int vfs_free_fs_ctx(fs_ctx_t *ctx);
+
+/* Free the file context pointed to by "ctx"
+ *
+ * Return 0 on success
+ * Return -EINVAL if "ctx" is NULL */
+int vfs_free_file_ctx(file_ctx_t *ctx);
+
+/* return 0 on success
  * return -EINVAL on error */
 int vfs_path_release(path_t *path);
-
-void vfs_free_fs_context(fs_ctx_t *ctx);
 
 #endif /* end of include guard: __VFS_H__ */
