@@ -78,10 +78,10 @@ int32_t sys_fork(isr_regs_t *cpu)
     /* set the task's state T_READY and schedule it */
     sched_task_set_state(t, T_READY);
 
-    /* return pid to child, 0 to parent */
-    t->threads->exec_state->eax = t->pid;
+    /* return 0 to child, pid to parent */
+    t->threads->exec_state->eax = 0;
 
-    return 0;
+    return t->pid;
 }
 
 int32_t sys_execv(isr_regs_t *cpu)
@@ -123,7 +123,7 @@ int32_t sys_exit(isr_regs_t *cpu)
     task_t *current = sched_get_current();
     task_t *parent  = current->parent;
 
-    kdebug("exiting from %s (pid %d): status %d", current->name, current->pid, status);
+    /* kdebug("exiting from %s (pid %d): status %d", current->name, current->pid, status); */
 
     /* reassign new parent for current task's children */
     if (LIST_EMPTY(current->children) == false) {
@@ -133,15 +133,16 @@ int32_t sys_exit(isr_regs_t *cpu)
     }
 
     /* free all used memory (all memory that can be freed) */
-    /* vfs_free_fs_context(current->fs_ctx); */
+    vfs_free_fs_ctx(current->fs_ctx);
+    vfs_free_file_ctx(current->file_ctx);
     sched_free_threads(current);
 
-    /* clear page tables of current process:
-     * mark all user page tables as not present and try to free
-     * as many page frames as possible (all pages not marked as CoW) */
-    /* mmu_unmap_pages(0, KSTART - 1); */
+    /* Set task's state to T_ZOMBIE and append it to parent's
+     * zombie list from where it will be reaped when parent is rescheduled
+     * and send a wakeup signal to parent's wait queue */
+    sched_task_set_state(current, T_ZOMBIE);
+    wq_wakeup(&parent->wqh_child);
 
-    current->threads->state = T_ZOMBIE;
     sched_switch();
 }
 

@@ -104,10 +104,12 @@ typedef struct task {
     fs_ctx_t   *fs_ctx;
     file_ctx_t *file_ctx;
 
-    list_head_t list;
-    list_head_t children;
+    list_head_t list;            /* list for scheduler's run/wait queues */
+    list_head_t p_children;      /* list for parent's children */
+    list_head_t children;        /* list for this tasks's children */
 
-    wait_queue_t wq;   /* wait queue object used for blocking the task execution */
+    wait_queue_t wq;             /* wait queue object used for blocking the task execution */
+    wait_queue_head_t wqh_child; /* wait queue head to wait for wait() to finish */
 
     void *dir;         /* virtual  address of the page directory  */
     unsigned long cr3; /* physical address of the page directory */
