@@ -26,10 +26,6 @@ __percpu static task_t *idle_task; /* TODO: why is percpu idle task needed? */
 /* only used by the BSP */
 static task_t *init_task;
 
-/* defined by the linker */
-extern uint8_t _trampoline_start;
-extern uint8_t _trampoline_end;
-
 static unsigned ap_initialized    = 0;
 static bool     sched_initialized = false;
 
@@ -60,15 +56,6 @@ static void *idle_task_func(void *arg)
  * it's very unlikely) */
 static void *init_task_func(void *arg)
 {
-#if 0
-    /* Initialize SMP trampoline and wake up all APs one by one
-     * The SMP trampoline is located at 0x55000 and the trampoline switches
-     * the AP from real mode to protected mode and calls _start (in boot.S)
-     *
-     * 0x55000 is below 0x100000 so the memory is indetity mapped */
-    size_t trmp_size = (size_t)&_trampoline_end - (size_t)&_trampoline_start;
-    kmemcpy((uint8_t *)0x55000, &_trampoline_start, trmp_size);
-
     for (size_t i = 1; i < lapic_get_cpu_count(); ++i) {
         lapic_send_init(i);
         tick_wait(tick_ms_to_ticks(10));
@@ -79,7 +66,6 @@ static void *init_task_func(void *arg)
         while (READ_ONCE(ap_initialized) != i)
             asm volatile ("pause");
     }
-#endif
     sched_initialized = true;
 
     kdebug("All CPUs initialized");

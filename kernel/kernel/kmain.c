@@ -23,8 +23,11 @@
 #include <errno.h>
 #include <stdint.h>
 
+/* defined by the linker */
 extern uint8_t _percpu_start, _percpu_end;
 extern uint8_t _kernel_physical_end;
+extern uint8_t _trampoline_start;
+extern uint8_t _trampoline_end;
 
 void init_bsp(void *arg)
 {
@@ -46,6 +49,10 @@ void init_bsp(void *arg)
     acpi_parse_madt();
     ioapic_initialize_all();
     lapic_initialize();
+
+    /* initialize SMP trampoline for the APs */
+    size_t trmp_size = (size_t)&_trampoline_end - (size_t)&_trampoline_start;
+    kmemcpy((uint8_t *)0x55000, &_trampoline_start, trmp_size);
 
     /* initialize the percpu areas for all processors */
     unsigned long kernel_end = (unsigned long)&_kernel_physical_end;
