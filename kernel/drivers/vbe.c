@@ -8,6 +8,7 @@
 #include <kernel/kprint.h>
 #include <kernel/util.h>
 #include <kernel/kpanic.h>
+#include <stdbool.h>
 
 #define DISPLAY_WIDTH     1024
 #define DISPLAY_HEIGHT     768
@@ -15,6 +16,9 @@
 
 #define DISPLAY_FG_COLOR  0x22
 #define DISPLAY_BG_COLOR  0xff
+
+#define CURSOR_FG_COLOR  0xff
+#define CURSOR_BG_COLOR  0x22
 
 #define ROWS_PER_BANK       64 /* pixel rows */
 #define LAST_BANK           12
@@ -160,13 +164,19 @@ void vbe_put_pixel(uint8_t color, uint32_t y, uint32_t x)
     vbe_putpixel(color, y, x);
 }
 
-void vbe_put_char(char c)
+static void __put_char(char c, bool cursor)
 {
     if (vga_mem == NULL)
         return;
 
+    if (cursor) {
+        vbe_putchar(c, cur_y, cur_x, CURSOR_FG_COLOR, CURSOR_BG_COLOR);
+        return;
+    }
+
     switch (c) {
         case '\n':
+            vbe_putchar(' ', cur_y, cur_x, DISPLAY_FG_COLOR, DISPLAY_BG_COLOR);
             cur_y += DISPLAY_BITDEPTH * 2;
 
             /* TODO: explain this */
@@ -177,6 +187,7 @@ void vbe_put_char(char c)
             break;
 
         case '\b':
+            vbe_putchar(' ', cur_y, cur_x, DISPLAY_FG_COLOR, DISPLAY_BG_COLOR);
             vbe_putchar(0, cur_y, cur_x - DISPLAY_BITDEPTH, DISPLAY_FG_COLOR, DISPLAY_BG_COLOR);
             cur_x -= DISPLAY_BITDEPTH;
             break;
@@ -241,6 +252,14 @@ end:
     }
 }
 
+void vbe_put_char(char c)
+{
+    __put_char(c, false);
+
+    if (c != '\n')
+        __put_char(' ', true);
+}
+
 void vbe_put_str(char *s)
 {
     if (!s)
@@ -249,6 +268,9 @@ void vbe_put_str(char *s)
     size_t len = kstrlen(s);
 
     for (size_t i = 0; i < len; ++i) {
-        vbe_put_char(s[i]);
+        __put_char(s[i], false);
     }
+
+    if (s[len - 1] != '\n')
+        __put_char(' ', true);
 }
