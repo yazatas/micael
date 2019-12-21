@@ -19,7 +19,7 @@
 #define TIMESLICE 50
 
 __percpu static list_head_t run_queue;
-__percpu static task_t *current;
+__percpu static task_t *current = NULL;
 __percpu static task_t *idle_task; /* TODO: why is percpu idle task needed? */
          static list_head_t wait_queue;
 
@@ -205,7 +205,7 @@ static task_t *__switch_common(void)
      *
      * If on the other hand the tasks's state is T_BLOCKED, it means that currently
      * running task has voluntarily yielded its timeslice and shoul */
-    if (cur->threads->state != T_BLOCKED)
+    if (!(cur->threads->state & (T_BLOCKED | T_ZOMBIE)))
         sched_task_set_state(cur, T_READY);
 
     if ((cur = next) == NULL) {
@@ -273,24 +273,22 @@ void sched_task_set_state(task_t *task, int state)
         return;
 
     /* moving active or waiting-to-become-active task to a wait queue */
-    if (state == T_BLOCKED) {
+    if (state & (T_BLOCKED | T_ZOMBIE)) {
         if (task->threads->state == T_READY)
             list_remove(&task->list);
 
-        task->threads->state = T_BLOCKED;
+        task->threads->state = state;
         __enqueue_task(&wait_queue, task);
     }
 
     if (state == T_READY) {
-        if (task->threads->state == T_BLOCKED) {
+        if (get_thiscpu_var(idle_task) == task)
+            return;
+
+        if (task->threads->state & (T_BLOCKED | T_RUNNING))
             task->threads->state = T_READY;
-            __enqueue_task(get_thiscpu_ptr(run_queue), task);
-        } else {
-            if (task->threads->state == T_RUNNING && task != get_thiscpu_var(idle_task)) {
-                task->threads->state = T_READY;
-                __enqueue_task(get_thiscpu_ptr(run_queue), task);
-            }
-        }
+
+        __enqueue_task(get_thiscpu_ptr(run_queue), task);
     }
 }
 
