@@ -129,4 +129,10 @@ void sched_free_threads(task_t *t);
  * NOTE: this function should be called be sched_init and no one else */
 int sched_task_init(void);
 
+/* Release all memory used by the task "t"
+ *
+ * Return 0 on success
+ * Return -EINVAL if "t" is NULL */
+int sched_task_destroy(task_t *t);
+
 #endif /* __TASK_H__ */

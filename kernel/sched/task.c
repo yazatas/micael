@@ -1,4 +1,5 @@
 #include <kernel/gdt.h>
+#include <kernel/kassert.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
 #include <mm/heap.h>
@@ -67,13 +68,16 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
     return t;
 }
 
-void sched_thread_destory(thread_t *t)
+void sched_thread_destroy(thread_t *t)
 {
     if (!t)
         return;
 
     list_remove(&t->list);
     kmemset(t->kstack_top, 0, KSTACK_SIZE);
+    mmu_page_free(mmu_v_to_p(t->kstack_top));
+    kmemset(t, 0, sizeof(thread_t));
+    mmu_cache_free_entry(thread_cache, t);
 }
 
 int sched_task_add_thread(task_t *parent, thread_t *child)
@@ -98,13 +102,15 @@ task_t *sched_task_create(const char *name)
     t->nthreads = 0;
     t->pid      = sched_get_pid();
 
-    list_init_null(&t->children);
+    list_init(&t->children);
+    list_init(&t->p_children);
     list_init(&t->list);
 
     t->dir = mmu_build_dir();
     t->cr3 = (unsigned long)mmu_v_to_p(t->dir);
 
     wq_init(&t->wq, t);
+    wq_init_head(&t->wqh_child);
 
     /* initialize file context of task (stdio) */
     path_t *path = NULL;
@@ -141,13 +147,21 @@ task_t *sched_task_create(const char *name)
     return t;
 }
 
-void sched_task_destroy(task_t *task)
+int sched_task_destroy(task_t *task)
 {
-    (void)task;
+    if (!task)
+        return -EINVAL;
+
+    kassert(task->nthreads == 1);
+
+    mmu_destroy_dir(task->dir);
+    sched_thread_destroy(task->threads);
 }
 
 task_t *sched_task_fork(task_t *parent)
 {
+    kassert(parent != NULL);
+
     task_t *child   = mmu_cache_alloc_entry(task_cache, MM_NO_FLAG);
     child->parent   = parent;
     child->pid      = sched_get_pid();
@@ -176,7 +190,8 @@ task_t *sched_task_fork(task_t *parent)
         parent_t = container_of(parent_t->list.next, thread_t, list);
     }
 
-    list_init_null(&child->children);
+    list_init(&child->children);
+    list_append(&parent->children, &child->p_children);
     list_init(&child->list);
 
     child->dir = mmu_duplicate_dir();

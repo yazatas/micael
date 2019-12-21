@@ -42,6 +42,9 @@ void *mmu_p_to_v(unsigned long paddr);
 /* TODO:  */
 void *mmu_build_dir(void);
 
+/* TODO:  */
+void mmu_destroy_dir(void *dir);
+
 /* TODO: should this take something as parameter */
 void *mmu_duplicate_dir(void);
 

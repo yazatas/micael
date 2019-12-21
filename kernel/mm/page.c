@@ -378,8 +378,10 @@ unsigned long mmu_block_alloc(unsigned memzone, unsigned order)
 {
     unsigned long address = __alloc_mem(memzone, order);
 
-    if (address == INVALID_ADDRESS)
+    if (address == INVALID_ADDRESS) {
+        kpanic("out of memory");
         return INVALID_ADDRESS;
+    }
 
     (void)__page_array_add_block(&(unsigned){ MM_PT_IN_USE }, address, order);
 
