@@ -1,47 +1,30 @@
+#include <arch/x86_64/mm/mmu.h>
 #include <kernel/common.h>
 #include <kernel/kpanic.h>
 #include <kernel/kprint.h>
 #include <kernel/percpu.h>
+#include <kernel/util.h>
 #include <mm/mmu.h>
-
-static unsigned long __do_cow(unsigned long fault_addr)
-{
-    (void)fault_addr;
-    /* unsigned long p_fault = ROUND_DOWN(fault_addr, PAGE_SIZE); */
-    /* page_t p_copy  = mmu_alloc_page(); */
-    /* page_t *v_org  = mmu_alloc_addr(1), */
-    /*        *v_copy = mmu_alloc_addr(1); */
-
-    /* copy contents from fault page to new page, free temporary addresses and return new page */
-    /* mmu_map_page((void *)p_fault, v_org,  MM_PRESENT | MM_READWRITE); */
-    /* mmu_map_page((void *)p_copy,  v_copy, MM_PRESENT | MM_READWRITE); */
-
-    /* kmemcpy(v_copy, v_org, PAGE_SIZE); */
-
-    /* mmu_free_addr(v_org,  1); */
-    /* mmu_free_addr(v_copy, 1); */
-
-    /* return p_copy | MM_PRESENT | MM_READWRITE | MM_USER; */
-    return INVALID_ADDRESS;
-}
+#include <mm/page.h>
+#include <sched/sched.h>
 
 static void __walk_dir(uint64_t cr3, uint16_t pml4i, uint16_t pdpti, uint16_t pdi, uint16_t pti)
 {
-    kdebug("");
+    kprint("\n");
 
     uint64_t *pml4 = mmu_p_to_v(cr3);
     kprint("\tPML4: 0x%x 0x%x\n", pml4, cr3);
     kprint("\tPML4[%u] %spresent\n\n", pml4i, (pml4[pml4i] & MM_PRESENT) ? "" : "not ");
 
-    uint64_t *pdpt = mmu_p_to_v(pml4[pml4i]);
+    uint64_t *pdpt = mmu_p_to_v(pml4[pml4i] & ~(PAGE_SIZE - 1));
     kprint("\tPDPT: 0x%x 0x%x\n", pdpt, pml4[pml4i]);
     kprint("\tPDPT[%u] %spresent\n\n", pdpti, (pdpt[pdpti] & MM_PRESENT) ? "" : "not ");
 
-    uint64_t *pd = mmu_p_to_v(pdpt[pdpti]);
+    uint64_t *pd = mmu_p_to_v(pdpt[pdpti] & ~(PAGE_SIZE - 1));
     kprint("\tPD: 0x%x 0x%x\n", pd, pdpt[pdpti]);
     kprint("\tPD[%u] %spresent\n\n", pdi, (pd[pdi] & MM_PRESENT) ? "" : "not ");
 
-    uint64_t *pt = mmu_p_to_v(pd[pdi]);
+    uint64_t *pt = mmu_p_to_v(pd[pdi] & ~(PAGE_SIZE - 1));
     kprint("\tPT: 0x%x 0x%x\n", pt, pd[pdi]);
     kprint("\tPD[%u] %spresent\n\n", pti, (pt[pti] & MM_PRESENT) ? "" : "not ");
 }
@@ -66,8 +49,10 @@ static void __print_error(uint32_t error)
 
 void mmu_pf_handler(isr_regs_t *cpu_state)
 {
-    uint64_t cr2, cr3;
+    uint64_t cr2   = 0;
+    uint64_t cr3   = 0;
     uint32_t error = cpu_state->err_num;
+    task_t *task   = sched_get_current();
 
     asm volatile ("mov %%cr3, %0" : "=r"(cr3));
     asm volatile ("mov %%cr2, %0" : "=r"(cr2));
@@ -76,6 +61,22 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
     unsigned long pdpti = (cr2 >> 30) & 0x1ff;
     unsigned long pdi   = (cr2 >> 21) & 0x1ff;
     unsigned long pti   = (cr2 >> 12) & 0x1ff;
+
+    uint64_t *pml4 = mmu_p_to_v(cr3);
+    uint64_t *pdpt = mmu_p_to_v(pml4[pml4i] & ~(PAGE_SIZE - 1));
+    uint64_t *pd   = mmu_p_to_v(pdpt[pdpti] & ~(PAGE_SIZE - 1));
+    uint64_t *pt   = mmu_p_to_v(pd[pdi]     & ~(PAGE_SIZE - 1));
+
+    if ((pt[pti] & MM_COW) && !(pt[pti] & MM_READWRITE)) {
+        unsigned long copy = mmu_page_alloc(MM_ZONE_NORMAL);
+        uint8_t *copy_v    = mmu_native_p_to_v(copy);
+        int flags          = MM_PRESENT | MM_USER | MM_READWRITE; /* TODO: preserve flags */
+
+        kmemcpy(copy_v, (void *)ROUND_DOWN(cr2, PAGE_SIZE), PAGE_SIZE);
+
+        pt[pti] = (unsigned long)copy | flags;
+        return;
+    }
 
     __print_error(error);
     kprint("\nFaulting address: 0x%08x %10u\n", cr2, cr2);
@@ -88,7 +89,8 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
 
     kprint("CPUID:            0x%08x %10u\n", get_thiscpu_id(), get_thiscpu_id());
     kprint("CR3:              0x%08x %10u\n", cr3, cr3);
-    for (;;);
+
+    kprint("task name:        %s\n", sched_get_current()->name);
 
     /* Walk the directory and the virtual address of each directory
      * and whether the entry is present or not */
