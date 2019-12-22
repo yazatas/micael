@@ -133,17 +133,9 @@ task_t *sched_task_create(const char *name)
         kdebug("failed to find /dev/tty1!");
     }
 
-    /* initialize filesystem context of task (root, pwd) */
-    if ((path = vfs_path_lookup("/", LOOKUP_OPEN))->p_status == LOOKUP_STAT_SUCCESS) {
-        t->fs_ctx        = kmalloc(sizeof(fs_ctx_t));
-        t->fs_ctx->count = 1;
-        t->fs_ctx->root  = path->p_dentry;
-        t->fs_ctx->pwd   = path->p_dentry;
-    } else {
-        kdebug("failed to find root dentry!");
-    }
+    /* Create file system context and return the task object */
+    t->fs_ctx = vfs_alloc_fs_ctx(NULL);
 
-    /* path intentionally not released */
     return t;
 }
 
