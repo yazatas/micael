@@ -113,7 +113,7 @@ static int vfs_mount_pseudo(char *target, char *type, dentry_t *mountpoint)
 void vfs_init(void)
 {
     fs_types   = hm_alloc_hashmap(16, HM_KEY_TYPE_STR);
-    path_cache = mmu_cache_create(sizeof(path_t), MM_NO_FLAG);
+    path_cache = mmu_cache_create(sizeof(path_t), MM_ZERO);
 
     list_init(&mountpoints);
     list_init(&superblocks);
@@ -171,8 +171,8 @@ void vfs_init(void)
         kpanic("cdev_init() failed!");
     }
 
-    fs_ctx_cache   = mmu_cache_create(sizeof(fs_ctx_t), MM_NO_FLAG);
-    file_ctx_cache = mmu_cache_create(sizeof(file_ctx_t), MM_NO_FLAG);
+    fs_ctx_cache   = mmu_cache_create(sizeof(fs_ctx_t), MM_NO_FLAGS);
+    file_ctx_cache = mmu_cache_create(sizeof(file_ctx_t), MM_NO_FLAGS);
 }
 
 int vfs_install_rootfs(char *type, void *data)
@@ -549,7 +549,7 @@ int vfs_path_release(path_t *path)
 
 fs_ctx_t *vfs_alloc_fs_ctx(dentry_t *pwd)
 {
-    fs_ctx_t *ctx = mmu_cache_alloc_entry(fs_ctx_cache, MM_NO_FLAG);
+    fs_ctx_t *ctx = mmu_cache_alloc_entry(fs_ctx_cache, MM_ZERO);
 
     if (!ctx)
         return NULL;
@@ -563,7 +563,7 @@ fs_ctx_t *vfs_alloc_fs_ctx(dentry_t *pwd)
 
 file_ctx_t *vfs_alloc_file_ctx(int numfd)
 {
-    file_ctx_t *ctx = mmu_cache_alloc_entry(file_ctx_cache, MM_NO_FLAG);
+    file_ctx_t *ctx = mmu_cache_alloc_entry(file_ctx_cache, MM_ZERO);
 
     if (!ctx)
         return NULL;

@@ -146,7 +146,7 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
 {
     (void)argc, (void)argv;
 
-    kdebug("in binfmt_elf_loader...");
+    /* kdebug("in binfmt_elf_loader..."); */
 
     unsigned long mem = (unsigned long)native_p_to_v(mmu_page_alloc(MM_ZONE_NORMAL));
     size_t fsize      = file->f_dentry->d_inode->i_size;

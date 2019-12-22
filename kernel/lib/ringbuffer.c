@@ -38,7 +38,7 @@ static inline void __update_r_ptr(ringbuffer_t *rb)
 ringbuffer_t *rb_create(size_t size)
 {
     if (rb_cache == NULL) {
-        if ((rb_cache = mmu_cache_create(sizeof(ringbuffer_t), MM_NO_FLAG)) == NULL) {
+        if ((rb_cache = mmu_cache_create(sizeof(ringbuffer_t), MM_NO_FLAGS)) == NULL) {
             kdebug("Failed to create SLAB cache for ringbuffer!");
 
             errno = ENOMEM;
