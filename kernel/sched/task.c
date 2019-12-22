@@ -22,10 +22,10 @@ static pid_t sched_get_pid(void)
 
 int sched_task_init(void)
 {
-    if ((task_cache = mmu_cache_create(sizeof(task_t), MM_NO_FLAG)) == NULL)
+    if ((task_cache = mmu_cache_create(sizeof(task_t), MM_NO_FLAGS)) == NULL)
         return -errno;
 
-    if ((thread_cache = mmu_cache_create(sizeof(thread_t), MM_NO_FLAG)) == NULL)
+    if ((thread_cache = mmu_cache_create(sizeof(thread_t), MM_NO_FLAGS)) == NULL)
         return -errno;
 
     return 0;
@@ -35,7 +35,7 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
 {
     (void)arg;
 
-    thread_t *t = mmu_cache_alloc_entry(thread_cache, MM_NO_FLAG);
+    thread_t *t = mmu_cache_alloc_entry(thread_cache, MM_ZERO);
 
     t->state         = T_UNSTARTED;
     t->kstack_top    = (void *)mmu_p_to_v(mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL));
@@ -96,7 +96,7 @@ int sched_task_add_thread(task_t *parent, thread_t *child)
 
 task_t *sched_task_create(const char *name)
 {
-    task_t *t   = mmu_cache_alloc_entry(task_cache, MM_NO_FLAG);
+    task_t *t   = mmu_cache_alloc_entry(task_cache, MM_ZERO);
     t->parent   = NULL;
     t->name     = name;
     t->nthreads = 0;
@@ -162,7 +162,7 @@ task_t *sched_task_fork(task_t *parent)
 {
     kassert(parent != NULL);
 
-    task_t *child   = mmu_cache_alloc_entry(task_cache, MM_NO_FLAG);
+    task_t *child   = mmu_cache_alloc_entry(task_cache, MM_ZERO);
     child->parent   = parent;
     child->pid      = sched_get_pid();
     child->name     = "forked_task";
@@ -175,7 +175,7 @@ task_t *sched_task_fork(task_t *parent)
     thread_t *parent_t = parent->threads;
 
     for (size_t i = 0; i < parent->nthreads; ++i) {
-        child_t = mmu_cache_alloc_entry(thread_cache, MM_NO_FLAG);
+        child_t = mmu_cache_alloc_entry(thread_cache, MM_ZERO);
 
         child_t->state         = T_UNSTARTED;
         child_t->kstack_top    = (void *)mmu_p_to_v(mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL));

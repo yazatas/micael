@@ -27,7 +27,7 @@ int cdev_init(void)
     path_t *path   = NULL;
     int ret        = 0;
 
-    if ((cdev_cache = mmu_cache_create(sizeof(cdev_t), MM_NO_FLAG)) == NULL)
+    if ((cdev_cache = mmu_cache_create(sizeof(cdev_t), MM_NO_FLAGS)) == NULL)
         return -ENOMEM;
 
     if ((bm_devnums = bm_alloc_bitmap(256)) == NULL)
@@ -77,12 +77,14 @@ cdev_t *cdev_alloc(char *name, file_ops_t *ops, int major)
     if ((minor = cdev_alloc_devnum()) < 0)
         goto error;
 
-    if ((dev = mmu_cache_alloc_entry(cdev_cache, MM_NO_FLAG)) == NULL)
+    if ((dev = mmu_cache_alloc_entry(cdev_cache, MM_NO_FLAGS)) == NULL)
         goto error_deventry;
 
     dev->c_dev  = MAKE_DEV(major, minor);
     dev->c_ops  = ops;
     dev->c_name = name;
+
+    list_init(&dev->c_list);
 
     return dev;
 

@@ -55,7 +55,7 @@ static inline mm_zone_t *__get_zone(unsigned long start, unsigned long end)
 static int __zone_add_block(void *param, unsigned long start, unsigned order)
 {
     mm_zone_t *zone   = (mm_zone_t *)param;
-    mm_block_t *block = mmu_cache_alloc_entry(mm_block_cache, MM_NO_FLAG);
+    mm_block_t *block = mmu_cache_alloc_entry(mm_block_cache, MM_ZERO);
 
     if (block == NULL)
         return -errno;
@@ -145,7 +145,7 @@ static unsigned long __split_block(mm_zone_t *zone, unsigned req_order, unsigned
     list_append(&zone->blocks[--split_order].list, &b->list);
 
     while (req_order != split_order) {
-        mm_block_t *tmp = mmu_cache_alloc_entry(mm_block_cache, MM_NO_FLAG);
+        mm_block_t *tmp = mmu_cache_alloc_entry(mm_block_cache, MM_ZERO);
 
         tmp->start  = split_start;
         split_size  = (1 << (split_order - 1)) * PAGE_SIZE;
@@ -275,7 +275,7 @@ void mmu_zones_init(void *arg)
         list_init_null(&zone_high.blocks[i].list);
     }
 
-    if ((mm_block_cache = mmu_cache_create(sizeof(mm_block_t), MM_NO_FLAG)) == NULL)
+    if ((mm_block_cache = mmu_cache_create(sizeof(mm_block_t), MM_NO_FLAGS)) == NULL)
         kpanic("Failed to allocate mm_block_cache for PFA");
 
     /* Memory is claimed twice: on the first run we're only interested in free memory

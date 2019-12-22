@@ -29,7 +29,8 @@ enum MM_PAGE_FLAGS {
 };
 
 typedef enum MM_ALLOC_FLAGS {
-    MM_NO_FLAG = 0,
+    MM_NO_FLAGS = 0 << 0,  /* no allocation flags */
+    MM_ZERO     = 1 << 0,  /* zero the memory before returning it */
 } mm_flags_t;
 
 enum MM_ZONES {

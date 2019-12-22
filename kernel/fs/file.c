@@ -9,10 +9,10 @@ static mm_cache_t *file_ops_cache = NULL;
 
 void file_init(void)
 {
-    if ((file_cache = mmu_cache_create(sizeof(file_t), MM_NO_FLAG)) == NULL)
+    if ((file_cache = mmu_cache_create(sizeof(file_t), MM_NO_FLAGS)) == NULL)
         kpanic("failed to initialize slab cache for file objects!");
 
-    if ((file_ops_cache = mmu_cache_create(sizeof(file_ops_t), MM_NO_FLAG)) == NULL)
+    if ((file_ops_cache = mmu_cache_create(sizeof(file_ops_t), MM_NO_FLAGS)) == NULL)
         kpanic("failed to initialize slab cache for file ops!");
 }
 
@@ -20,8 +20,8 @@ file_t *file_generic_alloc(void)
 {
     file_t *file = NULL;
 
-    if (((file        = mmu_cache_alloc_entry(file_cache,     MM_NO_FLAG)) == NULL) ||
-        ((file->f_ops = mmu_cache_alloc_entry(file_ops_cache, MM_NO_FLAG)) == NULL))
+    if (((file        = mmu_cache_alloc_entry(file_cache,     MM_ZERO)) == NULL) ||
+        ((file->f_ops = mmu_cache_alloc_entry(file_ops_cache, MM_ZERO)) == NULL))
     {
         if (file)
             mmu_cache_free_entry(file_cache, file);

@@ -16,7 +16,7 @@ static mm_cache_t *dentry_cache = NULL;
 
 int dentry_init(void)
 {
-    if ((dentry_cache = mmu_cache_create(sizeof(dentry_t), MM_NO_FLAG)) == NULL)
+    if ((dentry_cache = mmu_cache_create(sizeof(dentry_t), MM_NO_FLAGS)) == NULL)
         kpanic("failed to initialize slab cache for dentries!");
 
     /* TODO: initialize global cache */
@@ -30,7 +30,7 @@ static dentry_t *__dentry_alloc(char *name, bool cache)
 {
     dentry_t *dntr = NULL;
 
-    if ((dntr = mmu_cache_alloc_entry(dentry_cache, MM_NO_FLAG)) == NULL)
+    if ((dntr = mmu_cache_alloc_entry(dentry_cache, MM_ZERO)) == NULL)
         return NULL;
 
     /* don't cache this dentry to global dentry cache (used for . and ..) */

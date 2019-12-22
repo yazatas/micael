@@ -1,5 +1,6 @@
 #include <kernel/common.h>
 #include <kernel/kprint.h>
+#include <kernel/util.h>
 #include <lib/list.h>
 #include <mm/bootmem.h>
 #include <mm/heap.h>
@@ -221,6 +222,9 @@ void *mmu_cache_alloc_entry(mm_cache_t *c, mm_flags_t flags)
 
         c->free_list->next_free = (uint8_t *)c->free_list->next_free + c->item_size;
     }
+
+    if (flags & MM_ZERO)
+        kmemset(ret, 0, c->item_size);
 
     return ret;
 }
