@@ -1,6 +1,8 @@
 #ifndef __KASSERT_H__
 #define __KASSERT_H__
 
+#include <kernel/kprint.h>
+
 #ifdef NDEBUG
 #define kassert(cond)
 #else
