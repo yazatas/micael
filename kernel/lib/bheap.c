@@ -1,3 +1,4 @@
+#include <kernel/kprint.h>
 #include <lib/bheap.h>
 #include <mm/heap.h>
 #include <mm/mmu.h>
@@ -175,7 +176,7 @@ int bh_peek_max(bheap_t *heap)
         return -EINVAL;
 
     if (heap->size == 0)
-        return -1;
+        return INT_MIN;
 
     return heap->elems[0].key;
 }
