@@ -54,7 +54,7 @@ void *bh_remove_max(bheap_t *heap);
 /* Return the key value of max element
  *
  * Return -EINVAL if "heap" is NULL
- * Return -1 if heap is empty */
+ * Return INT_MIN if heap is empty */
 int bh_peek_max(bheap_t *heap);
 
 #endif /* __B_HEAP_H__ */
