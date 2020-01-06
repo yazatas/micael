@@ -63,9 +63,24 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
     unsigned long pti   = (cr2 >> 12) & 0x1ff;
 
     uint64_t *pml4 = mmu_p_to_v(cr3);
+
+    if (!(pml4[pml4i] & MM_PRESENT))
+        goto error;
+
     uint64_t *pdpt = mmu_p_to_v(pml4[pml4i] & ~(PAGE_SIZE - 1));
-    uint64_t *pd   = mmu_p_to_v(pdpt[pdpti] & ~(PAGE_SIZE - 1));
-    uint64_t *pt   = mmu_p_to_v(pd[pdi]     & ~(PAGE_SIZE - 1));
+
+    if (!(pdpt[pdpti] & MM_PRESENT))
+        goto error;
+
+    uint64_t *pd = mmu_p_to_v(pdpt[pdpti] & ~(PAGE_SIZE - 1));
+
+    if (!(pd[pdi] & MM_PRESENT))
+        goto error;
+
+    uint64_t *pt = mmu_p_to_v(pd[pdi] & ~(PAGE_SIZE - 1));
+
+    if (!(pt[pti] & MM_PRESENT))
+        goto error;
 
     if ((pt[pti] & MM_COW) && !(pt[pti] & MM_READWRITE)) {
         unsigned long copy = mmu_page_alloc(MM_ZONE_NORMAL);
@@ -78,6 +93,7 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
         return;
     }
 
+error:
     __print_error(error);
     kprint("\nFaulting address: 0x%08x %10u\n", cr2, cr2);
     kprint("PML4 index:       0x%08x %10u\n"
