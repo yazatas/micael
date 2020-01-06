@@ -103,7 +103,7 @@ task_t *sched_task_create(const char *name)
     t->pid      = sched_get_pid();
 
     list_init(&t->children);
-    list_init(&t->p_children);
+    list_init(&t->zombies);
     list_init(&t->list);
 
     t->dir = mmu_build_dir();
@@ -118,7 +118,6 @@ task_t *sched_task_create(const char *name)
 
     if ((path = vfs_path_lookup("/dev/tty1", LOOKUP_OPEN))->p_status == LOOKUP_STAT_SUCCESS) {
         if ((file = file_open(path->p_dentry, O_RDWR)) != NULL) {
-
             /* allocate space for three file descriptors
              * (std{in,out,err}) and allocate more only when user opens more files */
             t->file_ctx = vfs_alloc_file_ctx(3);
@@ -161,6 +160,7 @@ task_t *sched_task_fork(task_t *parent)
     child->nthreads = 0;
 
     wq_init(&child->wq, child);
+    wq_init_head(&child->wqh_child);
 
     /* copy all data form parent threads but allocate new stack for each thread */
     thread_t *child_t  = NULL;
@@ -182,9 +182,10 @@ task_t *sched_task_fork(task_t *parent)
         parent_t = container_of(parent_t->list.next, thread_t, list);
     }
 
-    list_init(&child->children);
-    list_append(&parent->children, &child->p_children);
+    list_init(&child->children); /* children of "child" */
+    list_init(&child->zombies);  /* zombiefied children of "child" */
     list_init(&child->list);
+    list_append(&parent->children, &child->list);
 
     child->dir = mmu_duplicate_dir();
     child->cr3 = (unsigned long)mmu_v_to_p(child->dir);

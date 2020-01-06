@@ -12,11 +12,10 @@
 #include <kernel/tick.h>
 #include <kernel/util.h>
 #include <mm/heap.h>
+#include <sched/mts.h>
 #include <sched/sched.h>
 #include <errno.h>
 #include <stdbool.h>
-
-#define TIMESLICE 50
 
 __percpu static list_head_t run_queue;
 __percpu static task_t *current = NULL;
@@ -56,6 +55,9 @@ static void *idle_task_func(void *arg)
  * it's very unlikely) */
 static void *init_task_func(void *arg)
 {
+    (void)arg;
+
+#if 0
     for (size_t i = 1; i < lapic_get_cpu_count(); ++i) {
         lapic_send_init(i);
         tick_wait(tick_ms_to_ticks(10));
@@ -66,6 +68,7 @@ static void *init_task_func(void *arg)
         while (READ_ONCE(ap_initialized) != i)
             asm volatile ("pause");
     }
+#endif
     sched_initialized = true;
 
     kdebug("All CPUs initialized");
@@ -88,166 +91,46 @@ static void *init_task_func(void *arg)
     return NULL;
 }
 
-/* --------------- /idle and init tasks --------------- */
-
-/* Select the next task from "queue"
+/* This function gets called when timer interrupt occurs.
  *
- * Return pointer to task on success
- * Return NULL if the queue doesn't have any tasks */
-static task_t *__dequeue_task(list_head_t *queue)
-{
-    if (!queue)
-        return NULL;
-
-    task_t *ret = NULL;
-
-    /* queue is empty if its next element points to itself */
-    if (queue->next != queue) {
-        ret = container_of(queue->next, task_t, list);
-        queue->next = ret->list.next;
-        
-        if (queue->next == queue)
-            list_init(queue);
-    }
-
-    return ret;
-}
-
-/* run_queue has a list of tasks in order of execution ie queue->next
- * points to task that is going to get execution time next.
- *
- * queue->prev points to last element of the list so that new task can be
- * inserted in constant time. Last_task->next points to queue in order to
- * make the list iterable (see sched_print_tasks) */
-static void __enqueue_task(list_head_t *queue, task_t *task)
-{
-    if (!queue || !task)
-        return;
-
-    list_init(&task->list);
-
-    if (queue->next == queue->prev) {
-        if (queue->next != queue) {
-            queue->prev->next = &task->list;
-            task->list.next = queue;
-        } else {
-            task->list.next = queue;
-            queue->next = &task->list;
-        }
-    } else {
-        task_t *last = container_of(queue->prev, task_t, list);
-        last->list.next = &task->list;
-        task->list.next = queue;
-    }
-
-    /* make queue->prev point to last element on the list so
-     * future insertions can be done in constant time */
-    queue->prev = &task->list;
-}
-
-/* this function gets called when timer interrupt occurs. It saves
- * the state of currently running process and then calls sched_switch()
- * to perform the actual context switch */
+ * It saves the state of currently running process and then
+ * calls sched_switch() to perform the actual context switch */
 static void __prepare_switch(struct isr_regs *cpu_state)
 {
-    task_t *cur = get_thiscpu_var(current);
+    kassert(cpu_state != NULL);
 
-    if (cpu_state != NULL) {
-        if (get_sp() < (unsigned long)cur->threads->kstack_top) {
+    task_t *cur = mts_get_active();
+
+    if (cur) {
+        if (get_sp() < (unsigned long)cur->threads->kstack_top)
             kpanic("kernel stack overflow!");
-        }
 
         /* cpu_state now points to the beginning of trap frame, 
          * update exec_state to point to it so next context switch succeeds */
         cur->threads->exec_state = (exec_state_t *)cpu_state;
         cur->threads->exec_state->eflags |= (1 << 9);
 
-        /* Reschedule this thread by settings its */
-        cur->threads->flags         &= ~TIF_NEED_RESCHED;
-        cur->threads->total_runtime += cur->threads->exec_runtime;
-        cur->threads->exec_runtime   = 0;
+        /* all threads get the same amount of execution time (for now) */
+        if (cur->nthreads > 1)
+            cur->threads = container_of(cur->threads->list.next, thread_t, list);
     }
 
-    /* all threads get the same amount of execution time (for now) */
-    if (cur->nthreads > 1)
-        cur->threads = container_of(cur->threads->list.next, thread_t, list);
-
-    put_thiscpu_var(current);
     sched_switch();
 }
 
-static task_t *__switch_common(void)
+void sched_enter_userland(void *eip, void *esp)
 {
-    /* first remove next task from run_queue and then and current queue to run_queue.
-     * There's a chance that system has only one task running (very unlikely in the future).
-     * If we enqueded this task before dequeuing, the run_queue would fill up with the same task 
-     * which is obviously something we don't want */
-    task_t *cur  = get_thiscpu_var(current);
-    task_t *next = __dequeue_task(get_thiscpu_ptr(run_queue));
-    task_t *prev = cur;
+    task_t *cur = mts_get_active();
 
-    /* By default, current task's state is T_READY/T_RUNNING and in that case,
-     * it must be moved to run queue again.
-     *
-     * If on the other hand the tasks's state is T_BLOCKED, it means that currently
-     * running task has voluntarily yielded its timeslice and shoul */
-    if (!(cur->threads->state & (T_BLOCKED | T_ZOMBIE)))
-        sched_task_set_state(cur, T_READY);
+    /* prepare the context for this architecture */
+    arch_context_prepare(cur, eip, esp);
 
-    if ((cur = next) == NULL) {
-        /* there was no task in the run_queue, select current task again if possible */
-        cur = __dequeue_task(get_thiscpu_ptr(run_queue));
-
-        if (cur == NULL) {
-            cur = get_thiscpu_var(idle_task);
-        }
-    }
-
-    /* Set TSS's RSP point to the end of kernel stack (discarding previous state) */
-    tss_update_rsp((unsigned long)cur->threads->kstack_top + KSTACK_SIZE);
-    get_thiscpu_var(current) = cur;
-    put_thiscpu_var(current);
-
-    if (cur->threads->state != T_UNSTARTED)
-        cur->threads->state = T_READY;
-
-    return cur;
-}
-
-void sched_switch_init(void)
-{
-    task_t *cur = get_thiscpu_var(current);
-    cur->threads->state = T_RUNNING;
-
-    /* arch_context_load() loads a new context from cr3/exec_state discarding
-     * the current context entirely. Used only for task bootstrapping */
-    arch_context_load(cur->cr3, cur->threads->exec_state);
+    /* update TSS and load the context from 
+     * threads->exec_state essentially switching the task */
+    tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
+    arch_context_load(cur->cr3, &cur->threads->bootstrap);
 
     kpanic("arch_context_load() returned!");
-}
-
-void sched_switch(void)
-{
-    task_t *prev = get_thiscpu_var(current);
-    task_t *cur  = __switch_common();
-
-    /* If prev is cur, it's most likely an idle task that
-     * was rescheduled. In this case we don't need to flush TLB
-     * or switch stacks */
-    if (prev == cur) {
-        cur->threads->state = T_RUNNING;
-        return;
-    }
-
-    mmu_switch_ctx(cur);
-
-    if (cur->threads->state == T_UNSTARTED) {
-        cur->threads->state = T_RUNNING;
-        context_switch_user(&prev->threads->kstack_bottom, cur->threads->exec_state);
-    } else {
-        cur->threads->state = T_RUNNING;
-        context_switch(&prev->threads->kstack_bottom, cur->threads->kstack_bottom);
-    }
 }
 
 void sched_task_set_state(task_t *task, int state)
@@ -260,101 +143,124 @@ void sched_task_set_state(task_t *task, int state)
 
     /* moving active or waiting-to-become-active task to a wait queue */
     if (state & (T_BLOCKED | T_ZOMBIE)) {
-        if (task->threads->state == T_READY)
-            list_remove(&task->list);
+        if (state == T_BLOCKED)
+            mts_block(task);
+        else if (state == T_ZOMBIE)
+            mts_unschedule(task);
+        else
+            kdebug("what else?");
 
         task->threads->state = state;
-        __enqueue_task(&wait_queue, task);
     }
 
     if (state == T_READY) {
         if (get_thiscpu_var(idle_task) == task)
             return;
 
+        if (task->threads->state == T_BLOCKED)
+            mts_unblock(task);
+        else if (task->threads->state == T_UNSTARTED)
+            mts_schedule(task, 0);
+        else
+            kdebug("what to do with task %s %d", task->name, task->threads->state);
+
         if (task->threads->state & (T_BLOCKED | T_RUNNING))
             task->threads->state = T_READY;
+    }
+}
 
-        __enqueue_task(get_thiscpu_ptr(run_queue), task);
+void sched_switch(void)
+{
+    task_t *cur  = mts_get_active();
+    task_t *next = mts_get_next();
+
+    kassert(cur  != NULL);
+    kassert(next != NULL);
+
+    /* Task switch was initiated but it may have just been a resched.
+     *
+     * Do not load context if task was not changed
+     * but return from where we came from [sched_tick()] */
+    if (cur == next)
+        return;
+
+    /* Switch page directory and update TSS's RSP */
+    tss_update_rsp((unsigned long)next->threads->kstack_top + KSTACK_SIZE);
+    mmu_switch_ctx(next);
+
+    if (next->threads->state == T_UNSTARTED) {
+        next->threads->state = T_RUNNING;
+        arch_context_switch_user(&cur->threads->kstack_bottom, next->threads->exec_state);
+    } else {
+        next->threads->state = T_RUNNING;
+        arch_context_switch(&cur->threads->kstack_bottom, next->threads->kstack_bottom);
     }
 }
 
 void sched_init_cpu(void)
 {
-    thread_t *idle_thread = NULL;
+    task_t   *task   = NULL;
+    thread_t *thread = NULL;
+    
+    if ((task = sched_task_create("idle_task")) == NULL)
+        kpanic("Failed to create idle task");
 
-    list_init(get_thiscpu_ptr(run_queue));
-    list_init(&wait_queue);
+    if ((thread = sched_thread_create(idle_task_func, NULL)) == NULL)
+        kpanic("Failed to create thread for idle task");
 
-    get_thiscpu_var(idle_task) = sched_task_create("idle_task");
-    if ((get_thiscpu_var(idle_task)) == NULL)
-        kpanic("failed to create idle task");
-
-    if ((idle_thread = sched_thread_create(idle_task_func, NULL)) == NULL)
-        kpanic("failed to create thread for idle task");
-
-    sched_task_add_thread(get_thiscpu_var(idle_task), idle_thread);
-    get_thiscpu_var(current) = get_thiscpu_var(idle_task);
+    sched_task_add_thread(task, thread);
+    mts_init_cpu(task);
 }
 
-/* initialize idle task and run/wait queues */
 void sched_init(void)
 {
-    thread_t *init_thread = NULL;
-
+    task_t   *task   = NULL;
+    thread_t *thread = NULL;
+    
     if (sched_task_init() < 0)
-        kpanic("failed to inititialize tasks");
+        kpanic("Failed to inititialize tasks");
 
-    if ((init_task = sched_task_create("init_task")) == NULL)
-        kpanic("failed to create init task");
+    if (mts_init() < 0)
+        kpanic("Failed to initialize MTS!");
 
-    if ((init_thread = sched_thread_create(init_task_func, NULL)) == NULL)
-        kpanic("failed to create thread for init task");
-
+    /* initialize MTS's per-CPU areas and create idle task */
     sched_init_cpu();
 
-    sched_task_add_thread(init_task, init_thread);
-    get_thiscpu_var(current) = init_task;
+    if ((task = sched_task_create("init_task")) == NULL)
+        kpanic("Failed to create init task");
 
-    kdebug("sched initialized");
+    if ((thread = sched_thread_create(init_task_func, NULL)) == NULL)
+        kpanic("failed to create thread for init task");
+
+    sched_task_add_thread(task, thread);
+
+    if (mts_schedule(task, 0) < 0)
+        kpanic("Failed to schedule init task!");
 }
 
-void sched_start(void)
+__noreturn void sched_start()
 {
     disable_irq();
-    sched_switch_init();
 
-    for (;;);
-}
+    task_t *next = mts_get_next();
+    next->threads->state = T_RUNNING;
 
-void sched_enter_userland(void *eip, void *esp)
-{
-    task_t *cur = get_thiscpu_var(current);
-
-    /* prepare the context for this architecture */
-    arch_context_prepare(cur, eip, esp);
-
-    /* update tss for this CPU, important for user mode tasks */
-    tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
-    put_thiscpu_var(cur);
-    
-    arch_context_load(cur->cr3, &cur->threads->bootstrap);
+    /* arch_context_load() loads a new context from cr3/exec_state discarding
+     * the current context entirely. Used only for task bootstrapping */
+    arch_context_load(next->cr3, next->threads->exec_state);
 
     kpanic("arch_context_load() returned!");
 }
 
-task_t *sched_get_current(void)
+task_t *sched_get_active(void)
 {
-    return get_thiscpu_var(current);
-}
-
-void sched_put_current(void)
-{
-    put_thiscpu_var(current);
+    return mts_get_active();
 }
 
 task_t *sched_get_init(void)
 {
-    return init_task;
+    return NULL;
+    /* return init_task; */
 }
 
 void sched_tick(isr_regs_t *cpu)
@@ -362,15 +268,6 @@ void sched_tick(isr_regs_t *cpu)
     if (!READ_ONCE(sched_initialized))
         return;
 
-    task_t *t = get_thiscpu_var(current);
-
-    if (++t->threads->exec_runtime > TIMESLICE)
-        t->threads->flags |= TIF_NEED_RESCHED;
-
-    put_thiscpu_var(current);
-
-    /* If currently running process has used its timeslice, 
-     * TODO */
-    if (t->threads->flags & TIF_NEED_RESCHED)
+    if (mts_tick() != ST_OK)
         __prepare_switch(cpu);
 }
