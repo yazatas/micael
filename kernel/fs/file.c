@@ -74,6 +74,11 @@ file_t *file_open(dentry_t *dntr, int mode)
         return NULL;
     }
 
+    if (!dntr->d_inode || !dntr->d_inode->i_fops) {
+        errno = EINVAL;
+        return NULL;
+    }
+
     if (!dntr->d_inode->i_fops->open) {
         errno = ENOSYS;
         return NULL;
