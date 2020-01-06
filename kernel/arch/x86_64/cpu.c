@@ -5,28 +5,45 @@
 
 #define REG(reg) reg, reg
 
-void arch_dump_registers(void)
+void arch_dump_registers(isr_regs_t *cpu_state)
 {
-    uint64_t eax, ebx, ecx, edx, edi, cr3, cr2;
+    if (!cpu_state) {
 
-    asm volatile ("mov %%rax, %0\n\
-                   mov %%rbx, %1\n\
-                   mov %%rcx, %2\n\
-                   mov %%rdx, %3\n\
-                   mov %%rdi, %4\n\
-                   mov %%cr2, %%rax\n\
-                   mov %%rax, %5\n\
-                   mov %%cr3, %%rax\n\
-                   mov %%rax, %6"
-                   : "=r"(eax), "=r"(ebx), "=r"(ecx), "=r"(edx),
-                     "=r"(edi), "=g"(cr2), "=g"(cr3));
+        uint64_t eax, ebx, ecx, edx, edi, cr3, cr2;
 
-    kprint("\nregister contents:\n");
-    kprint("\trax: 0x%09x %10u\n\trbx: 0x%09x %10u\n\trcx: 0x%09x %10u\n"
-           "\trdx: 0x%09x %10u\n\trdi: 0x%09x %10u\n\tcr2: 0x%09x %10u\n"
-           "\tcr3: 0x%09x %10u\n\n\n", REG(eax), REG(ebx), REG(ecx),
-           REG(edx), REG(edi),    REG(cr2), REG(cr3));
+        asm volatile ("mov %%rax, %0\n\
+                       mov %%rbx, %1\n\
+                       mov %%rcx, %2\n\
+                       mov %%rdx, %3\n\
+                       mov %%rdi, %4\n\
+                       mov %%cr2, %%rax\n\
+                       mov %%rax, %5\n\
+                       mov %%cr3, %%rax\n\
+                       mov %%rax, %6"
+                       : "=g"(eax), "=g"(ebx), "=g"(ecx), "=g"(edx),
+                         "=g"(edi), "=g"(cr2), "=g"(cr3));
 
+        kprint("\nregister contents:\n");
+        kprint("\trax: 0x%016x %20u\n\trbx: 0x%016x %20u\n\trcx: 0x%016x %20u\n"
+               "\trdx: 0x%016x %20u\n\trdi: 0x%016x %20u\n\tcr2: 0x%016x %20u\n"
+               "\tcr3: 0x%016x %20u\n\n", REG(eax), REG(ebx), REG(ecx),
+               REG(edx), REG(edi),    REG(cr2), REG(cr3));
+    } else {
+        kprint("\nRegister contents:\n");
+        kprint("\trax: 0x%016x %20u\n"
+               "\trcx: 0x%016x %20u\n"
+               "\trdx: 0x%016x %20u\n"
+               "\trbx: 0x%016x %20u\n"
+               "\trsi: 0x%016x %20u\n"
+               "\trdi: 0x%016x %20u\n"
+               "\trbp: 0x%016x %20u\n"
+               "\trsp: 0x%016x %20u\n"
+               "\trip: 0x%016x %20u\n",     cpu_state->eax, cpu_state->eax,
+            cpu_state->ecx, cpu_state->ecx, cpu_state->edx, cpu_state->edx,
+            cpu_state->ebx, cpu_state->ebx, cpu_state->esi, cpu_state->esi,
+            cpu_state->edi, cpu_state->edi, cpu_state->ebp, cpu_state->ebp,
+            cpu_state->esp, cpu_state->esp, cpu_state->eip, cpu_state->eip);
+    }
 }
 
 void arch_context_prepare(task_t *task, void *ip, void *sp)

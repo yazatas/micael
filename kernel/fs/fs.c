@@ -479,7 +479,7 @@ path_t *vfs_path_lookup(char *path, int flags)
             kassert(start == NULL);
         }
     } else {
-        if ((current = sched_get_current()) == NULL) {
+        if ((current = sched_get_active()) == NULL) {
             kdebug("scheduler has not been started, but relative path was given!");
             errno = ENOTSUP;
             goto end;

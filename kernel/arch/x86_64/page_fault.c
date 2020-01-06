@@ -52,7 +52,7 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
     uint64_t cr2   = 0;
     uint64_t cr3   = 0;
     uint32_t error = cpu_state->err_num;
-    task_t *task   = sched_get_current();
+    task_t *task   = sched_get_active();
 
     asm volatile ("mov %%cr3, %0" : "=r"(cr3));
     asm volatile ("mov %%cr2, %0" : "=r"(cr2));
@@ -90,11 +90,14 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
     kprint("CPUID:            0x%08x %10u\n", get_thiscpu_id(), get_thiscpu_id());
     kprint("CR3:              0x%08x %10u\n", cr3, cr3);
 
-    kprint("task name:        %s\n", sched_get_current()->name);
+    if (task)
+        kprint("task name:        %s\n", sched_get_active()->name);
+
+    arch_dump_registers(cpu_state);
 
     /* Walk the directory and the virtual address of each directory
      * and whether the entry is present or not */
-    __walk_dir(cr3, pml4i, pdpti, pdi, pti);
+    /* __walk_dir(cr3, pml4i, pdpti, pdi, pti); */
 
     for (;;);
 }

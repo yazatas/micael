@@ -8,8 +8,9 @@
 #include <kernel/kprint.h>
 #include <sys/types.h>
 
-#define MIN(v1, v2) (((v1) < (v2)) ? (v1) : (v2))
-#define MAX(v1, v2) (((v1) < (v2)) ? (v2) : (v1))
+#define MIN(v1, v2) (((v1) < (v2)) ?   (v1) : (v2))
+#define MAX(v1, v2) (((v1) < (v2)) ?   (v2) : (v1))
+#define ABS(n)      (((n) < 0)     ? (-(n)) : (n))
 
 #define ROUND_DOWN(addr, boundary) ((addr) & ~((boundary) - 1))
 #define ROUND_UP(addr,   boundary) (((addr) % (boundary)) ? \

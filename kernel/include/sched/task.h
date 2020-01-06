@@ -105,8 +105,8 @@ typedef struct task {
     file_ctx_t *file_ctx;
 
     list_head_t list;            /* list for scheduler's run/wait queues */
-    list_head_t p_children;      /* list for parent's children */
     list_head_t children;        /* list for this tasks's children */
+    list_head_t zombies;         /* list of children that have zombified */
 
     wait_queue_t wq;             /* wait queue object used for blocking the task execution */
     wait_queue_head_t wqh_child; /* wait queue head to wait for wait() to finish */

@@ -41,7 +41,7 @@ static ssize_t __read(file_t *file, off_t offset, size_t size, void *buffer)
     spin_acquire(&pipe->lock);
 
     while (READ_ONCE(pipe->ptr) == 0) {
-        task_t *cur = sched_get_current();
+        task_t *cur = sched_get_active();
         wq_wait_event(&pipe->wq_readers, cur, &pipe->lock);
     }
 
@@ -74,7 +74,7 @@ static ssize_t __write(file_t *file, off_t offset, size_t size, void *buffer)
     /* TODO: make this a while loop */
 
     if (pipe->size - pipe->ptr < size) {
-        task_t *cur = sched_get_current();
+        task_t *cur = sched_get_active();
         wq_wait_event(&pipe->wq_writers, cur, &pipe->lock);
 
         /* wq_wait_event() will block (putting "cur" to sleep) until

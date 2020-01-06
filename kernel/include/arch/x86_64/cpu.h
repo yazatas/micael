@@ -52,9 +52,11 @@ static inline void set_msr(uint32_t msr, uint64_t reg)
     );
 }
 
-void arch_dump_registers(void);
+void arch_dump_registers(isr_regs_t *cpu_state);
 void arch_context_load(unsigned long cr3, void *exec_state);
 void arch_context_prepare(task_t *task, void *ip, void *sp);
+void arch_context_switch(void **p_kstack, void *c_kstack);
+void arch_context_switch_user(void **p_kstack, void *c_estate);
 
 #endif /* __x86_64__ */
 #endif /* __X86_64_CPU_H__ */

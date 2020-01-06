@@ -71,7 +71,7 @@ void mmu_pf_handler(uint32_t error)
         { MM_COW,       "CoW"     }
     };
 
-    if ((cur = sched_get_current()) != NULL)
+    if ((cur = sched_get_active()) != NULL)
         kprint("\t%s 0x%x\n", cur->name, cur->cr3);
 
     kdebug("Page flags:");

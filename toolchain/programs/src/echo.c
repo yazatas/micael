@@ -3,6 +3,7 @@ typedef unsigned int size_t;
 
 int read(int fd, char *buf, size_t size);
 int write(int fd, char *buf, size_t size);
+void _exit(int status);
 
 int main(int argc, char **argv)
 {
@@ -11,9 +12,8 @@ int main(int argc, char **argv)
     int ret         = 0;
     char buffer[50] = { 0 };
 
-    while (1) {
-        ret = write(1, "\nwrite something", 15);
-        ret = read(0, buffer, 50);
-        ret = write(1, buffer, ret);
-    }
+    ret = write(1, "write something: \n", 17);
+    ret = read(0, buffer, 50);
+    ret = write(1, buffer, ret);
+    _exit(0);
 }
