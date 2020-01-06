@@ -15,10 +15,8 @@
 ## v0.2.0: Hyperion
 
 * Symmetric Multiprocessing
+* Priority-based scheduling
 * 64-bit support (x86_64 port)
-* Better memory handling for processes
-* IPC
-   * pipefs
 
 ## v0.3.0: Pandora
 
@@ -29,7 +27,6 @@ Drivers
 * SCSI
 * Generic USB drivers
 * PC speaker driver
-* Better display driver
 
 ## v0.4.0: Calypso
 
