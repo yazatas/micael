@@ -13,20 +13,25 @@ int main(int argc, char **argv)
     (void)argc, (void)argv;
 
     int ret         = 0;
+    char buffer[500] = { 0 };
     pid_t pid       = 0;
-    char buffer[50] = { 0 };
 
     while (1) {
         ret = write(1, "\nrficu@micael > ", 15);
-        ret = read(0, buffer, 50);
+        ret = read(0, buffer, 500);
+        buffer[ret] = '\0';
 
-        if ((pid = fork()) == 0) {
-            buffer[ret] = '\0';
+        pid = fork();
+
+        if (pid == 0) {
 
             if (execv(buffer, (void *)0) == -1) {
-                write(1, "failed to open file\n", 20);
+                write(1, "dsh: command not found:", 22);
+                write(1, buffer, ret);
                 _exit(1);
             }
+        } else {
+            wait(&ret);
         }
     }
 }

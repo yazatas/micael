@@ -16,7 +16,8 @@ mkinitrd: $(DEPS)
 		-f programs/bin/init.o "/sbin/init" \
 		-f programs/bin/shell.o "/sbin/dsh" \
 		-f programs/bin/echo.o "/bin/echo" \
-		-f programs/bin/calculator.o "/bin/calc"
+		-f programs/bin/calculator.o "/bin/calc" \
+		-f programs/bin/spawn.o "/bin/spawn"
 
 clean:
 	$(MAKE) --directory=programs clean

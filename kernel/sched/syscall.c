@@ -20,7 +20,7 @@ int32_t sys_read(isr_regs_t *cpu)
     int fd          = (int)cpu->edx;
     void *buf       = (void *)cpu->ebx;
     size_t len      = (size_t)cpu->ecx;
-    task_t *current = sched_get_current();
+    task_t *current = sched_get_active();
 
     if ((buf == NULL) ||
         (!current->file_ctx || !current->file_ctx->fd) ||
@@ -46,7 +46,7 @@ int32_t sys_write(isr_regs_t *cpu)
     int fd          = (int)cpu->edx;
     void *buf       = (void *)cpu->ebx;
     size_t len      = (size_t)cpu->ecx;
-    task_t *current = sched_get_current();
+    task_t *current = sched_get_active();
 
     if ((buf == NULL) ||
         (!current->file_ctx || !current->file_ctx->fd) ||
@@ -68,7 +68,7 @@ int32_t sys_fork(isr_regs_t *cpu)
 {
     (void)cpu;
 
-    task_t *cur = sched_get_current();
+    task_t *cur = sched_get_active();
     task_t *t   = sched_task_fork(cur);
 
     /* forking failed, errno has been set
@@ -96,6 +96,7 @@ int32_t sys_execv(isr_regs_t *cpu)
         goto error;
     }
 
+    /* kdebug("file open"); */
     if ((file = file_open(path->p_dentry, O_RDONLY)) == NULL) {
         kdebug("file_open(%s): %s", p, kstrerror(errno));
         goto error;
@@ -121,16 +122,16 @@ error:
 int32_t sys_exit(isr_regs_t *cpu)
 {
     int status      = cpu->eax;
-    task_t *current = sched_get_current();
+    task_t *current = sched_get_active();
     task_t *parent  = current->parent;
 
+    kassert(parent != NULL);
     /* kdebug("exiting from %s (pid %d): status %d", current->name, current->pid, status); */
 
     /* reassign new parent for current task's children */
     if (LIST_EMPTY(current->children) == false) {
-        if (parent == NULL)
-            parent = sched_get_init();
-        /* TODO: assign new parent for children */
+        /* kdebug("assign new parent for %s's children", current->name); */
+        current->parent = NULL;
     }
 
     /* free all used memory (all memory that can be freed) */
@@ -142,34 +143,47 @@ int32_t sys_exit(isr_regs_t *cpu)
      * zombie list from where it will be reaped when parent is rescheduled
      * and send a wakeup signal to parent's wait queue */
     sched_task_set_state(current, T_ZOMBIE);
+    list_remove(&current->list);
+    list_append(&parent->zombies, &current->list);
     wq_wakeup(&parent->wqh_child);
 
     sched_switch();
+    __builtin_unreachable();
 }
 
 int32_t sys_wait(isr_regs_t *cpu)
 {
-    task_t *current = sched_get_current();
+    (void)cpu;
+
+    task_t *current = sched_get_active();
     task_t *child   = NULL;
 
-    /* wait for one of the children to wake us up so we can reap it */
-    wq_wait_event(&current->wqh_child, current, NULL);
+    /* If the task has children, we need to wait until one of the calls sys_exit().
+     * Otherwise, we can directly jump to reaping the children because it is possible
+     * that the scheduler scheduled child right after fork and execv failed which caused
+     * the child to call sys_exit even before we got chance to call sys_wait. */
+    if (LIST_EMPTY(current->children) == false) {
+        /* wait for one of the children to wake us up so we can reap it */
+        wq_wait_event(&current->wqh_child, current, NULL);
+    }
 
     /* One of current's children called exit(),
      * reap all zombies and return back to user land */
-    FOREACH(current->children, iter) {
-        child = container_of(iter, task_t, p_children);
+    FOREACH(current->zombies, iter) {
+        child = container_of(iter, task_t, list);
 
         kassert(child != NULL);
-
-        if (child->threads->state != T_ZOMBIE)
-            continue;
+        kassert(child->threads != NULL);
+        kassert(child->threads->state == T_ZOMBIE);
 
         /* sched_task_destroy() releases all memory the child still has,
          * including kernel stack and page directory, and removes it
          * from all possible lists and finally deallocates the task object */
         sched_task_destroy(child);
     }
+
+    /* TODO: race condition here? */
+    list_init(&current->zombies);
 
     return 0;
 }
@@ -188,7 +202,7 @@ void syscall_handler(isr_regs_t *cpu)
     if (cpu->eax >= MAX_SYSCALLS) {
         kpanic("unsupported system call");
     } else {
-        task_t *current = sched_get_current();
+        task_t *current = sched_get_active();
         int32_t ret     = syscalls[cpu->eax](cpu);
 
         /* return value is transferred in eax */
