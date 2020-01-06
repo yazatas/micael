@@ -51,9 +51,12 @@ static struct cache_fixed_entry *alloc_fixed_entry(size_t capacity)
 {
     (void)capacity; // TODO ?
 
+static struct cache_fixed_entry *alloc_fixed_entry(size_t item_size)
+{
     if (free_list.next != NULL) {
         cfe_t *e = container_of(free_list.next, struct cache_fixed_entry, list);
         list_remove(&e->list);
+        e->num_free = PAGE_SIZE / item_size;
         return e;
     }
 
@@ -66,7 +69,7 @@ static struct cache_fixed_entry *alloc_fixed_entry(size_t capacity)
 
     e->mem       = mem_v;
     e->next_free = mem_v;
-    e->num_free  = PAGE_SIZE;
+    e->num_free  = PAGE_SIZE / item_size;
 
     return e;
 }
@@ -141,7 +144,7 @@ mm_cache_t *mmu_cache_create(size_t size, mm_flags_t flags)
     c->item_size = MULTIPLE_OF_2(size);
     c->capacity  = PAGE_SIZE / c->item_size;
 
-    c->free_list = alloc_fixed_entry(c->capacity);
+    c->free_list = alloc_fixed_entry(c->item_size);
     c->used_list = NULL;
 
     /* kdebug("one page holds %u items of size %u (%u)", */
@@ -197,7 +200,7 @@ void *mmu_cache_alloc_entry(mm_cache_t *c, mm_flags_t flags)
     void *ret = NULL;
 
     if (c->free_list == NULL) {
-        c->free_list = alloc_fixed_entry(c->capacity);
+        c->free_list = alloc_fixed_entry(c->item_size);
         c->capacity += PAGE_SIZE / c->item_size;
     }
 
