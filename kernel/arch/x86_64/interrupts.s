@@ -290,6 +290,10 @@ irq15:
 # save cpu state, call interrupt handler
 # and then restore state
 isr_common:
+    cmp $0x8, 24(%rsp)
+    je 1f
+    swapgs
+1:
     pushq %rdi
     pushq %rsi
     pushq %rbp
@@ -308,4 +312,9 @@ isr_common:
     popq %rsi
     popq %rdi
     addq $16, %rsp # discard error code and isr number
+
+    cmp $0x8, 8(%rsp)
+    je 2f
+    swapgs
+2:
     iretq

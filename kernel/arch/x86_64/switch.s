@@ -64,9 +64,12 @@ arch_context_switch_user:
     popq %rbp
     popq %rsi
     popq %rdi
-
     addq $16, %rsp
 
+    cmp $0x8, 8(%rsp)
+    je 2f
+    swapgs
+2:
     iretq
 
 arch_context_load:
@@ -81,4 +84,9 @@ arch_context_load:
     popq %rsi
     popq %rdi
     addq $16, %rsp
+
+    cmp $0x8, 8(%rsp)
+    je 1f
+    swapgs
+1:
     iretq
