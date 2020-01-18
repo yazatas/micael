@@ -52,6 +52,11 @@ static inline void set_msr(uint32_t msr, uint64_t reg)
     );
 }
 
+static inline void cpu_relax(void)
+{
+    asm volatile ("pause");
+}
+
 void arch_dump_registers(isr_regs_t *cpu_state);
 void arch_context_load(unsigned long cr3, void *exec_state);
 void arch_context_prepare(task_t *task, void *ip, void *sp);

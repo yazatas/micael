@@ -17,14 +17,6 @@
 #include <errno.h>
 #include <stdbool.h>
 
-__percpu static list_head_t run_queue;
-__percpu static task_t *current = NULL;
-__percpu static task_t *idle_task; /* TODO: why is percpu idle task needed? */
-         static list_head_t wait_queue;
-
-/* only used by the BSP */
-static task_t *init_task;
-
 static unsigned ap_initialized    = 0;
 static bool     sched_initialized = false;
 
@@ -38,7 +30,7 @@ static void *idle_task_func(void *arg)
     ap_initialized++;
 
     for (;;) {
-        asm volatile ("pause");
+        cpu_relax();
     }
 
     return NULL;
@@ -66,7 +58,7 @@ static void *init_task_func(void *arg)
         kdebug("Waiting for CPU %u to register itself...", i);
 
         while (READ_ONCE(ap_initialized) != i)
-            asm volatile ("pause");
+            cpu_relax();
     }
 #endif
     sched_initialized = true;
