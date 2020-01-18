@@ -83,6 +83,9 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
         goto error;
 
     if ((pt[pti] & MM_COW) && !(pt[pti] & MM_READWRITE)) {
+        static spinlock_t lock = 0;
+        spin_acquire(&lock);
+
         unsigned long copy = mmu_page_alloc(MM_ZONE_NORMAL);
         uint8_t *copy_v    = mmu_native_p_to_v(copy);
         int flags          = MM_PRESENT | MM_USER | MM_READWRITE; /* TODO: preserve flags */
@@ -90,6 +93,7 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
         kmemcpy(copy_v, (void *)ROUND_DOWN(cr2, PAGE_SIZE), PAGE_SIZE);
 
         pt[pti] = (unsigned long)copy | flags;
+        spin_release(&lock);
         return;
     }
 

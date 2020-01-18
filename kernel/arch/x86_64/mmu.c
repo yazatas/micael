@@ -15,6 +15,7 @@ static uint64_t __pdpt[512]   __attribute__((aligned(PAGE_SIZE)));
 static uint64_t __pd[512 * 2] __attribute__((aligned(PAGE_SIZE)));
 
 static uint64_t __pml4_;
+static spinlock_t lock = 0;
 
 #define PML4_ATOEI(addr) (((addr) >> 39) & 0x1FF)
 #define PDPT_ATOEI(addr) (((addr) >> 30) & 0x1FF)
@@ -58,6 +59,8 @@ static uint64_t __alloc_entry(void)
 /* TODO: should this do some error checking */
 static void __map_page(uint64_t *pml4, uint64_t paddr, uint64_t vaddr, int flags)
 {
+    spin_acquire(&lock);
+
     kassert(PAGE_ALIGNED(paddr));
     kassert(PAGE_ALIGNED(vaddr));
 
@@ -84,6 +87,7 @@ static void __map_page(uint64_t *pml4, uint64_t paddr, uint64_t vaddr, int flags
 
     uint64_t *pt = native_p_to_v(pd[pdi] & ~0xfff);
     pt[pti]      = paddr | flags | MM_PRESENT;
+    spin_release(&lock);
 }
 
 int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)

@@ -1,4 +1,5 @@
 #include <kernel/common.h>
+#include <kernel/kpanic.h>
 #include <kernel/kprint.h>
 #include <kernel/util.h>
 #include <lib/list.h>
@@ -7,6 +8,7 @@
 #include <mm/mmu.h>
 #include <mm/page.h>
 #include <mm/slab.h>
+#include <sync/spinlock.h>
 #include <errno.h>
 
 #define C_FORCE_SPATIAL 0
@@ -30,6 +32,8 @@ struct mm_cache {
     size_t item_size;
     size_t capacity; /* number of total items (# of pages * (PAGE_SIZE / item_size)) */
 
+    spinlock_t lock;
+
     /* TODO:  */
     struct cache_fixed_entry *free_list;
 
@@ -47,18 +51,24 @@ struct mm_cache {
  * When a cache is destroyed, the pages are place here */
 static list_head_t free_list;
 
-static struct cache_fixed_entry *alloc_fixed_entry(size_t capacity)
-{
-    (void)capacity; // TODO ?
+int initialized = 0;
 
 static struct cache_fixed_entry *alloc_fixed_entry(size_t item_size)
 {
+    static spinlock_t fe_lock = 0;
+
+    spin_acquire(&fe_lock);
+
     if (free_list.next != NULL) {
         cfe_t *e = container_of(free_list.next, struct cache_fixed_entry, list);
+        /* kdebug("hererererere"); */
         list_remove(&e->list);
-        e->num_free = PAGE_SIZE / item_size;
+        e->num_free = (PAGE_SIZE / item_size) - 1;
+        spin_release(&fe_lock);
         return e;
     }
+
+    kpanic("ALLOCATE MORE MEMORY FOR SLAB");
 
     /* kdebug("allocating more memory!"); */
 
@@ -69,7 +79,7 @@ static struct cache_fixed_entry *alloc_fixed_entry(size_t item_size)
 
     e->mem       = mem_v;
     e->next_free = mem_v;
-    e->num_free  = PAGE_SIZE / item_size;
+    e->num_free  = (PAGE_SIZE / item_size) - 1;
 
     return e;
 }
@@ -107,7 +117,7 @@ int mmu_slab_init(void)
     void *mem_v;
     cfe_t *e;
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 20; ++i) {
         if ((mem = mmu_page_alloc(MM_ZONE_NORMAL)) == INVALID_ADDRESS) {
             kdebug("Failed to allocate memory");
             return -errno;
@@ -124,6 +134,7 @@ int mmu_slab_init(void)
         list_append(&free_list, &e->list);
     }
 
+    initialized = 1;
     return 0;
 }
 
@@ -147,6 +158,7 @@ mm_cache_t *mmu_cache_create(size_t size, mm_flags_t flags)
     c->free_list = alloc_fixed_entry(c->item_size);
     c->used_list = NULL;
 
+    /* kdebug("allocated 0x%x", c->free_list->mem); */
     /* kdebug("one page holds %u items of size %u (%u)", */
     /*         c->capacity, c->item_size, MULTIPLE_OF_2(c->item_size)); */
 
@@ -179,6 +191,8 @@ void *mmu_cache_alloc_entry(mm_cache_t *c, mm_flags_t flags)
         return NULL;
     }
 
+    spin_acquire(&c->lock);
+
     /* if there are any free chunks left, try to use them first and return early */
     if (c->free_chunks != NULL && (flags & C_FORCE_SPATIAL) == 0) {
         void *ret = c->free_chunks->mem;
@@ -194,6 +208,7 @@ void *mmu_cache_alloc_entry(mm_cache_t *c, mm_flags_t flags)
             /* kdebug("ret 0x%x | next 0x%x", ret, c->free_chunks->mem); */
         }
 
+        spin_release(&c->lock);
         return ret;
     }
 
@@ -229,6 +244,7 @@ void *mmu_cache_alloc_entry(mm_cache_t *c, mm_flags_t flags)
     if (flags & MM_ZERO)
         kmemset(ret, 0, c->item_size);
 
+    spin_release(&c->lock);
     return ret;
 }
 
@@ -236,6 +252,9 @@ int mmu_cache_free_entry(mm_cache_t *cache, void *entry)
 {
     if (cache == NULL || entry == NULL)
         return -EINVAL;
+
+    /* kprint("freeing entry 0x%x - 0x%x\n", entry, (uint8_t *)entry + cache->item_size); */
+    spin_release(&cache->lock);
 
     struct cache_free_chunk *cfc = kmalloc(sizeof(struct cache_free_chunk));
 
@@ -249,5 +268,6 @@ int mmu_cache_free_entry(mm_cache_t *cache, void *entry)
     else
         list_append(&cache->free_chunks->list, &cfc->list);
 
+    spin_release(&cache->lock);
     return 0;
 }
