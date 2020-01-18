@@ -4,8 +4,10 @@
 #include <drivers/vga.h>
 #include <fs/devfs.h>
 #include <fs/file.h>
+#include <kernel/percpu.h>
 #include <kernel/util.h>
 #include <mm/heap.h>
+#include <sync/spinlock.h>
 #include <errno.h>
 #include <stdbool.h>
 
@@ -96,9 +98,13 @@ static ssize_t __tty_write(file_t *file, off_t offset, size_t size, void *buf)
     if (file->f_mode & O_RDONLY)
         return -ENOTSUP;
 
+    static spinlock_t lock = 0;
+    spin_acquire(&lock);
+
     for (size_t i = 0; i < size; ++i) {
         vbe_put_char(((char *)buf)[i]);
     }
+    spin_release(&lock);
 
     return (ssize_t)size;
 }

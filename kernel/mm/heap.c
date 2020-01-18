@@ -5,6 +5,7 @@
 #include <mm/heap.h>
 #include <mm/mmu.h>
 #include <mm/page.h>
+#include <sync/spinlock.h>
 #include <stdbool.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -25,6 +26,7 @@ typedef struct meta {
 static meta_t        *kernel_base;
 static unsigned long *HEAP_START;
 static unsigned long *HEAP_BREAK;
+static spinlock_t     lock = 0;
 
 /* TODO: this needs a rewrite!!! 
  *
@@ -102,6 +104,8 @@ static meta_t *find_free_block(size_t size)
 
 void *kmalloc(size_t size)
 {
+    spin_acquire(&lock);
+
     meta_t *b;
 
     if ((b = find_free_block(size)) == NULL) {
@@ -117,6 +121,7 @@ void *kmalloc(size_t size)
 
     kmemset(b + 1, 0, size);
 
+    spin_release(&lock);
     return b + 1;
 }
 
@@ -182,6 +187,8 @@ void kfree(void *ptr)
     if (!ptr)
         return;
 
+    spin_acquire(&lock);
+
     meta_t *b = GET_BASE(ptr), *tmp;
     MARK_FREE(b);
 
@@ -193,7 +200,7 @@ void kfree(void *ptr)
     if (b->next != NULL && IS_FREE(b->next))
         merge_blocks(b, b->next);
 
-    /* TODO: call mmu_kfree_frame */
+    spin_release(&lock);
 }
 
 static int __heap_init(void *heap_start, unsigned order)

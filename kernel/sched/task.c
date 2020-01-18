@@ -15,9 +15,16 @@ static mm_cache_t *thread_cache = NULL;
 
 static pid_t sched_get_pid(void)
 {
+    static spinlock_t lock = 0;
+
+    spin_acquire(&lock);
     static pid_t pid = 1;
 
-    return pid++;
+    pid_t ret = pid++;
+
+    spin_release(&lock);
+
+    return ret;
 }
 
 int sched_task_init(void)
