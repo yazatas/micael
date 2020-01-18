@@ -1,4 +1,5 @@
 #include <kernel/compiler.h>
+#include <kernel/cpu.h>
 #include <kernel/kprint.h>
 #include <kernel/percpu.h>
 #include <kernel/tick.h>
@@ -24,7 +25,7 @@ void tick_wait(unsigned long ticks)
     unsigned long start = get_thiscpu_var(__pcpu_tick);
 
     while (start + ticks > get_thiscpu_var(__pcpu_tick))
-        asm volatile ("pause");
+        cpu_relax();
 }
 
 unsigned long tick_ms_to_ticks(unsigned long ms)
