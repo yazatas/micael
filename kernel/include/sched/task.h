@@ -111,8 +111,10 @@ typedef struct task {
     wait_queue_t wq;             /* wait queue object used for blocking the task execution */
     wait_queue_head_t wqh_child; /* wait queue head to wait for wait() to finish */
 
-    void *dir;         /* virtual  address of the page directory  */
-    unsigned long cr3; /* physical address of the page directory */
+    void *dir;                   /* virtual  address of the page directory  */
+    unsigned long cr3;           /* physical address of the page directory */
+
+    unsigned cpu;                /* on which cpu is this task waiting/executing */
 } task_t;
 
 int sched_task_add_thread(task_t *parent, thread_t *child);

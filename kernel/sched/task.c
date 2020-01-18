@@ -107,6 +107,7 @@ task_t *sched_task_create(const char *name)
     t->parent   = NULL;
     t->name     = name;
     t->nthreads = 0;
+    t->cpu      = 0;
     t->pid      = sched_get_pid();
 
     list_init(&t->children);
