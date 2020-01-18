@@ -1,5 +1,7 @@
 #include <kernel/compiler.h>
+#include <kernel/cpu.h>
 #include <kernel/kassert.h>
+#include <kernel/kpanic.h>
 #include <kernel/percpu.h>
 #include <kernel/util.h>
 #include <lib/bheap.h>
@@ -13,9 +15,10 @@
 
 #define ST_ERROR(err) ((errno = -(err)) ? NULL : NULL);
 
-typedef struct sched_task sched_task_t;
-typedef struct run_queue  run_queue_t;
-typedef unsigned long     tick_t;
+typedef struct sched_task    sched_task_t;
+typedef struct run_queue     run_queue_t;
+typedef struct mts_scheduler mts_scheduler_t;
+typedef unsigned long        tick_t;
 
 enum SCHED_STATES {
     ST_ACTIVE       = 1 << 1,
@@ -82,6 +85,8 @@ struct sched_task {
 
     struct heur rt_heur; /* various run time heuristics for dynamic priority adjustment */
     list_head_t list;    /* list used for the wait queue */
+
+    int pid;             /* pid of the task */
 };
 
 struct run_queue {
@@ -100,11 +105,18 @@ struct run_queue {
     int lowest;            /* current lowest value of scheduling priority */
     bool iactive;          /* set to true when idle task is running */
 
-    spinlock_t lock;       /* TODO */
+    spinlock_t lock;       /* lock for this run queueu */
 };
 
-__percpu static run_queue_t rq;
-static mm_cache_t *st_cache = NULL;
+struct mts_scheduler {
+    size_t ncpu;                /* how many CPUs are active */
+    spinlock_t lock;            /* lock for the scheduler */
+    run_queue_t *rq[MAX_CPU];   /* pointers to other CPUs' run queues */
+    mm_cache_t *st_cache;       /* SLAB cache for sched_task_t allocations */
+};
+
+static __percpu run_queue_t rq;
+static mts_scheduler_t mts;
 
 static bool __cmp_pld(void *a1, void *a2)
 {
@@ -115,6 +127,21 @@ static bool __cmp_pld(void *a1, void *a2)
     task_t *t2 = (task_t *)((sched_task_t *)a2)->task;
 
     return (t1->pid == t2->pid);
+}
+
+static inline run_queue_t *__get_rq(unsigned cpu)
+{
+    run_queue_t *q = get_percpu_ptr(rq, cpu);
+    kassert(q != NULL);
+    spin_acquire(&q->lock);
+
+    return q;
+}
+
+static inline void __put_rq(run_queue_t *q)
+{
+    kassert(q != NULL);
+    spin_release(&q->lock);
 }
 
 static int __update_blocked(sched_task_t *t, bool start)
@@ -251,7 +278,7 @@ static int __schedule_task(sched_task_t *t, bool switch_task)
 {
     kassert(t != NULL);
 
-    run_queue_t *q = get_thiscpu_ptr(rq);
+    run_queue_t *q = get_percpu_ptr(rq, t->task->cpu);
 
     /* Do not schedule tasks that have been scheduled already */
     if (t->state == ST_READY)
@@ -295,7 +322,10 @@ static int __schedule_task(sched_task_t *t, bool switch_task)
 
 int mts_init(void)
 {
-    if ((st_cache = mmu_cache_create(sizeof(sched_task_t), MM_NO_FLAGS)) == NULL)
+    mts.lock = 0;
+    mts.ncpu = 0;
+
+    if ((mts.st_cache = mmu_cache_create(sizeof(sched_task_t), MM_NO_FLAGS)) == NULL)
         return ST_ENOMEM;
 
     return ST_OK;
@@ -303,10 +333,14 @@ int mts_init(void)
 
 int mts_init_cpu(task_t *idle)
 {
+    spin_acquire(&mts.lock);
+
     run_queue_t *q = get_thiscpu_ptr(rq);
 
-    if ((q->pqueue = bh_init(256)) == NULL)
+    if ((q->pqueue = bh_init(256)) == NULL) {
+        spin_release(&mts.lock);
         return ST_ENOMEM;
+    }
 
     list_init(&q->wait_list);
 
@@ -319,22 +353,43 @@ int mts_init_cpu(task_t *idle)
     q->nexec    = 0;
     q->lowest   = INT_MAX;
     q->idle     = idle;
+    q->lock     = 0;
 
+    mts.rq[mts.ncpu++] = get_thiscpu_ptr(rq);
+
+    spin_release(&mts.lock);
     return ST_OK;
 }
 
 int mts_schedule(task_t *task, int nice)
 {
-    run_queue_t *q = get_thiscpu_ptr(rq);
-
-    if (!q || !task || ABS(nice) > 4)
+    if (mts.ncpu == 0 || !task || ABS(nice) > 4)
         return ST_EINVAL;
 
-    sched_task_t *st = mmu_cache_alloc_entry(st_cache, MM_ZERO);
+    spin_acquire(&mts.lock);
+
+    /* By default assign, new processes to the first CPU and
+     * spread out the load so that the CPU that has the fewest
+     * processes running gets this process */
+    run_queue_t *q = mts.rq[0];
+    task->cpu      = 0;
+
+    for (size_t i = 1; i < mts.ncpu; ++i) {
+        if (mts.rq[i]->ntasks < q->ntasks) {
+            /* kprint("\t[%u] select CPU %u instead of %u (%u vs %u)\n", */
+            /*         get_thiscpu_id(), i, task->cpu, q->ntasks, mts.rq[i]->ntasks); */
+            q = mts.rq[i];
+            task->cpu = i;
+        }
+    }
+
+    sched_task_t *st = mmu_cache_alloc_entry(mts.st_cache, MM_ZERO);
     int ret          = ST_OK;
 
-    if (!st)
+    if (!st) {
+        spin_release(&mts.lock);
         return ST_ENOMEM;
+    }
 
     list_init(&st->list);
     kmemset(&st->rt_heur, 0, sizeof(struct heur));
@@ -347,13 +402,13 @@ int mts_schedule(task_t *task, int nice)
     st->state     = ST_ACTIVE;
     st->timeslice = STS_BASE;
     st->exec_rt   = 0;
+    st->pid       = task->pid;
 
     spin_acquire(&q->lock);
 
     if (q->lowest > st->sprio)
         q->lowest = st->sprio;
 
-    /* heuristics */
     st->rt_heur.birth       = q->tick;
     st->rt_heur.total_alloc = STS_BASE;
 
@@ -361,15 +416,16 @@ int mts_schedule(task_t *task, int nice)
     q->nready += 1;
     q->rprio  += st->prio;
 
-    if ((ret = bh_insert(q->pqueue, st->sprio, st)) < 0) {
-        spin_release(&q->lock);
-        return ret;
-    }
+    if ((ret = bh_insert(q->pqueue, st->sprio, st)) < 0)
+        goto end;
 
-    if (q->active && q->active->sprio < st->sprio)
+    if (q->active && q->active->sprio < st->sprio && task->cpu != get_thiscpu_id())
         ret = ST_SWITCH;
 
+end:
+    spin_release(&mts.lock);
     spin_release(&q->lock);
+
     return ret;
 }
 
@@ -394,7 +450,11 @@ task_t *mts_get_next(void)
 
     /* Removed task can be deallocated only here */
     if (q->active->state == ST_UNSCHEDULED) {
-        mmu_cache_free_entry(st_cache, q->active);
+        /* TODO: move spinlock to SLAB! */
+        spin_acquire(&mts.lock);
+        list_remove(&q->active->list);
+        mmu_cache_free_entry(mts.st_cache, q->active);
+        spin_release(&mts.lock);
         q->active = NULL;
         goto setup_active;
     }
@@ -466,6 +526,8 @@ setup_active:
     q->iactive = false;
     st->state  = ST_ACTIVE;
 
+    kassert(q->active != NULL);
+
     /* update relevant runtime heuristics */
     st->rt_heur.tick   = q->tick;
     st->rt_heur.nexec += 1;
@@ -478,6 +540,7 @@ setup_active:
     return st->task;
 
 setup_idle:
+    /* kdebug("setup idle task"); */
     q->active  = NULL;
     q->iactive = true;
 
@@ -492,8 +555,13 @@ task_t *mts_get_active(void)
     if (!q)
         return ST_ERROR(ST_EINVAL);
 
-    if (!q->active)
-        return q->iactive ? q->idle : NULL;
+    if (!q->active) {
+        if (q->iactive)
+            return q->idle;
+        else {
+            kpanic("why is active NULL and iactive false???");
+        }
+    }
 
     return q->active->task;
 }
@@ -556,7 +624,7 @@ int mts_tick(void)
 
 int mts_unschedule(task_t *task)
 {
-    run_queue_t *q = get_thiscpu_ptr(rq);
+    run_queue_t *q = get_percpu_ptr(rq, task->cpu);
 
     if (!task)
         return ST_EINVAL;
@@ -569,6 +637,7 @@ int mts_unschedule(task_t *task)
      * return ST_SWITCH to caller indicating that task must be switched */
     if (q->active->task == task) {
         q->active->state = ST_UNSCHEDULED;
+        q->ntasks--;
         return ST_SWITCH;
     }
 
@@ -578,7 +647,13 @@ int mts_unschedule(task_t *task)
      * and we must thus find it from the queue */
     sched_task_t *t = bh_remove_pld(q->pqueue, task, __cmp_pld);
 
-    mmu_cache_free_entry(st_cache, t);
+    q->ntasks--;
+    q->nready--;
+
+    spin_acquire(&mts.lock);
+    list_remove(&t->list);
+    mmu_cache_free_entry(mts.st_cache, t);
+    spin_release(&mts.lock);
     spin_release(&q->lock);
 
     return ST_OK;
@@ -589,44 +664,46 @@ int mts_block(task_t *task)
     if (!task)
         return ST_EINVAL;
 
-    run_queue_t *q = get_thiscpu_ptr(rq);
-    int ret        = ST_OK;
+    int ret         = ST_OK;
+    run_queue_t *bq = __get_rq(0);
+    run_queue_t  *q = task->cpu ? __get_rq(task->cpu) : bq;
+    sched_task_t *t = NULL;
 
-    /* MTS has not been started */
-    if (!q->active)
-        return ST_OK;
-
-    spin_acquire(&q->lock);
-
-    if (q->active->task == task) {
-        q->active->state = ST_BLOCKED;
-        list_append(&q->wait_list, &q->active->list);
-        (void)__update_blocked(q->active, true);
-
+    if (q->active && (t = q->active)->task == task) {
         ret = ST_SWITCH;
         goto end;
     }
 
     /* the task that needs to be blocked is not active task
      * and we must thus find it from the queue */
-    sched_task_t *t = bh_remove_pld(q->pqueue, task, __cmp_pld);
+    t = bh_remove_pld(q->pqueue, task, __cmp_pld);
 
     if (!t) {
         ret = ST_ENOENT;
         goto end;
     }
 
-    /* Move task from run queue to wait queue */
-    q->nblocked += 1;
-    q->nready   -= 1;
-    q->rprio    -= t->prio;
-    t->state     = ST_BLOCKED;
-
-    list_append(&q->wait_list, &t->list);
-    ret = __update_blocked(t, true);
-
 end:
-    spin_release(&q->lock);
+    /* Move task from run queue to wait queue
+     *
+     * The default waiting queue is on CPU 0 because
+     * interrupt forwarding does not work at the moment */
+    bq->nblocked += 1;
+    q->nready    -= 1;
+    q->rprio     -= t->prio;
+    t->state      = ST_BLOCKED;
+    task->cpu     = 0;
+
+    list_init(&t->list);
+    list_append(&bq->wait_list, &t->list);
+    (void)__update_blocked(t, true);
+
+    kassert(t->task != NULL);
+
+    if (q != bq)
+        __put_rq(bq);
+    __put_rq(q);
+
     return ret;
 }
 
@@ -635,14 +712,14 @@ int mts_unblock(task_t *task)
     if (!task)
         return ST_EINVAL;
 
-    run_queue_t *q = get_thiscpu_ptr(rq);
+    run_queue_t *q = __get_rq(task->cpu);
     int ret        = ST_ENOENT;
 
     /* MTS has not been started */
-    if (!q->active && !q->iactive)
-        return ST_OK;
-
-    spin_acquire(&q->lock);
+    if (!q->active && !q->iactive) {
+        ret = ST_OK;
+        goto end;
+    }
 
     FOREACH(q->wait_list, iter) {
         sched_task_t *t = container_of(iter, sched_task_t, list);
@@ -658,6 +735,6 @@ int mts_unblock(task_t *task)
     }
 
 end:
-    spin_release(&q->lock);
+    __put_rq(q);
     return ret;
 }

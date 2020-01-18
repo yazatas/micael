@@ -16,16 +16,16 @@ int main(int argc, char **argv)
     pid_t pid       = 0;
     char buffer[50] = { 0 };
 
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 5; ++i) {
         if ((pid = fork()) == 0) {
-            ret = write(1, "\nHELLOOOOOOOOO\n", 15);
+            ret = write(1, "HELLOOOOOOOOO\n", 14);
             for (;;) {
                 asm volatile ("pause");
             }
         }
     }
 
-    ret = write(1, "\nHELLO PARENTO\n", 15);
+    ret = write(1, "HELLO PARENTO\n", 14);
     _exit(0);
 
     for (;;);
