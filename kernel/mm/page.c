@@ -10,6 +10,7 @@
 #include <mm/mmu.h>
 #include <mm/page.h>
 #include <mm/slab.h>
+#include <sync/spinlock.h>
 #include <errno.h>
 #include <stdbool.h>
 
@@ -29,6 +30,7 @@ typedef struct mm_block {
 typedef struct mm_zone {
     const char *name;
     size_t page_count;
+    spinlock_t lock;
     mm_block_t blocks[BUDDY_MAX_ORDER];
 } mm_zone_t;
 
@@ -60,6 +62,8 @@ static int __zone_add_block(void *param, unsigned long start, unsigned order)
     if (block == NULL)
         return -errno;
 
+    spin_acquire(&zone->lock);
+
     block->start = start;
     block->end   = start + PAGE_SIZE * (1 << order) - 1;
 
@@ -67,6 +71,7 @@ static int __zone_add_block(void *param, unsigned long start, unsigned order)
     list_append(&zone->blocks[order].list, &block->list);
     zone->page_count += (1 << order);
 
+    spin_release(&zone->lock);
     return 0;
 }
 
@@ -135,6 +140,8 @@ static unsigned long __split_block(mm_zone_t *zone, unsigned req_order, unsigned
 {
     kassert(split_order != 0 && req_order < BUDDY_MAX_ORDER);
 
+    spin_acquire(&zone->lock);
+
     mm_block_t *b = __get_free_entry(zone, split_order);
 
     unsigned long split_size  = (1 << (split_order - 1)) * PAGE_SIZE;
@@ -156,6 +163,7 @@ static unsigned long __split_block(mm_zone_t *zone, unsigned req_order, unsigned
         list_append(&zone->blocks[--split_order].list, &tmp->list);
     }
 
+    spin_release(&zone->lock);
     return split_start;
 }
 
@@ -192,6 +200,8 @@ static unsigned long __alloc_mem(unsigned memzone, unsigned order)
     else if (memzone & MM_ZONE_HIGH)
         zone = &zone_high;
 
+    spin_acquire(&zone->lock);
+
     for (unsigned o = order; o < BUDDY_MAX_ORDER; ++o) {
         if (ORDER_EMPTY(zone->blocks[o]))
             continue;
@@ -204,12 +214,15 @@ static unsigned long __alloc_mem(unsigned memzone, unsigned order)
             unsigned long start = b->start;
             (void)mmu_cache_free_entry(mm_block_cache, b);
 
+            spin_release(&zone->lock);
             return start;
         }
 
+        spin_release(&zone->lock);
         return __split_block(zone, order, o);
     }
 
+    spin_release(&zone->lock);
     errno = ENOMEM;
     return INVALID_ADDRESS;
 }
