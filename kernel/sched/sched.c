@@ -49,7 +49,7 @@ static void *init_task_func(void *arg)
 {
     (void)arg;
 
-#if 0
+#if 1
     for (size_t i = 1; i < lapic_get_cpu_count(); ++i) {
         lapic_send_init(i);
         tick_wait(tick_ms_to_ticks(10));
@@ -89,9 +89,10 @@ static void *init_task_func(void *arg)
  * calls sched_switch() to perform the actual context switch */
 static void __prepare_switch(struct isr_regs *cpu_state)
 {
-    kassert(cpu_state != NULL);
-
     task_t *cur = mts_get_active();
+
+    kassert(cpu_state != NULL);
+    kassert(cur       != NULL);
 
     if (cur) {
         if (get_sp() < (unsigned long)cur->threads->kstack_top)
@@ -114,12 +115,14 @@ void sched_enter_userland(void *eip, void *esp)
 {
     task_t *cur = mts_get_active();
 
+    kassert(cur != NULL);
+
     /* prepare the context for this architecture */
     arch_context_prepare(cur, eip, esp);
 
     /* update TSS and load the context from 
      * threads->exec_state essentially switching the task */
-    tss_update_rsp((unsigned long)cur->threads->kstack_bottom);
+    tss_update_rsp((unsigned long)cur->threads->kstack_top + KSTACK_SIZE);
     arch_context_load(cur->cr3, &cur->threads->bootstrap);
 
     kpanic("arch_context_load() returned!");
@@ -133,28 +136,33 @@ void sched_task_set_state(task_t *task, int state)
     if ((int)task->threads->state == state)
         return;
 
+    int ret = ST_OK;
+
     /* moving active or waiting-to-become-active task to a wait queue */
     if (state & (T_BLOCKED | T_ZOMBIE)) {
-        if (state == T_BLOCKED)
-            mts_block(task);
-        else if (state == T_ZOMBIE)
-            mts_unschedule(task);
-        else
-            kdebug("what else?");
+        if (state == T_BLOCKED) {
+            if ((ret = mts_block(task)) < 0)
+                kdebug("mts_block() failed, error: %d", ret);
+        } else if (state == T_ZOMBIE) {
+            if ((ret = mts_unschedule(task)) < 0)
+                kdebug("mts_unschedule() failed, error: %d", ret);
+        }
+
+        kassert(ret >= 0);
 
         task->threads->state = state;
     }
 
     if (state == T_READY) {
-        if (get_thiscpu_var(idle_task) == task)
-            return;
+        if (task->threads->state == T_BLOCKED) {
+            if ((ret = mts_unblock(task)) < 0)
+                kdebug("mts_unblock() failed, error: %d", ret);
+        } else if (task->threads->state == T_UNSTARTED) {
+            if ((ret = mts_schedule(task, 0)) < 0)
+                kdebug("mts_schedule() failed, error: %d", ret);
+        }
 
-        if (task->threads->state == T_BLOCKED)
-            mts_unblock(task);
-        else if (task->threads->state == T_UNSTARTED)
-            mts_schedule(task, 0);
-        else
-            kdebug("what to do with task %s %d", task->name, task->threads->state);
+        kassert(ret >= 0);
 
         if (task->threads->state & (T_BLOCKED | T_RUNNING))
             task->threads->state = T_READY;
