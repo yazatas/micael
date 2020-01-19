@@ -1,5 +1,5 @@
-#include <drivers/tty.h>
-#include <drivers/vbe.h>
+#include <drivers/gfx/vbe.h>
+#include <drivers/console/tty.h>
 #include <mm/heap.h>
 #include <mm/mmu.h>
 #include <mm/page.h>

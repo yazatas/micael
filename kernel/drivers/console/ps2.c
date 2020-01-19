@@ -1,7 +1,7 @@
 #include <drivers/ioapic.h>
 #include <drivers/lapic.h>
-#include <drivers/ps2.h>
-#include <drivers/tty.h>
+#include <drivers/console/ps2.h>
+#include <drivers/console/tty.h>
 #include <fs/fs.h>
 #include <fs/char.h>
 #include <fs/pipe.h>

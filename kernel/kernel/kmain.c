@@ -1,4 +1,5 @@
-#include <drivers/vbe.h>
+#include <drivers/gfx/vbe.h>
+#include <drivers/gfx/vga.h>
 #include <drivers/ioapic.h>
 #include <drivers/lapic.h>
 #include <kernel/acpi.h>
@@ -17,9 +18,8 @@
 #include <fs/fs.h>
 #include <sched/task.h>
 #include <sched/sched.h>
-#include <drivers/tty.h>
-#include <drivers/ps2.h>
-#include <drivers/vga.h>
+#include <drivers/console/tty.h>
+#include <drivers/console/ps2.h>
 #include <errno.h>
 #include <stdint.h>
 

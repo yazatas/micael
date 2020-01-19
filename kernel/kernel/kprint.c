@@ -1,6 +1,6 @@
 #include <kernel/kprint.h>
 #include <kernel/util.h>
-#include <drivers/tty.h>
+#include <drivers/console/tty.h>
 #include <sync/spinlock.h>
 #include <stdarg.h>
 #include <stdint.h>

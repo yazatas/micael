@@ -1,7 +1,7 @@
-#include <drivers/ps2.h>
-#include <drivers/tty.h>
-#include <drivers/vbe.h>
-#include <drivers/vga.h>
+#include <drivers/gfx/vbe.h>
+#include <drivers/gfx/vga.h>
+#include <drivers/console/ps2.h>
+#include <drivers/console/tty.h>
 #include <fs/devfs.h>
 #include <fs/file.h>
 #include <kernel/percpu.h>
