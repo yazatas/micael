@@ -1,4 +1,5 @@
 #include <arch/x86_64/mm/mmu.h>
+#include <drivers/bus/pci.h>
 #include <drivers/ioapic.h>
 #include <drivers/lapic.h>
 #include <kernel/common.h>
@@ -90,6 +91,16 @@ static void __map_page(uint64_t *pml4, uint64_t paddr, uint64_t vaddr, int flags
     spin_release(&lock);
 }
 
+static void __map_range(uint64_t *pml4, unsigned long pstart, unsigned long vstart, size_t n, int flags)
+{
+    for (size_t i = 0; i < n; ++i) {
+        __map_page(pml4, pstart, vstart, flags);
+
+        pstart += PAGE_SIZE;
+        vstart += PAGE_SIZE;
+    }
+}
+
 int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)
 {
     uint64_t *pml4 = native_p_to_v(native_get_cr3());
@@ -147,6 +158,20 @@ void *mmu_native_build_dir(void)
 
     __map_page(pml4_v, lapic,  lapic,  MM_PRESENT | MM_READWRITE);
     __map_page(pml4_v, ioapic, ioapic, MM_PRESENT | MM_READWRITE);
+
+    pci_dev_t *dev = pci_get_dev(VBE_VENDOR_ID, VBE_DEVICE_ID);
+
+    if (dev) {
+        void *vga_mem = (uint8_t *)((unsigned long)dev->bar0 - 8);
+
+        __map_range(
+            pml4_v,
+            (unsigned long)vga_mem,
+            (unsigned long)vga_mem,
+            4096,
+            MM_PRESENT | MM_READWRITE
+        );
+    }
 
     return pml4_v;
 }

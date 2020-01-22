@@ -1,5 +1,6 @@
-#include <drivers/gfx/vbe.h>
+#include <drivers/bus/pci.h>
 #include <drivers/console/tty.h>
+#include <drivers/gfx/vbe.h>
 #include <mm/heap.h>
 #include <mm/mmu.h>
 #include <mm/page.h>
@@ -25,6 +26,7 @@
 
 #define LINE_SIZE (DISPLAY_WIDTH * DISPLAY_BITDEPTH * 2)
 
+static bool lfb          = false;
 static uint8_t *vga_mem  = NULL;
 static uint8_t *font_map = NULL;
 
@@ -48,7 +50,7 @@ static inline uint16_t vbe_read_reg(uint16_t index)
     outw(VBE_DISPI_IOPORT_INDEX, index);
     return inw(VBE_DISPI_IOPORT_DATA);
 }
- 
+
 static inline void vbe_set_bank(uint16_t num)
 {
     vbe_write_reg(VBE_DISPI_INDEX_BANK, num);
@@ -64,7 +66,7 @@ static inline void vbe_putchar(unsigned char c, uint32_t y, uint32_t x, int fgco
 {
     static const int mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
     unsigned char *glyph = font_map + (int)c * 16;
- 
+
     for (int cy = 0; cy < 16; ++cy){
         for (int cx = 0; cx < 8; ++cx){
             vbe_putpixel(glyph[cy] & mask[cx] ? fgcolor : bgcolor, y + cy, x + 8 - cx);
@@ -87,7 +89,7 @@ static void vbe_get_font(void)
     outw(0x3ce, 0x604);
 
     /* 8-bit font map SHOULD take 0x1000 (4096) bytes of space but because VGA
-     * reserves space for 8x32 fonts, the font map "overflows" to 0xB000 and beyond 
+     * reserves space for 8x32 fonts, the font map "overflows" to 0xB000 and beyond
      * We're not going to use the last 16 bytes of glyphs which means that one page
      * of memory is enough for us */
     unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL);
@@ -129,7 +131,6 @@ static void vbe_get_font(void)
 
 void vbe_init(void)
 {
-    vga_mem        = (uint8_t *)mmu_p_to_v(0xA0000);
     line_buffer[0] = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, 2));
     line_buffer[1] = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, 2));
 
@@ -146,17 +147,36 @@ void vbe_init(void)
     tty_install_putc(vbe_put_char);
     tty_install_puts(vbe_put_str);
 
+    pci_dev_t *dev = pci_get_dev(VBE_VENDOR_ID, VBE_DEVICE_ID);
+
+    if (dev) {
+        lfb     = true;
+        vga_mem = (uint8_t *)((unsigned long)dev->bar0 - 8);
+        mmu_map_range(
+            (unsigned long)vga_mem,
+            (unsigned long)vga_mem,
+            4096, /* 4096 * 4096 == 16 MB */
+            MM_PRESENT | MM_READWRITE
+        );
+    }
+
     /* set all video memory to 0xff (black color) */
     vbe_clear_screen();
-    vbe_set_bank(0);
 }
 
 void vbe_clear_screen(void)
 {
-    for (size_t bank = 0; bank < LAST_BANK; ++bank) {
-        vbe_set_bank(bank);
-        kmemset(vga_mem, 0xff, PAGE_SIZE * 16);
+    if (!lfb) {
+        kmemset(vga_mem, 0xff, 4096 * 4096);
+    } else {
+        for (size_t bank = 0; bank < LAST_BANK; ++bank) {
+            vbe_set_bank(bank);
+            kmemset(vga_mem, 0xff, PAGE_SIZE * 16);
+        }
+        vbe_set_bank(0);
     }
+
+    cur_x = cur_y = 0;
 }
 
 void vbe_put_pixel(uint8_t color, uint32_t y, uint32_t x)
@@ -211,45 +231,57 @@ static void __put_char(char c, bool cursor)
         cur_y += DISPLAY_BITDEPTH * 2;
     }
 
-    /* end of bank */
-    if (cur_y >= ROWS_PER_BANK) {
-        if (cur_bank < LAST_BANK) {
-            cur_x = cur_y = 0;
-            vbe_set_bank(cur_bank + 1);
-            goto end;
-        }
-
-        /* we're in last bank, shift all rows up by one
-         * and place the write cursor to last line  of the last bank */
-        for (int bank = cur_bank; bank >= 0; --bank) {
-            /* copy the first line of bank to memory */
-            kmemcpy(line_buffer[0], vga_mem, LINE_SIZE);
-
-            /* shift all rows up by one */
-            for (size_t i = 0; i < 3; ++i) {
-                kmemset(vga_mem + i * LINE_SIZE, 0x0, LINE_SIZE);
+    if (lfb) {
+        /* if this is the last row of screen, shift all rows up by one */
+        if ((cur_y / (DISPLAY_BITDEPTH * 2)) > 47) {
+            for (size_t i = 0; i < 48; ++i) {
                 kmemcpy(vga_mem + i * LINE_SIZE, vga_mem + (i + 1) * LINE_SIZE, LINE_SIZE);
             }
 
-            /* copy the first row of last bank to this bank */
-            if (cur_bank != LAST_BANK)
-                kmemcpy(vga_mem + 3 * LINE_SIZE, line_buffer[1], LINE_SIZE);
-
-            /* make a copy of the first line of this bank */
-            kmemcpy(line_buffer[1], line_buffer[0], LINE_SIZE); 
-            vbe_set_bank(cur_bank - 1);
+            if (c == '\n')
+                cur_y = DISPLAY_BITDEPTH * 2 * 47;
         }
+    } else {
+        /* end of bank */
+        if (cur_y >= ROWS_PER_BANK) {
 
-        /* scrolling done */
-        cur_x = cur_y = 0;
-        vbe_set_bank(LAST_BANK);
+            if (cur_bank < LAST_BANK) {
+                cur_x = cur_y = 0;
+                vbe_set_bank(cur_bank + 1);
+                goto end;
+            }
+
+            /* we're in last bank, shift all rows up by one
+             * and place the write cursor to last line  of the last bank */
+            for (int bank = cur_bank; bank >= 0; --bank) {
+                /* copy the first line of bank to memory */
+                kmemcpy(line_buffer[0], vga_mem, LINE_SIZE);
+
+                /* shift all rows up by one */
+                for (size_t i = 0; i < 3; ++i) {
+                    kmemset(vga_mem + i * LINE_SIZE, 0x0, LINE_SIZE);
+                    kmemcpy(vga_mem + i * LINE_SIZE, vga_mem + (i + 1) * LINE_SIZE, LINE_SIZE);
+                }
+
+                /* copy the first row of last bank to this bank */
+                if (cur_bank != LAST_BANK)
+                    kmemcpy(vga_mem + 3 * LINE_SIZE, line_buffer[1], LINE_SIZE);
+
+                /* make a copy of the first line of this bank */
+                kmemcpy(line_buffer[1], line_buffer[0], LINE_SIZE);
+                vbe_set_bank(cur_bank - 1);
+            }
+
+            /* scrolling done */
+            cur_x = cur_y = 0;
+            vbe_set_bank(LAST_BANK);
+        }
     }
 
 end:
     /* clear the new line */
-    if (c == '\n') {
-        kmemset(vga_mem + cur_y * DISPLAY_WIDTH, 0, LINE_SIZE);
-    }
+    if (c == '\n')
+        kmemset(vga_mem + cur_y * DISPLAY_WIDTH, 0x00, LINE_SIZE);
 }
 
 void vbe_put_char(char c)
