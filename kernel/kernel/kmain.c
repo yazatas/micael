@@ -2,6 +2,7 @@
 #include <drivers/gfx/vga.h>
 #include <drivers/ioapic.h>
 #include <drivers/lapic.h>
+#include <drivers/bus/pci.h>
 #include <kernel/acpi.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
@@ -38,10 +39,12 @@ void init_bsp(void *arg)
     gdt_init(); idt_init(); irq_init();
 
     /* initialize archictecture-specific MMU, the boot memory allocator.
-     * Use boot memory allocator to initialize PFA, SLAB and Heap 
-     *
-     * VBE can be initialized only after MMU */
+     * Use boot memory allocator to initialize PFA, SLAB and Heap */
     mmu_init(arg);
+
+    /* Initialize the PCI bus(es) and after PCI
+     * the VBE to get the address of the linear frame buffer */
+    pci_init();
     vbe_init();
 
     /* parse ACPI tables and initialize the Local APIC of BSP and all I/O APICs */
