@@ -176,6 +176,7 @@ pipe_t *pipe_create(size_t size)
     pipe->mem  = kmalloc(size);
     pipe->size = size;
     pipe->lock = 0;
+    pipe->ptr  = 0;
 
     wq_init_head(&pipe->wq_readers);
     wq_init_head(&pipe->wq_writers);
