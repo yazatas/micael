@@ -51,6 +51,23 @@ void *kmemmove(void *dstptr, const void *srcptr, size_t size)
     return dstptr;
 }
 
+int kmemcmp(void *s1, void *s2, size_t n)
+{
+    uint8_t *s1_ptr = s1;
+    uint8_t *s2_ptr = s2;
+
+    for (size_t i = 0; i < n; ++i) {
+
+        if (s1_ptr[i] < s2_ptr[i])
+            return -1;
+
+        if (s1_ptr[i] > s2_ptr[i])
+            return 1;
+    }
+
+    return 0;
+}
+
 char *kstrdup(const char *s)
 {
     size_t n  = kstrlen(s), i;

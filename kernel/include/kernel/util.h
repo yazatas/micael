@@ -17,6 +17,7 @@ char *kstrcat_s(char *s1, char *s2);
 int kstrcmp(const char *s1, const char *s2);
 int kstrcmp_s(const char *s1, const char *s2);
 int kstrncmp(const char *s1, const char *s2, size_t len);
+int kmemcmp(void *s1, void *s2, size_t n);
 size_t kstrlen(const char *str);
 
 #endif /* __STR_UTIL_H__ */
