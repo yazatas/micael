@@ -31,7 +31,8 @@ KERNEL_OBJS= \
 	kernel/kpanic.o \
 	kernel/util.o \
 	kernel/acpi.o \
-	kernel/tick.o
+	kernel/tick.o \
+	kernel/mp.o
 
 OBJS = $(KERNEL_OBJS) $(OTHER_OBJS)
 LINK_LIST = $(OBJS) $(LDFLAGS)

@@ -99,6 +99,14 @@ void ioapic_enable_irq(unsigned cpu, unsigned irq)
     __write_reg(ioapic_v, offset + 1, cpu << 24);
 }
 
+void ioapic_assign_ioint(uint8_t bus_id, uint8_t bus_irq, uint8_t ioapic_id, uint8_t ioapic_irq)
+{
+    kprint("ioapic - assign i/o interrupt for 0x%x:0x%x to 0x%x:0x%x\n",
+            bus_id, bus_irq, ioapic_id, ioapic_irq);
+
+    /* TODO:  */
+}
+
 unsigned long ioapic_get_base(void)
 {
     kassert(io_apic.num_apics == 1);
