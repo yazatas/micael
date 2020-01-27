@@ -1,5 +1,5 @@
-#ifndef __ISR_H__
-#define __ISR_H__
+#ifndef __IRQ_H__
+#define __IRQ_H__
 
 #include <kernel/common.h>
 
@@ -11,7 +11,12 @@
 #define VECNUM_PAGE_FAULT 0x0e
 #define VECNUM_GPF        0x0d
 
-void isr_install_handler(int num, void (*handler)(isr_regs_t *regs));
-void isr_uninstall_handler(int num, void (*handler)(isr_regs_t *regs));
+enum {
+    IRQ_HANDLED   =  0,
+    IRQ_UNHANDLED = -1,
+};
 
-#endif /* __ISR_H__ */
+void irq_install_handler(int num, uint32_t (*handler)(void *), void *ctx);
+void irq_uninstall_handler(int irq);
+
+#endif /* __IRQ_H__ */

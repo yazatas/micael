@@ -7,7 +7,7 @@
 #include <fs/pipe.h>
 #include <fs/devfs.h>
 #include <kernel/io.h>
-#include <kernel/isr.h>
+#include <kernel/irq.h>
 #include <mm/heap.h>
 #include <sync/wait.h>
 #include <errno.h>
@@ -66,9 +66,9 @@ unsigned char codes[256] = {
 
 static pipe_t *ps2_pipe = NULL;
 
-static void __kbd_handler(isr_regs_t *cpu)
+static uint32_t __kbd_handler(void *ctx)
 {
-    (void)cpu;
+    (void)ctx;
 
     static bool shift_down = false;
 
@@ -88,6 +88,8 @@ static void __kbd_handler(isr_regs_t *cpu)
     }
 
     lapic_ack_interrupt();
+
+    return IRQ_HANDLED;
 }
 
 static ssize_t __read(file_t *file, off_t offset, size_t size, void *buf)
@@ -156,7 +158,7 @@ int ps2_init(void)
         goto error_cdev_unregister;
 
     ioapic_enable_irq(0, VECNUM_KEYBOARD);
-    isr_install_handler(VECNUM_KEYBOARD, __kbd_handler);
+    irq_install_handler(VECNUM_KEYBOARD, __kbd_handler, NULL);
 
     return 0;
 

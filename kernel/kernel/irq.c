@@ -1,21 +1,35 @@
 #include <kernel/common.h>
-#include <kernel/isr.h>
+#include <kernel/irq.h>
 #include <kernel/kassert.h>
 #include <kernel/kpanic.h>
 #include <stdint.h>
 
 #define MAX_INT 256
 
-extern void mmu_pf_handler(isr_regs_t *cpu);
-extern void gpf_handler(isr_regs_t *cpu);
-extern void syscall_handler(isr_regs_t *cpu);
+extern uint32_t mmu_pf_handler(void *ctx);
+extern uint32_t gpf_handler(void *ctx);
+extern uint32_t syscall_handler(void *ctx);
 
-typedef void (*isr_handler_t)(isr_regs_t *cpu);
+typedef struct irq_handler {
+    uint32_t (*handler)(void *);
+    void *ctx;
+} irq_handler_t;
 
-static isr_handler_t handlers[MAX_INT] = {
-    [VECNUM_SYSCALL]    = syscall_handler,
-    [VECNUM_PAGE_FAULT] = mmu_pf_handler,
-    [VECNUM_GPF]        = gpf_handler
+static irq_handler_t handlers[MAX_INT] = {
+    [VECNUM_SYSCALL] = {
+        syscall_handler,
+        NULL
+    },
+
+    [VECNUM_PAGE_FAULT] = {
+        mmu_pf_handler,
+        NULL
+    },
+
+    [VECNUM_GPF] = {
+        mmu_pf_handler,
+        NULL
+    }
 };
 
 const char *interrupts[] = {
@@ -28,16 +42,18 @@ const char *interrupts[] = {
     "machine check",               "simd floating point",      "virtualization",
 };
 
-void isr_install_handler(int num, void (*handler)(isr_regs_t *regs))
+void irq_install_handler(int num, uint32_t (*handler)(void *), void *ctx)
 {
     kassert((num >= 0 && num < MAX_INT) && (handler != NULL));
-    handlers[num] = handler;
+
+    handlers[num].handler = handler;
+    handlers[num].ctx     = ctx;
 }
 
-void isr_uninstall_handler(int num, void (*handler)(isr_regs_t *regs))
+void irq_uninstall_handler(int num)
 {
-    kassert((num >= 0 && num < MAX_INT) && (handler != NULL));
-    handlers[num] = NULL;
+    kassert((num >= 0 && num < MAX_INT));
+    handlers[num].handler = NULL;
 }
 
 void interrupt_handler(isr_regs_t *cpu_state)
@@ -45,8 +61,13 @@ void interrupt_handler(isr_regs_t *cpu_state)
     if (cpu_state->isr_num > MAX_INT)
         kpanic("ISR number is too high");
 
-    if (handlers[cpu_state->isr_num] != NULL)
-        return handlers[cpu_state->isr_num](cpu_state);
+    if (handlers[cpu_state->isr_num].handler != NULL) {
+        if (handlers[cpu_state->isr_num].ctx)
+            (void)handlers[cpu_state->isr_num].handler(handlers[cpu_state->isr_num].ctx);
+        (void)handlers[cpu_state->isr_num].handler(cpu_state);
+
+        return;
+    }
 
     switch (cpu_state->isr_num) {
         case 0x00: case 0x01: case 0x02: case 0x03: 

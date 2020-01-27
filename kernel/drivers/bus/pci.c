@@ -115,6 +115,21 @@ static void __probe_bus(int bus)
     }
 }
 
+uint8_t  pci_read_u8(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
+{
+    return __get_pci_field_u8(bus, dev, func, reg);
+}
+
+uint16_t pci_read_u16(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
+{
+    return __get_pci_field_u16(bus, dev, func, reg);
+}
+
+uint32_t pci_read_u32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
+{
+    return __get_pci_field_u32(bus, dev, func, reg);
+}
+
 int pci_init(void)
 {
     if ((pci_cache = mmu_cache_create(sizeof(pci_dev_t), MM_NO_FLAGS)) == NULL)

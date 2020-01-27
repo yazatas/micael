@@ -1,7 +1,7 @@
 #include <kernel/io.h>
 #include <drivers/ioapic.h>
 #include <kernel/common.h>
-#include <kernel/isr.h>
+#include <kernel/irq.h>
 #include <kernel/kassert.h>
 #include <kernel/kprint.h>
 #include <kernel/pic.h>

@@ -45,6 +45,11 @@ typedef struct pci_dev {
  * Return 0 on success */
 int pci_init(void);
 
+/* Read 8, 16, or 32-bit value from PCI register */
+uint8_t  pci_read_u8(uint8_t  bus, uint8_t dev, uint8_t func, uint8_t reg);
+uint16_t pci_read_u16(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg);
+uint32_t pci_read_u32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg);
+
 /* Query device using vendor and device ids
  *
  * Return pointer to PCI dev on success

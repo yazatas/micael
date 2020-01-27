@@ -1,5 +1,6 @@
-#include <kernel/isr.h>
+#include <drivers/bus/pci.h>
 #include <kernel/acpi/acpica/acpi.h>
+#include <kernel/irq.h>
 #include <sync/spinlock.h>
 #include <kernel/io.h>
 #include <kernel/kprint.h>
@@ -81,13 +82,24 @@ void AcpiOsWaitEventsComplete (void)
     kdebug("NOT IMPLEMENTED");
 }
 
-ACPI_STATUS AcpiOsReadPciConfiguration(ACPI_PCI_ID *pci_id, uint32_t reg, uint64_t *value, uint32_t width)
+ACPI_STATUS AcpiOsReadPciConfiguration(ACPI_PCI_ID *pci_id, UINT32 reg, UINT64 *value, UINT32 width)
 {
-    kdebug("NOT IMPLEMENTED");
-    return AE_OK;
+    switch (width) {
+        case 8:
+            *value = pci_read_u8(pci_id->Bus, pci_id->Device, pci_id->Function, reg & ~3);
+            return AE_OK;
+
+        case 16:
+            *value = pci_read_u16(pci_id->Bus, pci_id->Device, pci_id->Function, reg & ~3);
+            return AE_OK;
+
+        case 32:
+            *value = pci_read_u32(pci_id->Bus, pci_id->Device, pci_id->Function, reg & ~3);
+            return AE_OK;
+    }
 }
 
-ACPI_STATUS AcpiOsWritePciConfiguration (ACPI_PCI_ID *PciId, uint32_t Register, uint64_t Value,uint32_t Width)
+ACPI_STATUS AcpiOsWritePciConfiguration (ACPI_PCI_ID *pci_id, uint32_t Register, uint64_t Value,uint32_t Width)
 {
     kdebug("NOT IMPLEMENTED");
     return AE_OK;
@@ -105,15 +117,9 @@ ACPI_STATUS AcpiOsRemoveInterruptHandler(uint32_t InterruptNumber, ACPI_OSD_HAND
     return AE_ERROR;
 }
 
-void __handler(isr_regs_t *cpu)
-{
-    kdebug("somebody called this handler");
-    for (;;);
-}
-
 ACPI_STATUS AcpiOsInstallInterruptHandler(uint32_t InterruptLevel, ACPI_OSD_HANDLER Handler, void *Context)
 {
-    isr_install_handler(InterruptLevel, __handler);
+    irq_install_handler(InterruptLevel, Handler, Context);
     return AE_OK;
 }
 

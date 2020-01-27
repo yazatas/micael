@@ -6,7 +6,7 @@
 #include <kernel/acpi/acpi.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
-#include <kernel/isr.h>
+#include <kernel/irq.h>
 #include <kernel/mp.h>
 #include <kernel/pic.h>
 #include <kernel/kprint.h>
@@ -37,7 +37,7 @@ void init_bsp(void *arg)
     vga_init();
 
     /* initialize all low-level stuff (GDT, IDT, IRQ) */
-    gdt_init(); idt_init(); irq_init();
+    gdt_init(); idt_init(); pic_init();
 
     /* initialize archictecture-specific MMU, the boot memory allocator.
      * Use boot memory allocator to initialize PFA, SLAB and Heap */

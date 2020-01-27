@@ -3,6 +3,6 @@
 
 #include <kernel/common.h>
 
-void syscall_handler(isr_regs_t *cpu);
+uint32_t syscall_handler(void *ctx);
 
 #endif /* end of include guard: __SYSCALL_H__ */

@@ -3,8 +3,9 @@
 #include <kernel/kprint.h>
 #include <kernel/percpu.h>
 
-void __noreturn gpf_handler(isr_regs_t *cpu_state)
+uint32_t gpf_handler(void *ctx)
 {
+    isr_regs_t *cpu_state = (isr_regs_t *)ctx;
     uint32_t error_number = cpu_state->err_num;
 
     kprint("\nGeneral Protection Fault\n");

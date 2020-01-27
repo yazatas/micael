@@ -1,5 +1,6 @@
 #include <arch/x86_64/mm/mmu.h>
 #include <kernel/common.h>
+#include <kernel/irq.h>
 #include <kernel/kpanic.h>
 #include <kernel/kprint.h>
 #include <kernel/percpu.h>
@@ -47,8 +48,10 @@ static void __print_error(uint32_t error)
         kprint("Faulted due to instruction fetch (NXE set?)\n");
 }
 
-void mmu_pf_handler(isr_regs_t *cpu_state)
+uint32_t mmu_pf_handler(void *ctx)
 {
+    isr_regs_t *cpu_state = (isr_regs_t *)ctx;
+
     uint64_t cr2   = 0;
     uint64_t cr3   = 0;
     uint32_t error = cpu_state->err_num;
@@ -94,7 +97,7 @@ void mmu_pf_handler(isr_regs_t *cpu_state)
 
         pt[pti] = (unsigned long)copy | flags;
         spin_release(&lock);
-        return;
+        return IRQ_HANDLED;
     }
 
 error:

@@ -30,7 +30,7 @@ KERNEL_OBJS= \
 	$(KERNEL_ACPICA_OBJS) \
 	$(KERNEL_ACPI_OBJS) \
 	kernel/kmain.o \
-	kernel/isr.o \
+	kernel/irq.o \
 	kernel/kprint.o \
 	kernel/kpanic.o \
 	kernel/util.o \
