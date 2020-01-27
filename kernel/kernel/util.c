@@ -127,7 +127,7 @@ char *kstrncpy(char *restrict dest, const char *restrict src, size_t n)
     return dest;
 }
 
-char *strchr(const char *s, int c)
+char *kstrchr(const char *s, int c)
 {
     for (size_t i = 0; s[i] != '\0'; ++i) {
         if (s[i] == c)

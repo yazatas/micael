@@ -3,7 +3,7 @@
 #include <drivers/ioapic.h>
 #include <drivers/lapic.h>
 #include <drivers/bus/pci.h>
-#include <kernel/acpi.h>
+#include <kernel/acpi/acpi.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
 #include <kernel/isr.h>
@@ -43,22 +43,15 @@ void init_bsp(void *arg)
      * Use boot memory allocator to initialize PFA, SLAB and Heap */
     mmu_init(arg);
 
+    /* parse ACPI tables and initialize the Local APIC of BSP all I/O APICs */
+    acpi_init();
+    ioapic_initialize_all();
+    lapic_initialize();
+
     /* initialize the PCI bus(es) and after PCI
      * the VBE to get the address of the linear frame buffer */
     pci_init();
     vbe_init();
-
-    /* parse ACPI tables and initialize the Local APIC of BSP all I/O APICs */
-    acpi_initialize();
-    acpi_parse_madt();
-    ioapic_initialize_all();
-    lapic_initialize();
-
-    /* parse MP Configuration table for PCI IRQ information
-     *
-     * MP table must be parsed after ACPI because it adds
-     * IRQ redirection info for I/O APICs about PCI devices */
-    mp_init();
 
     /* initialize SMP trampoline for the APs */
     size_t trmp_size = (size_t)&_trampoline_end - (size_t)&_trampoline_start;

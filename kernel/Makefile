@@ -8,6 +8,8 @@ include $(DIR_SYNC)/make.config
 include $(DIR_MM)/make.config
 include $(DIR_FS)/make.config
 include $(DIR_LIB)/make.config
+include $(ACPICA_DIR)/make.config
+include $(ACPI_DIR)/make.config
 
 DESTDIR=$(realpath $(shell pwd)/../sysroot)
 
@@ -25,12 +27,13 @@ KERNEL_OBJS= \
 	$(KERNEL_MM_OBJS) \
 	$(KERNEL_FS_OBJS) \
 	$(KERNEL_LIB_OBJS) \
+	$(KERNEL_ACPICA_OBJS) \
+	$(KERNEL_ACPI_OBJS) \
 	kernel/kmain.o \
 	kernel/isr.o \
 	kernel/kprint.o \
 	kernel/kpanic.o \
 	kernel/util.o \
-	kernel/acpi.o \
 	kernel/tick.o \
 	kernel/mp.o
 

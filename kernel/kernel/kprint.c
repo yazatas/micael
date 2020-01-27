@@ -145,6 +145,12 @@ static void va_kprint(const char *fmt, va_list args)
     }
 }
 
+void vkprint(const char *fmt, va_list args)
+{
+    va_kprint(fmt, args);
+    tty_putc('\n');
+}
+
 void kprint(const char *fmt, ...)
 {
     static spinlock_t spin;

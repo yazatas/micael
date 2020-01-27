@@ -1,6 +1,6 @@
 #include <drivers/lapic.h>
 #include <drivers/pit.h>
-#include <kernel/acpi.h>
+#include <kernel/acpi/acpi.h>
 #include <kernel/common.h>
 #include <kernel/idt.h>
 #include <kernel/io.h>

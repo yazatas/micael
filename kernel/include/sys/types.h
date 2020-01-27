@@ -16,6 +16,8 @@ typedef uint64_t size_t;
 typedef int64_t  ssize_t;
 typedef int64_t  off_t;
 
+typedef size_t uintptr_t;
+
 #undef  ULONG_MAX
 #define ULONG_MAX 0xffffffffffffffff
 #else

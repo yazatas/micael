@@ -60,6 +60,8 @@ void ioapic_initialize_all(void)
 
     /* Initialize all I/O APICs found on the bus and initially disable all IRQs */
     for (int i = 0; i < io_apic.num_apics; ++i) {
+        kprint("ioapic - initializing I/O APIC %d\n", io_apic.apics[i].id);
+
         uint8_t *ioapic_v = (uint8_t *)io_apic.apics[i].base;
         mmu_map_page((unsigned long)ioapic_v, (unsigned long)ioapic_v, MM_PRESENT | MM_READWRITE);
 
@@ -97,14 +99,6 @@ void ioapic_enable_irq(unsigned cpu, unsigned irq)
 
     __write_reg(ioapic_v, offset + 0, irq);
     __write_reg(ioapic_v, offset + 1, cpu << 24);
-}
-
-void ioapic_assign_ioint(uint8_t bus_id, uint8_t bus_irq, uint8_t ioapic_id, uint8_t ioapic_irq)
-{
-    kprint("ioapic - assign i/o interrupt for 0x%x:0x%x to 0x%x:0x%x\n",
-            bus_id, bus_irq, ioapic_id, ioapic_irq);
-
-    /* TODO:  */
 }
 
 unsigned long ioapic_get_base(void)

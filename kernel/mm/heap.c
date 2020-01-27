@@ -236,14 +236,14 @@ int mmu_heap_preinit(void)
 
 int mmu_heap_init(void)
 {
-    unsigned long mem = mmu_block_alloc(MM_ZONE_NORMAL, 3);
+    unsigned long mem = mmu_block_alloc(MM_ZONE_NORMAL, 6);
 
     if (mem == INVALID_ADDRESS) {
         kdebug("failed to allocate memory for heap!");
         return -ENOMEM;
     }
 
-    return __heap_init(mmu_p_to_v(mem), 4);
+    return __heap_init(mmu_p_to_v(mem), 6);
 }
 
 void heap_initialize(uint32_t *heap_start_v)

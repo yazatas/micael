@@ -118,10 +118,10 @@ int mp_init(void)
             {
                 struct mp_ioint *ioint = (struct mp_ioint *)hdr;
 
-                ioapic_assign_ioint(
-                    ioint->bus_id, ioint->bus_irq,
-                    ioint->ioapic_id, ioint->ioapic_irq
-                );
+                /* ioapic_assign_ioint( */
+                /*     ioint->bus_id, ioint->bus_irq, */
+                /*     ioint->ioapic_id, ioint->ioapic_irq */
+                /* ); */
                 hdr += MP_ES_IOINT;
             }
             break;
