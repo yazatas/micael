@@ -115,16 +115,24 @@ int kstrcmp_s(const char *s1, const char *s2)
     return kstrncmp(s1, s2, len);
 }
 
-char *kstrncpy(char *restrict dest, const char *restrict src, size_t n)
+char *kstrncpy(char *restrict dst, const char *restrict src, size_t n)
 {
     size_t i;
 
     for (i = 0; i < n && src[i] != '\0'; ++i)
-        dest[i] = src[i];
+        dst[i] = src[i];
     for (; i < n; ++i)
-        dest[i] = '\0';
+        dst[i] = '\0';
 
-    return dest;
+    return dst;
+}
+
+char *kstrcpy(char *dst, char *src)
+{
+    for (size_t i = 0; src[i] != '\0'; ++i)
+        dst[i] = src[i];
+
+    return dst;
 }
 
 char *kstrchr(const char *s, int c)

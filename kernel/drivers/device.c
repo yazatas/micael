@@ -66,8 +66,6 @@ int dev_register_device(device_t *device)
 
     if (device->driver && device->driver->init)
         device->driver->init(device);
-    else
-        kprint("dev - warning, device does not have an init() function set up!\n");
 
     list_append(&devices.pci, &device->list);
 

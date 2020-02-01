@@ -40,6 +40,24 @@ typedef struct pci_dev {
     list_head_t list;
 } pci_dev_t;
 
+typedef struct pci_irq_route {
+    bool named;   /* see kernel/acpi/pci.c for more details */
+
+    uint8_t bus;
+    uint8_t dev;
+    uint8_t pin;
+
+    /* If "named" is true, "name" contains the link's name
+     * Otherwise "irq" is set */
+    uint8_t irq;
+    char *name;
+} pci_irq_route_t;
+
+typedef struct pci_link {
+    char name[32];       /* link name */
+    uint32_t current;    /* active interrupt */
+} pci_link_t;
+
 /* Probe all busses and create entries for all found devices
  * that can be queried later on by other subysystems
  * Return 0 on success */
@@ -56,5 +74,35 @@ uint32_t pci_read_u32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg);
  * Return NULL on error and set errno to:
  *    ENOENT if device does not exist */
 pci_dev_t *pci_get_dev(uint16_t vendor, uint16_t device);
+
+/* Allocate pci_irq_route struct and let caller
+ * fill it with PCI IRQ routing related info
+ *
+ * The struct doesn't need to be given back explicitly
+ *
+ * Return pointer to struct on success
+ * Return NULL on error and set errno to:
+ *    ENOMEM if max amount of routes have been allocated already */
+pci_irq_route_t *pci_alloc_route(void);
+
+/* Allocate pci_link struct and let caller
+ * fill it with PCI link related info
+ *
+ * The struct doesn't need to be given back explicitly
+ *
+ * Return pointer to struct on success
+ * Return NULL on error and set errno to:
+ *    ENOMEM if max amount of routes have been allocated already */
+pci_link_t *pci_alloc_link(void);
+
+/* Find IRQ routing information for a device
+ *
+ * This function should be called by the device when its init()
+ * function is called to register an IRQ routine
+ *
+ * Return the IRQ the device is using on success
+ * Return PCI_NO_ROUTE on error and set errno to:
+ *    ENOENT if routing info for bus:dev:pin does not exist */
+uint8_t pci_find_irq_route(uint8_t bus, uint8_t dev, uint8_t pin);
 
 #endif /* __PCI_H__ */

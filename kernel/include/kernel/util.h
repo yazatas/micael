@@ -10,7 +10,8 @@ void *kmemmove(void *dstptr, const void *srcptr, size_t size);
 char *kstrdup(const char *s);
 char *kstrchr(const char *s, int c);
 char *kstrsep(char **str, const char *delim);
-char *kstrncpy(char *restrict dest, const char *restrict src, size_t n);
+char *kstrncpy(char *restrict dst, const char *restrict src, size_t n);
+char *kstrcpy(char *dst, char *src);
 char *kstrncat(char *s1, char *s2, size_t len);
 char *kstrcat_s(char *s1, char *s2);
 

@@ -2,6 +2,7 @@
 #define __TYPES_H__
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #ifdef __x86_64__
 #undef uint64_t

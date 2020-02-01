@@ -170,7 +170,7 @@ void AcpiOsReleaseLock(ACPI_SPINLOCK handle, ACPI_CPU_FLAGS flags)
 
 UINT64 AcpiOsGetTimer()
 {
-    kdebug("NOT IMPLEMENTED");
+    /* kdebug("NOT IMPLEMENTED"); */
     return 0;
 }
 

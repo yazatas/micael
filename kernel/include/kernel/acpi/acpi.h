@@ -9,7 +9,10 @@
  * Return -EINVAL if the ACPI-related info is invalid */
 int acpi_init(void);
 
-/* TODO:  */
+/* Find PCI IRQ routing information
+ *
+ * Return 0 on success
+ * Return -ENXIO if device is not found from ACPI */
 int acpi_init_pci(void);
 
 /* Return address of Local APIC discovered from MADT on success

@@ -3,6 +3,7 @@
 #include <drivers/ioapic.h>
 #include <drivers/lapic.h>
 #include <drivers/bus/pci.h>
+#include <drivers/device.h>
 #include <kernel/acpi/acpi.h>
 #include <kernel/gdt.h>
 #include <kernel/idt.h>
@@ -48,6 +49,13 @@ void init_bsp(void *arg)
     ioapic_initialize_all();
     lapic_initialize();
 
+    /* initialize the vfs subsystem so that new devices can be registered to devfs */
+    vfs_init();
+
+    /* Initialize the device/driver subsystem
+     * and register drivers for all supported devices */
+    dev_init();
+
     /* initialize the PCI bus(es) and after PCI
      * the VBE to get the address of the linear frame buffer */
     pci_init();
@@ -78,9 +86,7 @@ void init_bsp(void *arg)
     /* enable Local APIC timer so tick_wait() works */
     enable_irq();
 
-    /* initialize inode and dentry caches, mount pseudo rootfs and devfs */
-    vfs_init();
-
+    /* install rootfs from initramfs */
     if (vfs_install_rootfs("initramfs", arg) < 0)
         kpanic("failed to install rootfs!");
 
