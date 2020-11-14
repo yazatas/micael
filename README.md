@@ -14,6 +14,3 @@ See doc/OVERVIEW.md and doc/ROADMAP.md for more details
    * devfs
    * initramfs
 * VESA VBE 3.0 GFX Driver
-
-# Copying
-micael is free software. It's licensed under the MIT license.
