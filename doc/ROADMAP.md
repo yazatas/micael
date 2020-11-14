@@ -22,13 +22,16 @@
 
 Drivers
 
-* PCI(-e)
+* PCI
 * SATA
-* SCSI
-* Generic USB drivers
+* RTL8139
 * PC speaker driver
 
-## v0.4.0: Calypso
+## v0.4.0: Amalthea
+
+* Networking
+
+## v0.5.0: Calypso
 
 File system stuff
 
@@ -38,15 +41,14 @@ File system stuff
    * procfs
    * sysfs
 * ext2
-* dkmFS
+* rafael
 * Custom boot loader
 
-## v0.5.0: Kerberos
+## v.0.6.0: Kerberos
 
-* Networking
 * Crypto
 
-## v0.6.0: Himalia
+## v0.7.0: Himalia
 
 * dlibc
 * Core utils
