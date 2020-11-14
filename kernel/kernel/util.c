@@ -51,6 +51,23 @@ void *kmemmove(void *dstptr, const void *srcptr, size_t size)
     return dstptr;
 }
 
+int kmemcmp(void *s1, void *s2, size_t n)
+{
+    uint8_t *s1_ptr = s1;
+    uint8_t *s2_ptr = s2;
+
+    for (size_t i = 0; i < n; ++i) {
+
+        if (s1_ptr[i] < s2_ptr[i])
+            return -1;
+
+        if (s1_ptr[i] > s2_ptr[i])
+            return 1;
+    }
+
+    return 0;
+}
+
 char *kstrdup(const char *s)
 {
     size_t n  = kstrlen(s), i;
@@ -98,19 +115,27 @@ int kstrcmp_s(const char *s1, const char *s2)
     return kstrncmp(s1, s2, len);
 }
 
-char *kstrncpy(char *restrict dest, const char *restrict src, size_t n)
+char *kstrncpy(char *restrict dst, const char *restrict src, size_t n)
 {
     size_t i;
 
     for (i = 0; i < n && src[i] != '\0'; ++i)
-        dest[i] = src[i];
+        dst[i] = src[i];
     for (; i < n; ++i)
-        dest[i] = '\0';
+        dst[i] = '\0';
 
-    return dest;
+    return dst;
 }
 
-char *strchr(const char *s, int c)
+char *kstrcpy(char *dst, char *src)
+{
+    for (size_t i = 0; src[i] != '\0'; ++i)
+        dst[i] = src[i];
+
+    return dst;
+}
+
+char *kstrchr(const char *s, int c)
 {
     for (size_t i = 0; s[i] != '\0'; ++i) {
         if (s[i] == c)

@@ -1,7 +1,7 @@
 #include <kernel/io.h>
 #include <drivers/ioapic.h>
 #include <kernel/common.h>
-#include <kernel/isr.h>
+#include <kernel/irq.h>
 #include <kernel/kassert.h>
 #include <kernel/kprint.h>
 #include <kernel/pic.h>
@@ -60,6 +60,8 @@ void ioapic_initialize_all(void)
 
     /* Initialize all I/O APICs found on the bus and initially disable all IRQs */
     for (int i = 0; i < io_apic.num_apics; ++i) {
+        kprint("ioapic - initializing I/O APIC %d\n", io_apic.apics[i].id);
+
         uint8_t *ioapic_v = (uint8_t *)io_apic.apics[i].base;
         mmu_map_page((unsigned long)ioapic_v, (unsigned long)ioapic_v, MM_PRESENT | MM_READWRITE);
 

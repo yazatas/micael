@@ -254,7 +254,9 @@ __noreturn void sched_start()
 
 task_t *sched_get_active(void)
 {
-    return mts_get_active();
+    if (READ_ONCE(sched_initialized))
+        return mts_get_active();
+    return NULL;
 }
 
 task_t *sched_get_init(void)

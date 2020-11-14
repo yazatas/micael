@@ -1,10 +1,10 @@
 #include <drivers/lapic.h>
 #include <drivers/pit.h>
-#include <kernel/acpi.h>
+#include <kernel/acpi/acpi.h>
 #include <kernel/common.h>
 #include <kernel/idt.h>
 #include <kernel/io.h>
-#include <kernel/isr.h>
+#include <kernel/irq.h>
 #include <kernel/kassert.h>
 #include <kernel/tick.h>
 #include <mm/mmu.h>
@@ -126,18 +126,17 @@ static void __configure_timer(void)
     tick_init((0xffffffff - end) * 20, 1000);
 }
 
-static void __svr_handler(isr_regs_t *cpu)
+static uint32_t __svr_handler(void *ctx)
 {
-    (void)cpu;
+    (void)ctx;
     lapic_ack_interrupt();
 
     /* TODO: do something here? */
+    return IRQ_HANDLED;
 }
 
-static void __tmr_handler(isr_regs_t *cpu)
+static uint32_t __tmr_handler(void *ctx)
 {
-    (void)cpu;
-
     lapic_ack_interrupt();
     tick_inc();
 
@@ -145,7 +144,9 @@ static void __tmr_handler(isr_regs_t *cpu)
      *
      * If this thread has exhausted its time slice or if a task
      * with higher priority is waiting, the task is preempted. */
-    sched_tick(cpu);
+    sched_tick(ctx);
+
+    return IRQ_HANDLED;
 }
 
 void lapic_initialize(void)
@@ -179,8 +180,8 @@ void lapic_initialize(void)
     /* acknowledge pending interrupts */
     write_32(lapic_base + LAPIC_REG_EOI, 0);
 
-    isr_install_handler(VECNUM_TIMER,    __tmr_handler);
-    isr_install_handler(VECNUM_SPURIOUS, __svr_handler);
+    irq_install_handler(VECNUM_TIMER,    __tmr_handler, NULL);
+    irq_install_handler(VECNUM_SPURIOUS, __svr_handler, NULL);
 
     cpu_init_count++;
 }

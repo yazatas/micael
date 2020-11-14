@@ -7,8 +7,8 @@
 #define PIC_SLAVE_DATA_PORT  0xa1
 #define PIC_ACK              0x20
 
-void irq_init(void);
-void irq_install_handler(void (*handler)(), int irq_num);
-void irq_ack_interrupt(int irq_num);
+void pic_init(void);
+void pic_install_handler(void (*handler)(), int irq_num);
+void pic_ack_interrupt(int irq_num);
 
 #endif /* end of include guard: __PIC_H__ */

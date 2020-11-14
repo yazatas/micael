@@ -24,7 +24,7 @@ extern void irq15();
 
 static void *irq_routines[16] = { 0 };
 
-void irq_install_handler(void (*handler)(struct isr_regs *cpu), int irq_num)
+void pic_install_handler(void (*handler)(struct isr_regs *cpu), int irq_num)
 {
     if (irq_num > 15 || irq_num < 0 || handler == NULL) {
         kdebug("Invalid IRQ handler or IRQ Number");
@@ -35,7 +35,7 @@ void irq_install_handler(void (*handler)(struct isr_regs *cpu), int irq_num)
 }
 
 /* http://www.thesatya.com/8259.html */
-void irq_init(void)
+void pic_init(void)
 {
     /* init icw1 */
     outb(PIC_MASTER_CMD_PORT,  0x11);
@@ -75,7 +75,7 @@ void irq_init(void)
     idt_set_gate((unsigned long int)irq15, 0x08, 0x8e, &IDT[47]);
 }
 
-void irq_ack_interrupt(int irq_num)
+void pic_ack_interrupt(int irq_num)
 {
     if (irq_num >= 40)
         outb(PIC_SLAVE_CMD_PORT, PIC_ACK);
@@ -84,7 +84,7 @@ void irq_ack_interrupt(int irq_num)
 
 /* irq raised by master -> acknowledge master 
  * irq raised by slave, -> acknowledge both slave AND master */
-void irq_handler(struct isr_regs *cpu_state)
+void pic_handler(struct isr_regs *cpu_state)
 {
     void (*handler)(struct isr_regs *cpu_state);
 
@@ -97,5 +97,5 @@ void irq_handler(struct isr_regs *cpu_state)
     if ((handler = irq_routines[irq_index]) != NULL)
         handler(cpu_state);
 
-    irq_ack_interrupt(cpu_state->isr_num);
+    pic_ack_interrupt(cpu_state->isr_num);
 }

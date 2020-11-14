@@ -2,6 +2,7 @@
 #define __TYPES_H__
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #ifdef __x86_64__
 #undef uint64_t
@@ -15,6 +16,8 @@ typedef int      int32_t;
 typedef uint64_t size_t;
 typedef int64_t  ssize_t;
 typedef int64_t  off_t;
+
+typedef size_t uintptr_t;
 
 #undef  ULONG_MAX
 #define ULONG_MAX 0xffffffffffffffff
