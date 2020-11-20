@@ -1,3 +1,4 @@
+#include <drivers/disk/ahci.h>
 #include <drivers/device.h>
 #include <fs/devfs.h>
 #include <kernel/compiler.h>
@@ -27,6 +28,9 @@ int dev_init(void)
 
     list_init(&drivers.pci);
     list_init(&devices.pci);
+
+    /* initialize AHCI subsystem */
+    ahci_init();
 
     return 0;
 }
