@@ -96,7 +96,7 @@ static void vbe_get_font(void)
     font_map           = mmu_p_to_v(page);
     vga_mem            = mmu_p_to_v(0xA0000);
 
-#ifdef __x86_64__
+#ifdef __amd64__
     asm volatile("mov %[vga_ptr],  %%rsi\n\
                   mov %[font_ptr], %%rdi"
               :: [vga_ptr] "r" (vga_mem), [font_ptr] "r" (font_map));
@@ -115,7 +115,7 @@ static void vbe_get_font(void)
 
         /* discard the last 16 bytes of each glyph
          * we only need the first 16, see comment above */
-#ifdef __x86_64__
+#ifdef __amd64__
         asm volatile ("add $16, %rsi");
 #else
         asm volatile ("add $16, %esi");

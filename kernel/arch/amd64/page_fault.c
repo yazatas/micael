@@ -1,4 +1,4 @@
-#include <arch/x86_64/mm/mmu.h>
+#include <arch/amd64/mm/mmu.h>
 #include <kernel/common.h>
 #include <kernel/irq.h>
 #include <kernel/kpanic.h>
@@ -116,7 +116,7 @@ error:
     if (task)
         kprint("task name:        %s\n", sched_get_active()->name);
 
-    arch_dump_registers(cpu_state);
+    native_dump_registers(cpu_state);
 
     /* Walk the directory and the virtual address of each directory
      * and whether the entry is present or not */

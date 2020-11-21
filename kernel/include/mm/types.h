@@ -22,7 +22,7 @@ enum MM_PAGE_FLAGS {
     MM_D_CACHE    = 1 << 4,
     MM_ACCESSED   = 1 << 5,
     MM_SIZE_4MB   = 1 << 6,
-#ifdef __x86_64__
+#ifdef __amd64__
     MM_2MB        = 1 << 7, // TODO
 #endif
     MM_COW        = 1 << 9,

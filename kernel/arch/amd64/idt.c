@@ -1,11 +1,11 @@
-#include <arch/x86_64/asm.h>
+#include <arch/amd64/asm.h>
 #include <kernel/idt.h>
 #include <kernel/kprint.h>
 #include <kernel/util.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-/* defined in arch/x86_64/interrupts.s */
+/* defined in arch/amd64/interrupts.s */
 extern void isr0();
 extern void isr1();
 extern void isr2();

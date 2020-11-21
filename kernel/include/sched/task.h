@@ -26,7 +26,7 @@ typedef enum {
 } thread_state_t;
 
 struct exec_state {
-#ifdef __x86_64__
+#ifdef __amd64__
     uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
     uint64_t isr_num, err_num;
     uint64_t eip, cs, eflags, esp, ss;
@@ -50,7 +50,7 @@ typedef struct exec_state exec_state_t;
 
 #if 0
 typedef struct exec_state {
-#ifdef __x86_64__
+#ifdef __amd64__
     uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
     uint64_t isr_num, err_num;
     uint64_t eip, cs, eflags, esp, ss;

@@ -1,4 +1,4 @@
-#include <arch/x86_64/mm/mmu.h>
+#include <arch/amd64/mm/mmu.h>
 #include <arch/i386/mm/mmu.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>

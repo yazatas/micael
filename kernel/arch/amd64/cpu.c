@@ -5,7 +5,7 @@
 
 #define REG(reg) reg, reg
 
-void arch_dump_registers(isr_regs_t *cpu_state)
+void native_dump_registers(isr_regs_t *cpu_state)
 {
     if (!cpu_state) {
 
@@ -46,7 +46,7 @@ void arch_dump_registers(isr_regs_t *cpu_state)
     }
 }
 
-void arch_context_prepare(task_t *task, void *ip, void *sp)
+void native_context_prepare(task_t *task, void *ip, void *sp)
 {
     task->threads->bootstrap.eip    = (unsigned long)ip;
     task->threads->bootstrap.ebp    = (unsigned long)sp;

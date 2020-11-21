@@ -1,5 +1,5 @@
-#ifndef __X86_64_BARRIER_H__
-#define __X86_64_BARRIER_H__
+#ifndef __AMD64_BARRIER_H__
+#define __AMD64_BARRIER_H__
 
 /* all reads and writes are visible after this */
 static inline void barrier_rw(void)
@@ -25,4 +25,4 @@ static inline void barrier(void)
     asm volatile ("" ::: "memory");
 }
 
-#endif /* __X86_64_BARRIER_H__ */
+#endif /* __AMD64_BARRIER_H__ */

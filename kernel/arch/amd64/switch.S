@@ -1,7 +1,7 @@
 .section .text
-.global arch_context_switch
-.global arch_context_switch_user
-.global arch_context_load
+.global native_context_switch
+.global native_context_switch_user
+.global native_context_load
 
 # switch kernel stacks, this is the new way of context switching
 #
@@ -12,7 +12,7 @@
 # This kind of context switching allows micael to call schedule within
 # kernel and is necessary to support f.ex blocking I/O
 # (or rather it gives a clean of implementing wait queues and voluntary sleep)
-arch_context_switch:
+native_context_switch:
     # callee-saved store (sysv abi)
     pushq %r15
     pushq %r14
@@ -41,7 +41,7 @@ arch_context_switch:
 
 # Tasks must be started a little differently, we need to use iretq
 # to load the correct segment registers
-arch_context_switch_user:
+native_context_switch_user:
     # callee-saved store (sysv abi)
     pushq %r15
     pushq %r14
@@ -72,7 +72,7 @@ arch_context_switch_user:
 2:
     iretq
 
-arch_context_load:
+native_context_load:
     movq %rdi, %rax
     movq %rax, %cr3
     movq %rsi, %rsp

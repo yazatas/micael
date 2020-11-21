@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#ifdef __x86_64__
+#ifdef __amd64__
 #undef uint64_t
 typedef unsigned long     uint64_t;
 typedef unsigned long int uint64_t;

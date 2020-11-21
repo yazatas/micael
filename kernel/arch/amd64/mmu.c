@@ -1,4 +1,4 @@
-#include <arch/x86_64/mm/mmu.h>
+#include <arch/amd64/mm/mmu.h>
 #include <drivers/bus/pci.h>
 #include <drivers/ioapic.h>
 #include <drivers/lapic.h>
@@ -44,7 +44,7 @@ int mmu_native_init(void)
         __pdpt[PDPT_ATOEI(KVSTART) + i] = __pdpt[i] = V_TO_P(&__pd[i * 512]) | MM_PRESENT | MM_READWRITE;
     }
 
-    native_set_cr3(V_TO_P(__pml4));
+    amd64_set_cr3(V_TO_P(__pml4));
 
     return 0;
 }
@@ -52,7 +52,7 @@ int mmu_native_init(void)
 static uint64_t __alloc_entry(void)
 {
     uint64_t addr = mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL);
-    kmemset((void *)native_p_to_v(addr), 0, PAGE_SIZE);
+    kmemset((void *)amd64_p_to_v(addr), 0, PAGE_SIZE);
 
     return addr | MM_PRESENT | MM_READWRITE;
 }
@@ -74,19 +74,19 @@ static void __map_page(uint64_t *pml4, uint64_t paddr, uint64_t vaddr, int flags
         pml4[pml4i] = __alloc_entry();
     pml4[pml4i] |= flags;
 
-    uint64_t *pdpt = native_p_to_v(pml4[pml4i] & ~0xfff);
+    uint64_t *pdpt = amd64_p_to_v(pml4[pml4i] & ~0xfff);
 
     if (!(pdpt[pdpti] & MM_PRESENT))
         pdpt[pdpti] = __alloc_entry();
     pdpt[pdpti] |= flags;
 
-    uint64_t *pd = native_p_to_v(pdpt[pdpti] & ~0xfff);
+    uint64_t *pd = amd64_p_to_v(pdpt[pdpti] & ~0xfff);
 
     if (!(pd[pdi] & MM_PRESENT))
         pd[pdi] = __alloc_entry();
     pd[pdi] |= flags;
 
-    uint64_t *pt = native_p_to_v(pd[pdi] & ~0xfff);
+    uint64_t *pt = amd64_p_to_v(pd[pdi] & ~0xfff);
     pt[pti]      = paddr | flags | MM_PRESENT;
     spin_release(&lock);
 }
@@ -103,12 +103,12 @@ static void __map_range(uint64_t *pml4, unsigned long pstart, unsigned long vsta
 
 int mmu_native_map_page(unsigned long paddr, unsigned long vaddr, int flags)
 {
-    uint64_t *pml4 = native_p_to_v(native_get_cr3());
+    uint64_t *pml4 = amd64_p_to_v(amd64_get_cr3());
 
     __map_page(pml4, paddr, vaddr, flags);
 
-    /* TODO: use native_invld_page() instead! */
-    native_flush_tlb();
+    /* TODO: use amd64_invld_page() instead! */
+    amd64_flush_tlb();
 
     return 0;
 }
@@ -125,12 +125,12 @@ int mmu_native_unmap_page(unsigned long vaddr)
 
 unsigned long mmu_native_v_to_p(void *vaddr)
 {
-    return native_v_to_p(vaddr);
+    return amd64_v_to_p(vaddr);
 }
 
 void *mmu_native_p_to_v(unsigned long paddr)
 {
-    return native_p_to_v(paddr);
+    return amd64_p_to_v(paddr);
 }
 
 void *mmu_native_build_dir(void)
@@ -141,7 +141,7 @@ void *mmu_native_build_dir(void)
     if ((pml4_p = mmu_page_alloc(MM_ZONE_NORMAL)) == INVALID_ADDRESS)
         return NULL;
 
-    pml4_v = native_p_to_v(pml4_p);
+    pml4_v = amd64_p_to_v(pml4_p);
 
     for (size_t i = 0; i < 511; ++i) {
         pml4_v[i] = 0;
@@ -184,7 +184,7 @@ void mmu_native_walk_addr(void *vaddr)
         return;
 
     unsigned long paddr = (unsigned long)vaddr;
-    uint64_t *pml4      = native_p_to_v(native_get_cr3());
+    uint64_t *pml4      = amd64_p_to_v(amd64_get_cr3());
 
     uint16_t pml4i = PML4_ATOEI(paddr);
     uint16_t pdpti = PDPT_ATOEI(paddr);
@@ -227,7 +227,7 @@ void mmu_native_walk_addr(void *vaddr)
 void *mmu_native_duplicate_dir(void)
 {
     uint64_t *pml4_cv = mmu_native_build_dir();          /* copy,     virtual */
-    uint64_t *pml4_ov = native_p_to_v(native_get_cr3()); /* original, virtual */
+    uint64_t *pml4_ov = amd64_p_to_v(amd64_get_cr3()); /* original, virtual */
     uint64_t *pdpt_ov = NULL, *pdpt_cv = NULL;
     uint64_t *pd_ov   = NULL, *pd_cv   = NULL;
     uint64_t *pt_ov   = NULL, *pt_cv   = NULL;
@@ -240,8 +240,8 @@ void *mmu_native_duplicate_dir(void)
 
             /* create new PML4 entry and set up pdpt pointers */
             pml4_cv[pml4i] = __alloc_entry() | MM_PRESENT | MM_USER;
-            pdpt_ov        = native_p_to_v(pml4_ov[pml4i] & ~(PAGE_SIZE - 1));
-            pdpt_cv        = native_p_to_v(pml4_cv[pml4i] & ~(PAGE_SIZE - 1));
+            pdpt_ov        = amd64_p_to_v(pml4_ov[pml4i] & ~(PAGE_SIZE - 1));
+            pdpt_cv        = amd64_p_to_v(pml4_cv[pml4i] & ~(PAGE_SIZE - 1));
 
             /* level 2 */
             for (size_t pdpti = 0; pdpti < 512; ++pdpti)  {
@@ -249,8 +249,8 @@ void *mmu_native_duplicate_dir(void)
 
                     /* create new pdpt entry and set up pd pointers */
                     pdpt_cv[pdpti] = __alloc_entry() | MM_PRESENT | MM_USER;
-                    pd_ov          = native_p_to_v(pdpt_ov[pdpti] & ~(PAGE_SIZE - 1));
-                    pd_cv          = native_p_to_v(pdpt_cv[pdpti] & ~(PAGE_SIZE - 1));
+                    pd_ov          = amd64_p_to_v(pdpt_ov[pdpti] & ~(PAGE_SIZE - 1));
+                    pd_cv          = amd64_p_to_v(pdpt_cv[pdpti] & ~(PAGE_SIZE - 1));
 
                     /* level 1 */
                     for (size_t pdi = 0; pdi < 512; ++pdi)  {
@@ -265,8 +265,8 @@ void *mmu_native_duplicate_dir(void)
 
                             /* create new pd entry and set up pt pointers */
                             pd_cv[pdi] = __alloc_entry() | MM_PRESENT | MM_USER;
-                            pt_ov      = native_p_to_v(pd_ov[pdi] & ~(PAGE_SIZE - 1));
-                            pt_cv      = native_p_to_v(pd_cv[pdi] & ~(PAGE_SIZE - 1));
+                            pt_ov      = amd64_p_to_v(pd_ov[pdi] & ~(PAGE_SIZE - 1));
+                            pt_cv      = amd64_p_to_v(pd_cv[pdi] & ~(PAGE_SIZE - 1));
 
                             for (size_t pti = 0; pti < 512; ++pti) {
                                 if (pt_ov[pti] & MM_PRESENT) {
@@ -282,8 +282,8 @@ void *mmu_native_duplicate_dir(void)
         }
     }
 
-    /* TODO: use native_invld_page() instead! */
-    native_flush_tlb();
+    /* TODO: use amd64_invld_page() instead! */
+    amd64_flush_tlb();
 
     return pml4_cv;
 }
@@ -305,14 +305,14 @@ void mmu_native_destroy_dir(void *dir)
         if (!(pml4[pml4i] & MM_PRESENT))
             continue;
 
-        pdpt = native_p_to_v(pml4[pml4i] & ~(PAGE_SIZE - 1));
+        pdpt = amd64_p_to_v(pml4[pml4i] & ~(PAGE_SIZE - 1));
 
         /* level 2 */
         for (size_t pdpti = 0; pdpti < 512; ++pdpti)  {
             if (!(pdpt[pdpti] & MM_PRESENT))
                 continue;
 
-            pd = native_p_to_v(pdpt[pdpti] & ~(PAGE_SIZE - 1));
+            pd = amd64_p_to_v(pdpt[pdpti] & ~(PAGE_SIZE - 1));
 
             /* level 1 */
             for (size_t pdi = 0; pdi < 512; ++pdi)  {
@@ -320,33 +320,33 @@ void mmu_native_destroy_dir(void *dir)
                     continue;
 
                 flags = MM_PRESENT | MM_USER;
-                pt    = native_p_to_v(pd[pdi] & ~(PAGE_SIZE - 1));
+                pt    = amd64_p_to_v(pd[pdi] & ~(PAGE_SIZE - 1));
 
                 for (size_t pti = 0; pti < 512; ++pti) {
                     if ((pt[pti] & flags) == flags && !(pt[pti] & MM_COW)) {
                         page = pt[pti] & ~(PAGE_SIZE - 1);
                         /* kdebug("free 4kb page 0x%x", page); */
-                        kmemset(native_p_to_v(page), 0, PAGE_SIZE);
+                        kmemset(amd64_p_to_v(page), 0, PAGE_SIZE);
                         mmu_page_free(page);
                     }
                 }
 
                 page = pd[pdi] & ~(PAGE_SIZE - 1);
-                kmemset(native_p_to_v(page), 0, PAGE_SIZE);
+                kmemset(amd64_p_to_v(page), 0, PAGE_SIZE);
                 mmu_page_free(page);
             }
 
             page = pdpt[pdpti] & ~(PAGE_SIZE - 1);
-            kmemset(native_p_to_v(page), 0, PAGE_SIZE);
+            kmemset(amd64_p_to_v(page), 0, PAGE_SIZE);
             mmu_page_free(page);
         }
 
         page = pml4[pml4i] & ~(PAGE_SIZE - 1);
-        kmemset(native_p_to_v(page), 0, PAGE_SIZE);
+        kmemset(amd64_p_to_v(page), 0, PAGE_SIZE);
         mmu_page_free(page);
     }
 
-    mmu_page_free(native_v_to_p(dir));
+    mmu_page_free(amd64_v_to_p(dir));
 }
 
 void mmu_native_switch_ctx(task_t *task)
@@ -354,5 +354,5 @@ void mmu_native_switch_ctx(task_t *task)
     if (!task)
         return;
 
-    native_set_cr3(task->cr3);
+    amd64_set_cr3(task->cr3);
 }

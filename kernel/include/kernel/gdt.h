@@ -19,7 +19,7 @@
 
 struct gdt_ptr_t {
     uint16_t limit;
-#ifdef __x86_64__
+#ifdef __amd64__
     uint64_t base;
 #else
     uint32_t base;
@@ -36,7 +36,7 @@ struct gdt_entry_t {
 } __packed;
 
 struct tss_ptr_t {
-#ifdef __x86_64__
+#ifdef __amd64__
     uint32_t rsrvd;
     uint32_t rsp0_low, rsp0_high;
 
