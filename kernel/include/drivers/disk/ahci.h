@@ -18,7 +18,9 @@ enum {
 #define AHCI_PORT_CMD_CR   (1 << 15)
 #define AHCI_PORT_TFES     (1 << 30)
 
-#define AHCI_DEV        0x2922
+#define AHCI_DEV_ID        0x2922
+#define AHCI_VENDOR_ID     0x8086
+
 #define AHCI_MAX_PORTS      32
 
 #define AHCI_NUM_PRDT_ENTRIES 16

@@ -272,9 +272,10 @@ int ahci_init(void)
     driver_t *drv = dev_alloc_driver();
 
     drv->count   = 1;
-    drv->device  = AHCI_DEV;
+    drv->device  = AHCI_DEV_ID;
+    drv->vendor  = AHCI_VENDOR_ID;
     drv->init    = __init;
     drv->destroy = __destroy;
 
-    return dev_register_pci_driver(AHCI_DEV, drv);
+    return dev_register_pci_driver(AHCI_VENDOR_ID, AHCI_DEV_ID, drv);
 }

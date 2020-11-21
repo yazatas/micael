@@ -138,7 +138,7 @@ static void __probe_func(int bus, int dev, int func)
 
     /* Initialize the PCI device by creating a new device struct,
      * adding an entry to devfs and possibly calling device's init() */
-    driver_t *driver = dev_find_pci_driver(pdev->device);
+    driver_t *driver = dev_find_pci_driver(pdev->vendor, pdev->device);
     device_t *device = dev_alloc_device();
 
     device->type   = DT_PCI;
