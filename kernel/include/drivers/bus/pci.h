@@ -4,9 +4,6 @@
 #include <lib/list.h>
 #include <sys/types.h>
 
-#define VBE_VENDOR_ID     0x1234
-#define VBE_DEVICE_ID     0x1111
-
 typedef struct pci_dev {
     uint16_t bus;
     uint16_t dev;
