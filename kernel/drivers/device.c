@@ -1,3 +1,4 @@
+#include <drivers/disk/ahci.h>
 #include <drivers/device.h>
 #include <fs/devfs.h>
 #include <kernel/compiler.h>
@@ -27,6 +28,9 @@ int dev_init(void)
 
     list_init(&drivers.pci);
     list_init(&devices.pci);
+
+    /* initialize AHCI subsystem */
+    ahci_init();
 
     return 0;
 }
@@ -84,7 +88,7 @@ int dev_destroy_device(device_t *device)
     return mmu_cache_free_entry(dev_cache, device);
 }
 
-int dev_register_pci_driver(int device, driver_t *driver)
+int dev_register_pci_driver(int vendor, int device, driver_t *driver)
 {
     if (!driver)
         return -EINVAL;
@@ -94,7 +98,7 @@ int dev_register_pci_driver(int device, driver_t *driver)
 
         kassert(tmp != NULL);
 
-        if (tmp->device == device) {
+        if (tmp->vendor == vendor && tmp->device == device) {
             kprint("dev - driver already exist for device 0x%x\n", device);
             return -EEXIST;
         }
@@ -105,14 +109,14 @@ int dev_register_pci_driver(int device, driver_t *driver)
     return 0;
 }
 
-driver_t *dev_find_pci_driver(int device)
+driver_t *dev_find_pci_driver(int vendor, int device)
 {
     FOREACH(drivers.pci, iter) {
         driver_t *driver = container_of(iter, driver_t, list);
 
         kassert(driver != NULL);
 
-        if (driver->device == device)
+        if (driver->vendor == vendor && driver->device == device)
             return driver;
     }
 

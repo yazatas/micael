@@ -13,6 +13,7 @@ typedef struct driver {
     int (*destroy)(void *);
 
     int count;
+    int vendor;
     int device;
     list_head_t list;
 } driver_t;
@@ -68,13 +69,13 @@ int dev_destroy_device(device_t *device);
  *
  * Return 0 on success
  * Return -EINVAL if "driver" is NULL */
-int dev_register_pci_driver(int device, driver_t *driver);
+int dev_register_pci_driver(int vendor, int device, driver_t *driver);
 
 /* Try to find drivers for a PCI by device id
  *
  * Return pointer to drivers if they're found
  * Return NULL on error and set errno to:
  *   ENOENT if driver was not found */
-driver_t *dev_find_pci_driver(int device);
+driver_t *dev_find_pci_driver(int vendor, int device);
 
 #endif /* __DEVICE_H__ */
