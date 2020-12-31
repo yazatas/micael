@@ -1,5 +1,6 @@
 #include <arch/amd64/mm/mmu.h>
 #include <drivers/bus/pci.h>
+#include <drivers/gfx/vbe.h>
 #include <drivers/ioapic.h>
 #include <drivers/lapic.h>
 #include <kernel/common.h>

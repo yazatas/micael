@@ -1,4 +1,5 @@
 #include <drivers/disk/ahci.h>
+#include <drivers/net/rtl8139.h>
 #include <drivers/device.h>
 #include <fs/devfs.h>
 #include <kernel/compiler.h>
@@ -29,8 +30,9 @@ int dev_init(void)
     list_init(&drivers.pci);
     list_init(&devices.pci);
 
-    /* initialize AHCI subsystem */
+    /* initialize supported subsystems */
     ahci_init();
+    rtl8139_init();
 
     return 0;
 }

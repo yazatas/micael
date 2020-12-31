@@ -20,29 +20,6 @@
 #define PCI_MAX_LINKS             32
 #define PCI_NO_ROUTE            0xff
 
-enum PCI_OFFSETS {
-    PCI_OFF_VENDOR   = 0x00,
-    PCI_OFF_DEVICE   = 0x02,
-    PCI_OFF_CMD      = 0x04,
-    PCI_OFF_STATUS   = 0x06,
-    PCI_OFF_REV_ID   = 0x08,
-    PCI_OFF_PROG_IF  = 0x09,
-    PCI_OFF_SCLASS   = 0x0a,
-    PCI_OFF_CLASS    = 0x0b,
-    PCI_OFF_CLS      = 0x0c,
-    PCI_OFF_LAT_TMR  = 0x0d,
-    PCI_OFF_HEADER   = 0x0e,
-    PCI_OFF_BIST     = 0x0f,
-    PCI_OFF_BAR0     = 0x10,
-    PCI_OFF_BAR1     = 0x14,
-    PCI_OFF_BAR2     = 0x18,
-    PCI_OFF_BAR3     = 0x1c,
-    PCI_OFF_BAR4     = 0x20,
-    PCI_OFF_BAR5     = 0x24,
-    PCI_OFF_INT_LINE = 0x3c,
-    PCI_OFF_INT_PIN  = 0x3d,
-};
-
 static const char *pci_class[] = {
     "Unclassified",
     "Mass Storage Controller",
@@ -98,6 +75,25 @@ static inline uint8_t __get_pci_field_u8(int bus, int dev, int func, int offset)
     uint16_t value = __get_pci_field_u16(bus, dev, func, offset & ~0x1);
 
     return (uint8_t)(value >> ((offset & 0x1) * 8));
+}
+
+static inline void __set_pci_field_u32(int bus, int dev, int func, int offset, uint32_t val)
+{
+    uint32_t addr = PCI_ENABLE | (bus << 16) | (dev << 11) | (func << 8) | (offset & 0xfc);
+
+    /* write address and data */
+    outl(PCI_CONFIG_ADDR, addr);
+    outl(PCI_CONFIG_DATA, val);
+}
+
+static inline void __set_pci_field_u16(int bus, int dev, int func, int offset, uint16_t val)
+{
+    __set_pci_field_u32(bus, dev, func, offset, val);
+}
+
+static inline void __set_pci_field_u8(int bus, int dev, int func, int offset, uint8_t val)
+{
+    __set_pci_field_u32(bus, dev, func, offset, val);
 }
 
 static void __probe_func(int bus, int dev, int func)
@@ -198,6 +194,21 @@ uint16_t pci_read_u16(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
 uint32_t pci_read_u32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
 {
     return __get_pci_field_u32(bus, dev, func, reg);
+}
+
+void pci_write_u8(uint8_t  bus, uint8_t dev, uint8_t func, uint8_t reg, uint8_t val)
+{
+    return __set_pci_field_u8(bus, dev, func, reg, val);
+}
+
+void pci_write_u16(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, uint16_t val)
+{
+    return __set_pci_field_u16(bus, dev, func, reg, val);
+}
+
+void pci_write_u32(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, uint32_t val)
+{
+    return __set_pci_field_u32(bus, dev, func, reg, val);
 }
 
 int pci_init(void)

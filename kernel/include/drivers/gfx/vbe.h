@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#define VBE_VENDOR_ID                    0x1234
+#define VBE_DEVICE_ID                    0x1111
+
 #define VBE_DISPI_TOTAL_VIDEO_MEMORY_MB  16
 #define VBE_DISPI_4BPP_PLANE_SHIFT       22
 

@@ -34,6 +34,9 @@ extern uint8_t _trampoline_end;
 
 void init_bsp(void *arg)
 {
+    /* Initialize IRQ subsystem and install default IRQ handlers */
+    irq_init();
+
     /* initialize console for pre-mmu prints */
     vga_init();
 

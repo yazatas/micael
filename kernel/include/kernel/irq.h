@@ -16,7 +16,8 @@ enum {
     IRQ_UNHANDLED = -1,
 };
 
+void irq_init(void);
 void irq_install_handler(int num, uint32_t (*handler)(void *), void *ctx);
-void irq_uninstall_handler(int irq);
+void irq_uninstall_handler(int num, uint32_t (*handler)(void *));
 
 #endif /* __IRQ_H__ */
