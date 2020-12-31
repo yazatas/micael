@@ -2,35 +2,25 @@
 #include <kernel/irq.h>
 #include <kernel/kassert.h>
 #include <kernel/kpanic.h>
+#include <kernel/util.h>
 #include <stdint.h>
 
-#define MAX_INT 256
+#define MAX_INT       256
+#define MAX_HANDLERS   16
 
 extern uint32_t mmu_pf_handler(void *ctx);
 extern uint32_t gpf_handler(void *ctx);
 extern uint32_t syscall_handler(void *ctx);
 
-typedef struct irq_handler {
-    uint32_t (*handler)(void *);
-    void *ctx;
-} irq_handler_t;
+typedef struct irq_handler irq_handler_t;
 
-static irq_handler_t handlers[MAX_INT] = {
-    [VECNUM_SYSCALL] = {
-        syscall_handler,
-        NULL
-    },
-
-    [VECNUM_PAGE_FAULT] = {
-        mmu_pf_handler,
-        NULL
-    },
-
-    [VECNUM_GPF] = {
-        mmu_pf_handler,
-        NULL
-    }
-};
+static struct irq_handler {
+    int installed;
+    struct {
+        uint32_t (*handler)(void *);
+        void *ctx;
+    } handlers[MAX_HANDLERS];
+} handlers[MAX_INT];
 
 const char *interrupts[] = {
     "division by zero",            "debug exception",          "non-maskable interrupt",
@@ -42,18 +32,41 @@ const char *interrupts[] = {
     "machine check",               "simd floating point",      "virtualization",
 };
 
+void irq_init(void)
+{
+    kmemset(handlers, 0, sizeof(handlers));
+
+    handlers[VECNUM_SYSCALL].installed           = 1;
+    handlers[VECNUM_SYSCALL].handlers[0].handler = syscall_handler;
+    handlers[VECNUM_SYSCALL].handlers[0].ctx     = NULL;
+
+    handlers[VECNUM_PAGE_FAULT].installed           = 1;
+    handlers[VECNUM_PAGE_FAULT].handlers[0].handler = mmu_pf_handler;
+    handlers[VECNUM_PAGE_FAULT].handlers[0].ctx     = NULL;
+
+    handlers[VECNUM_GPF].installed           = 1;
+    handlers[VECNUM_GPF].handlers[0].handler = gpf_handler;
+    handlers[VECNUM_GPF].handlers[0].ctx     = NULL;
+}
+
 void irq_install_handler(int num, uint32_t (*handler)(void *), void *ctx)
 {
     kassert((num >= 0 && num < MAX_INT) && (handler != NULL));
+    kassert(handlers[num].installed < MAX_HANDLERS);
 
-    handlers[num].handler = handler;
-    handlers[num].ctx     = ctx;
+    handlers[num].handlers[handlers[num].installed].handler = handler;
+    handlers[num].handlers[handlers[num].installed].ctx     = ctx;
+    handlers[num].installed++;
 }
 
-void irq_uninstall_handler(int num)
+void irq_uninstall_handler(int num, uint32_t (*handler)(void *))
 {
     kassert((num >= 0 && num < MAX_INT));
-    handlers[num].handler = NULL;
+
+    for (int i = 0; i < handlers[num].installed; ++i) {
+        if (handlers[num].handlers[i].handler == handler)
+            handlers[num].handlers[i].handler = NULL;
+    }
 }
 
 void interrupt_handler(isr_regs_t *cpu_state)
@@ -61,10 +74,19 @@ void interrupt_handler(isr_regs_t *cpu_state)
     if (cpu_state->isr_num > MAX_INT)
         kpanic("ISR number is too high");
 
-    if (handlers[cpu_state->isr_num].handler != NULL) {
-        if (handlers[cpu_state->isr_num].ctx)
-            (void)handlers[cpu_state->isr_num].handler(handlers[cpu_state->isr_num].ctx);
-        (void)handlers[cpu_state->isr_num].handler(cpu_state);
+    if (handlers[cpu_state->isr_num].installed) {
+        uint32_t ret;
+
+        for (int i = 0; i < handlers[cpu_state->isr_num].installed; ++i) {
+            ret = handlers[cpu_state->isr_num].handlers[i].handler(
+                    handlers[cpu_state->isr_num].handlers[i].ctx ?
+                        handlers[cpu_state->isr_num].handlers[i].ctx :
+                        cpu_state
+            );
+
+            if (ret == IRQ_HANDLED)
+                break;
+        }
 
         return;
     }
