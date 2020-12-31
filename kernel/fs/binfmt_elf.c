@@ -1,3 +1,4 @@
+#include <arch/amd64/mm/mmu.h>
 #include <fs/elf.h>
 #include <fs/file.h>
 #include <kernel/kpanic.h>
@@ -7,9 +8,7 @@
 #include <sched/sched.h>
 #include <stdbool.h>
 
-#include <arch/x86_64/mm/mmu.h>
-
-#ifdef __x86_64__
+#ifdef __amd64__
 #define USER_STACK_START 0xc0000000
 #else
 #define KSTART 768
@@ -148,7 +147,7 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
 
     /* kdebug("in binfmt_elf_loader..."); */
 
-    unsigned long mem = (unsigned long)native_p_to_v(mmu_page_alloc(MM_ZONE_NORMAL));
+    unsigned long mem = (unsigned long)mmu_p_to_v(mmu_page_alloc(MM_ZONE_NORMAL));
     size_t fsize      = file->f_dentry->d_inode->i_size;
     size_t pages      = (fsize / PAGE_SIZE) + 1;
     void *addr        = (void *)mem;

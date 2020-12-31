@@ -26,5 +26,5 @@ void pit_wait(size_t wait)
 
 void timer_install(void)
 {
-	irq_install_handler(pit_handler, 0);
+	pic_install_handler(pit_handler, 0);
 }

@@ -6,7 +6,7 @@
 
 struct idt_ptr_t {
 	uint16_t limit;
-#ifdef __x86_64__
+#ifdef __amd64__
     uint64_t base;
 #else
 	uint32_t base;
@@ -16,7 +16,7 @@ struct idt_ptr_t {
 struct idt_entry_t {
 	uint16_t offset0_15;
 	uint16_t select;
-#ifdef __x86_64__
+#ifdef __amd64__
     uint8_t ist:3;
     uint8_t reserved1:5;
 #else
@@ -24,7 +24,7 @@ struct idt_entry_t {
 #endif
 	uint8_t type;
 	uint16_t offset16_31;
-#ifdef __x86_64__
+#ifdef __amd64__
     uint32_t offset32_63;
     uint32_t reserved2;
 #endif

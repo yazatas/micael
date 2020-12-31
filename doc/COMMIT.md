@@ -10,7 +10,7 @@ DESCRIPTION OF THE COMMIT IN MORE DETAIL (optional though couraged)
 
 ## Subsystems
 * arch
-   * x86_64
+   * amd64
    * i386
 * build
 * doc

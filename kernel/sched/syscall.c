@@ -2,6 +2,7 @@
 #include <fs/binfmt.h>
 #include <fs/fs.h>
 #include <fs/file.h>
+#include <kernel/irq.h>
 #include <kernel/kassert.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
@@ -197,8 +198,10 @@ static syscall_t syscalls[MAX_SYSCALLS] = {
     [7] = sys_wait,
 };
 
-void syscall_handler(isr_regs_t *cpu)
+uint32_t syscall_handler(void *ctx)
 {
+    isr_regs_t *cpu = (isr_regs_t *)ctx;
+
     if (cpu->eax >= MAX_SYSCALLS) {
         kpanic("unsupported system call");
     } else {
@@ -208,4 +211,6 @@ void syscall_handler(isr_regs_t *cpu)
         /* return value is transferred in eax */
         current->threads->exec_state->eax = ret;
     }
+
+    return IRQ_HANDLED;
 }

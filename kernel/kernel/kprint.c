@@ -1,6 +1,6 @@
 #include <kernel/kprint.h>
 #include <kernel/util.h>
-#include <drivers/tty.h>
+#include <drivers/console/tty.h>
 #include <sync/spinlock.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -143,6 +143,12 @@ static void va_kprint(const char *fmt, va_list args)
         zero_padding = false;
         fmt++;
     }
+}
+
+void vkprint(const char *fmt, va_list args)
+{
+    va_kprint(fmt, args);
+    tty_putc('\n');
 }
 
 void kprint(const char *fmt, ...)

@@ -118,14 +118,14 @@ void sched_enter_userland(void *eip, void *esp)
     kassert(cur != NULL);
 
     /* prepare the context for this architecture */
-    arch_context_prepare(cur, eip, esp);
+    native_context_prepare(cur, eip, esp);
 
     /* update TSS and load the context from 
      * threads->exec_state essentially switching the task */
     tss_update_rsp((unsigned long)cur->threads->kstack_top + KSTACK_SIZE);
-    arch_context_load(cur->cr3, &cur->threads->bootstrap);
+    native_context_load(cur->cr3, &cur->threads->bootstrap);
 
-    kpanic("arch_context_load() returned!");
+    kpanic("native_context_load() returned!");
 }
 
 void sched_task_set_state(task_t *task, int state)
@@ -190,10 +190,10 @@ void sched_switch(void)
 
     if (next->threads->state == T_UNSTARTED) {
         next->threads->state = T_RUNNING;
-        arch_context_switch_user(&cur->threads->kstack_bottom, next->threads->exec_state);
+        native_context_switch_user(&cur->threads->kstack_bottom, next->threads->exec_state);
     } else {
         next->threads->state = T_RUNNING;
-        arch_context_switch(&cur->threads->kstack_bottom, next->threads->kstack_bottom);
+        native_context_switch(&cur->threads->kstack_bottom, next->threads->kstack_bottom);
     }
 }
 
@@ -245,16 +245,18 @@ __noreturn void sched_start()
     task_t *next = mts_get_next();
     next->threads->state = T_RUNNING;
 
-    /* arch_context_load() loads a new context from cr3/exec_state discarding
+    /* native_context_load() loads a new context from cr3/exec_state discarding
      * the current context entirely. Used only for task bootstrapping */
-    arch_context_load(next->cr3, next->threads->exec_state);
+    native_context_load(next->cr3, next->threads->exec_state);
 
-    kpanic("arch_context_load() returned!");
+    kpanic("native_context_load() returned!");
 }
 
 task_t *sched_get_active(void)
 {
-    return mts_get_active();
+    if (READ_ONCE(sched_initialized))
+        return mts_get_active();
+    return NULL;
 }
 
 task_t *sched_get_init(void)

@@ -30,7 +30,7 @@ static inline void hex_dump(void *buf, size_t len)
     }
 }
 
-#ifdef __x86_64__
+#ifdef __amd64__
 static inline uint64_t read_64(void *ptr)
 {
     return *((uint64_t volatile *)ptr);
@@ -47,7 +47,7 @@ static inline uint16_t read_16(void *ptr)
     return *((uint16_t volatile *)ptr);
 }
 
-#ifdef __x86_64__
+#ifdef __amd64__
 static inline void write_64(void *ptr, uint64_t value)
 {
     *((uint64_t volatile *)ptr) = value;
