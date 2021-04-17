@@ -8,26 +8,38 @@
 #include <kernel/kassert.h>
 #include <kernel/kpanic.h>
 #include <kernel/kprint.h>
-#include <mm/page.h>
+#include <kernel/util.h>
 #include <mm/heap.h>
+#include <mm/mmu.h>
+#include <mm/page.h>
+#include <net/eth.h>
 
 #define TX_BUFFER_SIZE 4
 
 typedef struct rtl8139 {
     uint64_t mac;
     uint32_t base;
+    unsigned long cbr;
+    unsigned long rx_buffer;
     unsigned long tx_buffer[TX_BUFFER_SIZE];
     size_t tx_size[TX_BUFFER_SIZE];
 } rtl8139_t;
 
 static uint32_t __handle_rx(rtl8139_t *rtl)
 {
-    /* TODO: network stack support */
+    uint16_t cbr = inw(rtl->base + RTL8139_CBR);
+    uint16_t packet_offset = rtl->cbr;
+
+    uint8_t *data      = mmu_p_to_v(rtl->rx_buffer + packet_offset);
+    eth_frame_t *frame = (eth_frame_t *)&data[4];
+
+    eth_handle_frame(frame, ((uint16_t *)data)[1]);
 }
 
 static uint32_t __handle_tx(rtl8139_t *rtl)
 {
     /* TODO: network stack support */
+    kprint("rtl8139 - handle tx\n");
 }
 
 static uint32_t __irq_handler(void *ctx)
@@ -61,10 +73,9 @@ static int __init(void *arg)
 {
     kprint("rtl8139 - initializing device\n");
 
-    device_t *dev     = arg;
-    pci_dev_t *pdev   = dev->ctx;
-    unsigned long mem = INVALID_ADDRESS;
-    rtl8139_t *nic = kzalloc(sizeof(*nic));
+    device_t *dev   = arg;
+    pci_dev_t *pdev = dev->ctx;
+    rtl8139_t *nic  = kzalloc(sizeof(*nic));
 
     unsigned cmd = pci_read_u32(pdev->bus, pdev->dev, pdev->func, PCI_OFF_CMD);
     cmd |= RTL8139_PCI_BUS_MASTER;
@@ -74,6 +85,7 @@ static int __init(void *arg)
     pdev->bar0 &= ~0x3;
     nic->base   = pdev->bar0;
     nic->mac    = (inl(pdev->bar0 + 0x0) << 16) | inw(pdev->bar0 + 0x4);
+    nic->cbr    = 0;
 
     /* power on */
     outb(pdev->bar0 + RTL8139_CONFIG1, 0x0);
@@ -85,8 +97,8 @@ static int __init(void *arg)
         ;
 
     /* rx buffer initilization */
-    mem = mmu_block_alloc(MM_ZONE_NORMAL, 2);
-    outl(pdev->bar0 + RTL8139_RBSTART, mem);
+    nic->rx_buffer = mmu_block_alloc(MM_ZONE_NORMAL, 2);
+    outl(pdev->bar0 + RTL8139_RBSTART, nic->rx_buffer);
 
     /* tx buffer initialization */
     for (int i = 0; i < TX_BUFFER_SIZE; ++i) {
