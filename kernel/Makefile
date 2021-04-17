@@ -8,6 +8,7 @@ include $(DIR_SYNC)/make.config
 include $(DIR_MM)/make.config
 include $(DIR_FS)/make.config
 include $(DIR_LIB)/make.config
+include $(DIR_NET)/make.config
 include $(ACPICA_DIR)/make.config
 include $(ACPI_DIR)/make.config
 
@@ -27,6 +28,7 @@ KERNEL_OBJS= \
 	$(KERNEL_MM_OBJS) \
 	$(KERNEL_FS_OBJS) \
 	$(KERNEL_LIB_OBJS) \
+	$(KERNEL_NET_OBJS) \
 	$(KERNEL_ACPICA_OBJS) \
 	$(KERNEL_ACPI_OBJS) \
 	kernel/kmain.o \
