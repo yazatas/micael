@@ -7,8 +7,8 @@
 typedef struct tcp_pkt {
     int value;
     char payload[0];
-} __packed tcp_pkt;
+} __packed tcp_pkt_t;
 
-int tcp_handle_pkt(tcp_pkt *pkt, size_t size);
+int tcp_handle_pkt(tcp_pkt_t *pkt, size_t size);
 
 #endif /* __TCP_H__ */

@@ -13,14 +13,18 @@ int ipv6_handle_datagram(ipv6_datagram_t *dgram, size_t size)
 {
     switch (dgram->next_hdr) {
         case IPV6_TYPE_ICMP:
-            return icmp_handle_pkt((icmp_pkt *)dgram->payload, dgram->size);
+            return icmp_handle_pkt((icmp_pkt_t *)dgram->payload, dgram->size);
 
         case IPV6_TYPE_UDP:
             return udp_handle_pkt((udp_pkt_t *)dgram->payload, dgram->size);
 
         case IPV6_TYPE_TCP:
-            return tcp_handle_pkt((tcp_pkt *)dgram->payload, dgram->size);
+            return tcp_handle_pkt((tcp_pkt_t *)dgram->payload, dgram->size);
     }
 
     return 0;
+}
+
+int ipv6_send_datagram(ip_t *src, ip_t *dst, void *payload, size_t size)
+{
 }

@@ -3,6 +3,7 @@
 
 #include <kernel/compiler.h>
 #include <kernel/common.h>
+#include <net/util.h>
 
 typedef struct ipv6_datagram {
     uint8_t version:4;
@@ -17,5 +18,7 @@ typedef struct ipv6_datagram {
 } __packed ipv6_datagram_t;
 
 int ipv6_handle_datagram(ipv6_datagram_t *dgram, size_t size);
+
+int ipv6_send_datagram(ip_t *src, ip_t *dst, void *payload, size_t size);
 
 #endif /* __IPV6_H__ */
