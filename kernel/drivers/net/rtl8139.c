@@ -50,7 +50,7 @@ static uint32_t __irq_handler(void *ctx)
     if (isr) {
         if (isr & RTL8139_ISR_ROK)
             __handle_rx(rtl);
-        else if ((isr & (RTL8139_ISR_TOK | RTL8139_ISR_TER)) == (RTL8139_ISR_TOK | RTL8139_ISR_TER))
+        else if (isr & (RTL8139_ISR_TOK | RTL8139_ISR_TER))
             __handle_tx(rtl);
 
         outw(rtl->base + RTL8139_ISR, isr);
