@@ -3,6 +3,26 @@
 
 #include <stdint.h>
 
+enum {
+    IPV4_ADDR,
+    IPV6_ADDR
+};
+
+typedef struct ip {
+    uint8_t ipv4[4];
+    uint8_t ipv6[16];
+    char *addr;
+    int type;
+} ip_t;
+
+typedef struct mac {
+    char *addr;
+    union {
+        uint8_t b[6];
+        uint64_t f:48;
+    };
+} mac_t;
+
 static inline uint16_t n2h_16(uint16_t n)
 {
     return ((n & 0xff) << 8) | ((n >> 8) & 0xff);

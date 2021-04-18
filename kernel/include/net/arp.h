@@ -3,6 +3,7 @@
 
 #include <kernel/compiler.h>
 #include <kernel/common.h>
+#include <net/util.h>
 
 typedef struct arp_pkt {
     uint16_t htype;
@@ -20,7 +21,6 @@ typedef struct arp_pkt {
  * Return -EINVAL if "pkt" contains an invalid value */
 int arp_handle_pkt(arp_pkt_t *pkt, size_t size);
 
-/* TODO:  */
-int arp_resolve();
+mac_t *arp_resolve(char *addr);
 
 #endif /* __ARP_H__ */

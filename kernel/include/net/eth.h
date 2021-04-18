@@ -18,6 +18,6 @@ typedef struct eth_frame {
 } __packed eth_frame_t;
 
 int eth_handle_frame(eth_frame_t *frame, size_t size);
-int eth_send_frame(uint8_t dst[6], uint16_t type, uint8_t *payload, size_t size);
+int eth_send_frame(uint8_t dst[6], uint16_t type, void *payload, size_t size);
 
 #endif /* __ETH_H__ */

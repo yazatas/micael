@@ -28,7 +28,7 @@ int eth_handle_frame(eth_frame_t *frame, size_t size)
     return 0;
 }
 
-int eth_send_frame(uint8_t dst[6], uint16_t type, uint8_t *payload, size_t size)
+int eth_send_frame(uint8_t dst[6], uint16_t type, void *payload, size_t size)
 {
     kassert(payload && size);
 
@@ -43,7 +43,7 @@ int eth_send_frame(uint8_t dst[6], uint16_t type, uint8_t *payload, size_t size)
     kmemcpy(eth->src, &(uint64_t) { rtl8139_get_mac() }, sizeof(eth->src));
     kmemcpy(eth->payload, payload, size);
 
-    eth->type = h2n_16(ETH_TYPE_ARP);
+    eth->type = h2n_16(type);
 
     rtl8139_send_pkt((uint8_t *)eth, sizeof(eth_frame_t) + size);
 
