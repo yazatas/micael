@@ -31,4 +31,23 @@ static inline uint32_t h2n_32(uint32_t n)
         ((n & 0xff000000) >> 24);
 }
 
+static inline void net_ipv4_addr2bin(char *src, uint8_t *dst)
+{
+    char *ptr = src;
+    int cnt = 0;
+
+    while (*ptr) {
+        uint8_t val = 0;
+
+        while (*ptr && *ptr != '.') {
+            val *= 10;
+            val += *ptr - '0';
+            ptr++;
+        }
+
+        dst[cnt++] = val;
+        ptr++;
+    }
+}
+
 #endif /* __NET_UTIL_H__ */
