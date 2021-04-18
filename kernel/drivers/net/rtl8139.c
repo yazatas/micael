@@ -16,14 +16,18 @@
 
 #define TX_BUFFER_SIZE 4
 
-typedef struct rtl8139 {
+typedef struct rtl8139 rtl8139_t;
+
+static struct rtl8139 {
     uint64_t mac;
     uint32_t base;
+    int tx_number;
+    int tx_flag;
     unsigned long cbr;
     unsigned long rx_buffer;
     unsigned long tx_buffer[TX_BUFFER_SIZE];
     size_t tx_size[TX_BUFFER_SIZE];
-} rtl8139_t;
+} __nic;
 
 static uint32_t __handle_rx(rtl8139_t *rtl)
 {
@@ -36,10 +40,44 @@ static uint32_t __handle_rx(rtl8139_t *rtl)
     eth_handle_frame(frame, ((uint16_t *)data)[1]);
 }
 
-static uint32_t __handle_tx(rtl8139_t *rtl)
+static void rtl8139_cmd_tx(rtl8139_t *rtl)
 {
-    /* TODO: network stack support */
-    kprint("rtl8139 - handle tx\n");
+    int n = rtl->tx_number;
+
+    rtl->tx_number++;
+    if (rtl->tx_number == 4)
+        rtl->tx_number = 0;
+
+    outl(rtl->base + RTL8139_TSD(n), rtl->tx_size[n]);
+}
+
+static void __handle_tx(rtl8139_t *rtl)
+{
+    int tx = 3;
+
+    if (rtl->tx_number)
+        tx = rtl->tx_number - 1;
+
+    rtl->tx_flag     &= ~(1 << tx);
+    rtl->tx_size[tx]  = 0;
+
+    while (rtl->tx_flag & (1 << rtl->tx_number))
+        rtl8139_cmd_tx(rtl);
+}
+
+static uint8_t rtl8139_alloc_tx(rtl8139_t *rtl)
+{
+    for (int i = rtl->tx_number; i < 4; ++i) {
+        if (!(rtl->tx_flag & (1 << i)))
+            return i;
+    }
+
+    for (int i = 0; i < rtl->tx_number; ++i) {
+        if (!(rtl->tx_flag & (1 << i)))
+            return i;
+    }
+
+    return 0xff;
 }
 
 static uint32_t __irq_handler(void *ctx)
@@ -75,17 +113,18 @@ static int __init(void *arg)
 
     device_t *dev   = arg;
     pci_dev_t *pdev = dev->ctx;
-    rtl8139_t *nic  = kzalloc(sizeof(*nic));
 
     unsigned cmd = pci_read_u32(pdev->bus, pdev->dev, pdev->func, PCI_OFF_CMD);
     cmd |= RTL8139_PCI_BUS_MASTER;
     pci_write_u32(pdev->bus, pdev->dev, pdev->func, PCI_OFF_CMD, cmd);
 
     /* two lowest bits must be cleared to get base address */
-    pdev->bar0 &= ~0x3;
-    nic->base   = pdev->bar0;
-    nic->mac    = (inl(pdev->bar0 + 0x0) << 16) | inw(pdev->bar0 + 0x4);
-    nic->cbr    = 0;
+    pdev->bar0       &= ~0x3;
+    __nic.base       = pdev->bar0;
+    __nic.mac        = (inl(pdev->bar0 + 0x0) << 16) | inw(pdev->bar0 + 0x4);
+    __nic.cbr        = 0;
+    __nic.tx_number  = 0;
+    __nic.tx_flag    = 0;
 
     /* power on */
     outb(pdev->bar0 + RTL8139_CONFIG1, 0x0);
@@ -97,14 +136,14 @@ static int __init(void *arg)
         ;
 
     /* rx buffer initilization */
-    nic->rx_buffer = mmu_block_alloc(MM_ZONE_NORMAL, 2);
-    outl(pdev->bar0 + RTL8139_RBSTART, nic->rx_buffer);
+    __nic.rx_buffer = mmu_block_alloc(MM_ZONE_NORMAL, 2);
+    outl(pdev->bar0 + RTL8139_RBSTART, __nic.rx_buffer);
 
     /* tx buffer initialization */
     for (int i = 0; i < TX_BUFFER_SIZE; ++i) {
-        nic->tx_buffer[i] = mmu_page_alloc(MM_ZONE_NORMAL);
-        nic->tx_size[i]   = 0;
-        outl(pdev->bar0 + RTL8139_TSAD(i), nic->tx_buffer[i]);
+        __nic.tx_buffer[i] = mmu_page_alloc(MM_ZONE_NORMAL);
+        __nic.tx_size[i]   = 0;
+        outl(pdev->bar0 + RTL8139_TSAD(i), __nic.tx_buffer[i]);
     }
 
     /* enable packets */
@@ -121,7 +160,7 @@ static int __init(void *arg)
     outw(pdev->bar0 + RTL8139_ISR, 0);
 
     ioapic_enable_irq(0, VECNUM_IRQ_START + pdev->int_line);
-    irq_install_handler(VECNUM_IRQ_START + pdev->int_line, __irq_handler, nic);
+    irq_install_handler(VECNUM_IRQ_START + pdev->int_line, __irq_handler, &__nic);
 
     return 0;
 }
@@ -139,4 +178,25 @@ int rtl8139_init(void)
     drv->destroy = __destroy;
 
     return dev_register_pci_driver(RTL8139_VENDOR_ID, RTL8139_DEV_ID, drv);
+}
+
+int rtl8139_send_pkt(uint8_t *data, size_t size)
+{
+    rtl8139_t *rtl = &__nic;
+    uint8_t index  = rtl8139_alloc_tx(rtl);
+
+    void *page = mmu_p_to_v(rtl->tx_buffer[index]);
+    kmemcpy(page, data, size);
+
+    rtl->tx_size[index] = size;
+
+    if (index == rtl->tx_number)
+        rtl8139_cmd_tx(rtl);
+
+    return 0;
+}
+
+uint64_t rtl8139_get_mac(void)
+{
+    return __nic.mac;
 }

@@ -1,6 +1,9 @@
 #ifndef __RTL8139_H__
 #define __RTL8139_H__
 
+#include <stdint.h>
+#include <stddef.h>
+
 #define RTL8139_VENDOR_ID  0x10ec
 #define RTL8139_DEV_ID     0x8139
 
@@ -50,5 +53,7 @@
 #define RTL8139_IMR_ROK     (1 << 0)
 
 int rtl8139_init(void);
+uint64_t rtl8139_get_mac(void);
+int rtl8139_send_pkt(uint8_t *data, size_t size);
 
 #endif /* __RTL8139_H__ */
