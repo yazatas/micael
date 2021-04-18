@@ -16,7 +16,7 @@ int ipv6_handle_datagram(ipv6_datagram_t *dgram, size_t size)
             return icmp_handle_pkt((icmp_pkt *)dgram->payload, dgram->size);
 
         case IPV6_TYPE_UDP:
-            return udp_handle_pkt((udp_pkt *)dgram->payload, dgram->size);
+            return udp_handle_pkt((udp_pkt_t *)dgram->payload, dgram->size);
 
         case IPV6_TYPE_TCP:
             return tcp_handle_pkt((tcp_pkt *)dgram->payload, dgram->size);
