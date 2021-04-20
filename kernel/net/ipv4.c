@@ -25,6 +25,19 @@ static ip_t IPV4_BROADCAST = {
     .ipv4 = { 255, 255, 255, 255 }
 };
 
+static uint16_t __calculate_checksum(uint16_t *header)
+{
+    uint32_t sum  = 0;
+    uint8_t carry = 0;
+
+    for (int i = 0; i < 10; ++i)
+        sum += header[i];
+
+    carry = (sum & 0xff0000) >> 16;
+
+    return ~(carry + sum);
+}
+
 int ipv4_handle_datagram(ipv4_datagram_t *dgram, size_t size)
 {
     switch (dgram->protocol) {
@@ -61,17 +74,17 @@ int ipv4_send_datagram(ip_t *src, ip_t *dst, void *payload, size_t size)
         kpanic("ipv4 - resolve address, todo");
     }
 
+    kmemcpy(&dgram->src, src->ipv4, sizeof(dgram->src));
+    kmemcpy(&dgram->dst, dst->ipv4, sizeof(dgram->dst));
+
     dgram->version  = 5;
     dgram->ihl      = 4;
     dgram->len      = h2n_16(sizeof(ipv4_datagram_t) + size);
     dgram->ttl      = 128;
     dgram->protocol = PROTO_UDP;
-    dgram->checksum = 0; /* TODO:  */
+    dgram->checksum = __calculate_checksum((uint16_t *)dgram);
 
-    kmemcpy(&dgram->src, src->ipv4, sizeof(dgram->src));
-    kmemcpy(&dgram->dst, dst->ipv4, sizeof(dgram->dst));
     kmemcpy(&dgram->payload, payload, size);
-
     ret = eth_send_frame(hw_addr, ETH_TYPE_IPV4, dgram, sizeof(ipv4_datagram_t) + size);
 
     kfree(dgram);
