@@ -64,6 +64,14 @@ native_context_switch_user:
     popq %rbp
     popq %rsi
     popq %rdi
+    popq %r8
+    popq %r9
+    popq %r10
+    popq %r11
+    popq %r12
+    popq %r13
+    popq %r14
+    popq %r15
     addq $16, %rsp
 
     cmp $0x8, 8(%rsp)
@@ -83,6 +91,14 @@ native_context_load:
     popq %rbp
     popq %rsi
     popq %rdi
+    popq %r8
+    popq %r9
+    popq %r10
+    popq %r11
+    popq %r12
+    popq %r13
+    popq %r14
+    popq %r15
     addq $16, %rsp
 
     cmp $0x8, 8(%rsp)

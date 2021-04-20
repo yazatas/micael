@@ -18,9 +18,9 @@ typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
 int32_t sys_read(isr_regs_t *cpu)
 {
-    int fd          = (int)cpu->edx;
-    void *buf       = (void *)cpu->ebx;
-    size_t len      = (size_t)cpu->ecx;
+    int fd          = (int)cpu->rdx;
+    void *buf       = (void *)cpu->rbx;
+    size_t len      = (size_t)cpu->rcx;
     task_t *current = sched_get_active();
 
     if ((buf == NULL) ||
@@ -44,9 +44,9 @@ int32_t sys_read(isr_regs_t *cpu)
 
 int32_t sys_write(isr_regs_t *cpu)
 {
-    int fd          = (int)cpu->edx;
-    void *buf       = (void *)cpu->ebx;
-    size_t len      = (size_t)cpu->ecx;
+    int fd          = (int)cpu->rdx;
+    void *buf       = (void *)cpu->rbx;
+    size_t len      = (size_t)cpu->rcx;
     task_t *current = sched_get_active();
 
     if ((buf == NULL) ||
@@ -81,14 +81,14 @@ int32_t sys_fork(isr_regs_t *cpu)
     sched_task_set_state(t, T_READY);
 
     /* return 0 to child, pid to parent */
-    t->threads->exec_state->eax = 0;
+    t->threads->exec_state->rax = 0;
 
     return t->pid;
 }
 
 int32_t sys_execv(isr_regs_t *cpu)
 {
-    char *p      = (char *)cpu->ebx;
+    char *p      = (char *)cpu->rbx;
     file_t *file = NULL;
     path_t *path = NULL;
 
@@ -122,7 +122,7 @@ error:
 
 int32_t sys_exit(isr_regs_t *cpu)
 {
-    int status      = cpu->eax;
+    int status      = cpu->rax;
     task_t *current = sched_get_active();
     task_t *parent  = current->parent;
 
@@ -202,14 +202,14 @@ uint32_t syscall_handler(void *ctx)
 {
     isr_regs_t *cpu = (isr_regs_t *)ctx;
 
-    if (cpu->eax >= MAX_SYSCALLS) {
+    if (cpu->rax >= MAX_SYSCALLS) {
         kpanic("unsupported system call");
     } else {
         task_t *current = sched_get_active();
-        int32_t ret     = syscalls[cpu->eax](cpu);
+        int32_t ret     = syscalls[cpu->rax](cpu);
 
-        /* return value is transferred in eax */
-        current->threads->exec_state->eax = ret;
+        /* return value is transferred in rax */
+        current->threads->exec_state->rax = ret;
     }
 
     return IRQ_HANDLED;

@@ -294,6 +294,14 @@ isr_common:
     je 1f
     swapgs
 1:
+    pushq %r15
+    pushq %r14
+    pushq %r13
+    pushq %r12
+    pushq %r11
+    pushq %r10
+    pushq %r9
+    pushq %r8
     pushq %rdi
     pushq %rsi
     pushq %rbp
@@ -311,6 +319,14 @@ isr_common:
     popq %rbp
     popq %rsi
     popq %rdi
+    popq %r8
+    popq %r9
+    popq %r10
+    popq %r11
+    popq %r12
+    popq %r13
+    popq %r14
+    popq %r15
     addq $16, %rsp # discard error code and isr number
 
     cmp $0x8, 8(%rsp)

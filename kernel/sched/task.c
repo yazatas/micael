@@ -66,11 +66,11 @@ thread_t *sched_thread_create(void *(*func)(void *), void *arg)
     t->exec_state->es = SEG_KERNEL_DATA;
 #endif
 
-    t->exec_state->eip    = (unsigned long)func;
+    t->exec_state->rip    = (unsigned long)func;
     t->exec_state->eflags = 1 << 9; /* enable interrupts */
     t->exec_state->ss     = SEG_KERNEL_DATA;
     t->exec_state->cs     = SEG_KERNEL_CODE;
-    t->exec_state->esp    = (unsigned long)t->exec_state + 4;
+    t->exec_state->rsp    = (unsigned long)t->exec_state + 4;
 
     return t;
 }
