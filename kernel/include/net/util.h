@@ -70,4 +70,23 @@ static inline void net_ipv4_addr2bin(char *src, uint8_t *dst)
     }
 }
 
+static inline void net_ipv4_bin2addr(uint8_t *src, char *dst)
+{
+    int i, k, p;
+
+    for (i = k = p = 0; i < 4; ++i, p = 0) {
+        int val = src[i];
+
+        if (val > 100)
+            dst[k + 2] = '0' + val % 10, val /= 10, p++;
+        if (val > 10)
+            dst[k + 1] = '0' + val % 10, val /= 10, p++;
+        dst[k + 0] = '0' + val % 10, val /= 10, p++;
+
+        dst[k + p] = '.';
+        k += p + 1;
+    }
+    dst[k - 1] = '\0';
+}
+
 #endif /* __NET_UTIL_H__ */
