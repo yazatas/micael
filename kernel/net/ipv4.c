@@ -5,11 +5,15 @@
 #include <mm/heap.h>
 #include <net/arp.h>
 #include <net/eth.h>
+#include <net/icmp.h>
 #include <net/ipv4.h>
+#include <net/tcp.h>
 #include <net/udp.h>
 
 enum {
-    PROTO_UDP = 0x11,
+    PROTO_ICMP = 0x01,
+    PROTO_TCP  = 0x06,
+    PROTO_UDP  = 0x11,
 };
 
 uint8_t E2TH_BROADCAST[6] = {
@@ -23,6 +27,17 @@ static ip_t IPV4_BROADCAST = {
 
 int ipv4_handle_datagram(ipv4_datagram_t *dgram, size_t size)
 {
+    switch (dgram->protocol) {
+        case PROTO_ICMP:
+            return icmp_handle_pkt((icmp_pkt_t *)dgram->payload, dgram->len);
+
+        case PROTO_UDP:
+            return udp_handle_pkt((udp_pkt_t *)dgram->payload, dgram->len);
+
+        case PROTO_TCP:
+            return tcp_handle_pkt((tcp_pkt_t *)dgram->payload, dgram->len);
+    }
+
     return 0;
 }
 
