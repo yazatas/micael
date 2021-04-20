@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <drivers/net/rtl8139.h>
 #include <kernel/util.h>
+#include <lib/hashmap.h>
 #include <mm/heap.h>
 #include <net/arp.h>
 #include <net/eth.h>
@@ -38,7 +39,8 @@ typedef struct arp_ipv4 {
     uint8_t dstpr[IPV4_ADDR_SIZE];
 } __packed arp_ipv4_t;
 
-/* TODO: save entry to netdev */
+static hashmap_t *requests;
+
 int arp_handle_pkt(arp_pkt_t *pkt, size_t size)
 {
     kprint("arp - got arp %s\n", n2h_16(pkt->opcode) == 1 ? "request" : "reply");
@@ -46,8 +48,23 @@ int arp_handle_pkt(arp_pkt_t *pkt, size_t size)
     return -ENOTSUP;
 }
 
-mac_t *arp_resolve(char *addr)
+void arp_resolve(char *addr)
 {
+    if (!addr)
+        return;
+
+    if (!requests) {
+        if (!(requests = hm_alloc_hashmap(8, HM_KEY_TYPE_STR))) {
+            kprint("arp - failed to allocate space for arp request cache!\n");
+            return NULL;
+        }
+    }
+
+    if ((errno = hm_insert(requests, addr, addr)) < 0) {
+        kprint("arp - failed to add arp request to cache!\n");
+        return;
+    }
+
     size_t size      = sizeof(arp_pkt_t) + sizeof(arp_ipv4_t);
     arp_pkt_t *pkt   = kzalloc(size);
     arp_ipv4_t *ipv4 = (arp_ipv4_t *)pkt->payload;
@@ -64,8 +81,5 @@ mac_t *arp_resolve(char *addr)
 
     net_ipv4_addr2bin(addr, ipv4->dstpr);
     eth_send_frame(ETH_BROADCAST, ETH_TYPE_ARP, pkt, size);
-
     kfree(pkt);
-
-    return NULL;
 }

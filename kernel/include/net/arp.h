@@ -21,6 +21,10 @@ typedef struct arp_pkt {
  * Return -EINVAL if "pkt" contains an invalid value */
 int arp_handle_pkt(arp_pkt_t *pkt, size_t size);
 
-mac_t *arp_resolve(char *addr);
+/* Resolve the physical (MAC) address of an IP address
+ *
+ * This function returns immediately, the resolving
+ * is done asynchronously and the result is reported to netdev */
+void arp_resolve(char *addr);
 
 #endif /* __ARP_H__ */
