@@ -4,6 +4,7 @@
 #include <mm/heap.h>
 #include <net/arp.h>
 #include <net/eth.h>
+#include <net/netdev.h>
 #include <net/util.h>
 
 #define HW_ADDR_SIZE     6
@@ -57,12 +58,11 @@ mac_t *arp_resolve(char *addr)
     pkt->plen   = IPV4_ADDR_SIZE;
     pkt->opcode = h2n_16(ARP_REQUEST);
 
-    kmemcpy(ipv4->srchw, &(uint64_t){ rtl8139_get_mac() }, sizeof(ipv4->srchw));
+    kmemcpy(ipv4->srchw, netdev_get_mac(), sizeof(ipv4->srchw));
     kmemset(ipv4->srcpr, 0, sizeof(ipv4->srcpr));
     kmemset(ipv4->dsthw, 0, sizeof(ipv4->dsthw));
 
     net_ipv4_addr2bin(addr, ipv4->dstpr);
-
     eth_send_frame(ETH_BROADCAST, ETH_TYPE_ARP, pkt, size);
 
     kfree(pkt);

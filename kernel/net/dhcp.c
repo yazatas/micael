@@ -100,7 +100,7 @@ int dhcp_discover(void)
     pkt->xid    = h2n_32(0x13371338);
     pkt->cookie = h2n_32(DHCP_COOKIE);
 
-    kmemcpy(&pkt->chaddr, &(uint64_t) { rtl8139_get_mac() }, pkt->hlen);
+    kmemcpy(&pkt->chaddr, netdev_get_mac(), pkt->hlen);
 
     /* craft dhcp options */
     pkt->payload[0] = OPT_MESSAGE_TYPE;

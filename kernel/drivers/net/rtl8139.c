@@ -13,6 +13,7 @@
 #include <mm/mmu.h>
 #include <mm/page.h>
 #include <net/eth.h>
+#include <net/netdev.h>
 
 #define TX_BUFFER_SIZE 4
 
@@ -121,7 +122,7 @@ static int __init(void *arg)
     /* two lowest bits must be cleared to get base address */
     pdev->bar0       &= ~0x3;
     __nic.base       = pdev->bar0;
-    __nic.mac        = (inl(pdev->bar0 + 0x0) << 16) | inw(pdev->bar0 + 0x4);
+    __nic.mac        = ((uint64_t)inl(pdev->bar0 + 0x0) << 16) | inw(pdev->bar0 + 0x4);
     __nic.cbr        = 0;
     __nic.tx_number  = 0;
     __nic.tx_flag    = 0;
@@ -162,6 +163,10 @@ static int __init(void *arg)
     ioapic_enable_irq(0, VECNUM_IRQ_START + pdev->int_line);
     irq_install_handler(VECNUM_IRQ_START + pdev->int_line, __irq_handler, &__nic);
 
+    /* initialize network manager */
+    netdev_set_mac(__nic.mac);
+    netdev_init();
+
     return 0;
 }
 
@@ -194,9 +199,4 @@ int rtl8139_send_pkt(uint8_t *data, size_t size)
         rtl8139_cmd_tx(rtl);
 
     return 0;
-}
-
-uint64_t rtl8139_get_mac(void)
-{
-    return __nic.mac;
 }
