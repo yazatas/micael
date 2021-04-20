@@ -68,6 +68,13 @@ int kmemcmp(void *s1, void *s2, size_t n)
     return 0;
 }
 
+void kmemdup(void *ptr, size_t size)
+{
+    void *new = kmalloc(size);
+    kmemcpy(new, ptr, size);
+    return new;
+}
+
 char *kstrdup(const char *s)
 {
     size_t n  = kstrlen(s), i;
