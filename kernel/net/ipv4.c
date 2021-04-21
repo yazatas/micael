@@ -42,13 +42,13 @@ int ipv4_handle_datagram(ipv4_datagram_t *dgram, size_t size)
 {
     switch (dgram->protocol) {
         case PROTO_ICMP:
-            return icmp_handle_pkt((icmp_pkt_t *)dgram->payload, dgram->len);
+            return icmp_handle_pkt((icmp_pkt_t *)dgram->payload, n2h_16(dgram->len));
 
         case PROTO_UDP:
-            return udp_handle_pkt((udp_pkt_t *)dgram->payload, dgram->len);
+            return udp_handle_pkt((udp_pkt_t *)dgram->payload, n2h_16(dgram->len));
 
         case PROTO_TCP:
-            return tcp_handle_pkt((tcp_pkt_t *)dgram->payload, dgram->len);
+            return tcp_handle_pkt((tcp_pkt_t *)dgram->payload, n2h_16(dgram->len));
     }
 
     return 0;
