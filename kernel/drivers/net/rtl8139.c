@@ -15,7 +15,11 @@
 #include <net/eth.h>
 #include <net/netdev.h>
 
-#define TX_BUFFER_SIZE 4
+#define TX_BUFFER_SIZE     4
+#define RX_BUFFER_SIZE  8192
+#define RX_BUFFER_MASK    ~3
+#define RX_BUFFER_OVRH     7
+#define RX_BUFFER_OVRH  0x10
 
 typedef struct rtl8139 rtl8139_t;
 
@@ -32,13 +36,18 @@ static struct rtl8139 {
 
 static uint32_t __handle_rx(rtl8139_t *rtl)
 {
-    uint16_t cbr = inw(rtl->base + RTL8139_CBR);
-    uint16_t packet_offset = rtl->cbr;
-
-    uint8_t *data      = mmu_p_to_v(rtl->rx_buffer + packet_offset);
+    uint8_t *data      = mmu_p_to_v(rtl->rx_buffer + rtl->cbr);
     eth_frame_t *frame = (eth_frame_t *)&data[4];
+    uint16_t size      = ((uint16_t *)data)[1];
 
-    eth_handle_frame(frame, ((uint16_t *)data)[1]);
+    eth_handle_frame(frame, size);
+
+    rtl->cbr = (rtl->cbr + size + RX_BUFFER_OVRH) & RX_BUFFER_MASK;
+
+    if (rtl->cbr >= RX_BUFFER_SIZE)
+        rtl->cbr -= RX_BUFFER_SIZE;
+
+    outw(rtl->base + RTL8139_CAPR, rtl->cbr - RX_BUFFER_PAD);
 }
 
 static void rtl8139_cmd_tx(rtl8139_t *rtl)
