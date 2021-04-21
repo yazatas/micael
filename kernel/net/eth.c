@@ -15,11 +15,14 @@
 int eth_handle_frame(eth_frame_t *frame, size_t size)
 {
     switch (n2h_16(frame->type)) {
+        case ETH_TYPE_IPV4:
+            return ipv4_handle_datagram((ipv4_datagram_t *)frame->payload, size - ETH_HDR_SIZE);
+
         case ETH_TYPE_IPV6:
             return ipv6_handle_datagram((ipv6_datagram_t *)frame->payload, size - ETH_HDR_SIZE);
 
         case ETH_TYPE_ARP:
-            return arp_handle_pkt((arp_pkt_t *)frame->payload, size);
+            return arp_handle_pkt((arp_pkt_t *)frame->payload, size - ETH_HDR_SIZE);
 
         default:
             kprint("eth - unsupported frame type: 0x%x\n", n2h_16(frame->type));
