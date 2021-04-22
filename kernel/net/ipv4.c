@@ -20,11 +20,6 @@ uint8_t E2TH_BROADCAST[6] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-static ip_t IPV4_BROADCAST = {
-    .addr = "255.255.255.255",
-    .ipv4 = { 255, 255, 255, 255 }
-};
-
 static uint16_t __calculate_checksum(uint16_t *header)
 {
     uint32_t sum  = 0;

@@ -11,6 +11,9 @@
 static struct {
     uint8_t mac[8]; /* TODO: use mac_t */
     hashmap_t *addrs;
+    dhcp_info_t *dhcp;
+    ip_t our_ip;
+    bool dhcp_done;
 } netdev_info;
 
 int netdev_init(void)
@@ -21,11 +24,41 @@ int netdev_init(void)
         kprint("netdev - failed to allocate cache for address pairs\n");
         return -ENOMEM;
     }
+    netdev_info.dhcp_done = false;
+
+    dhcp_discover();
+}
+
+void netdev_add_dhcp_info(dhcp_info_t *info)
+{
+    netdev_info.dhcp = info;
+    kmemcpy(netdev_info.our_ip.ipv4, &info->addr, sizeof(uint32_t));
+
+    kprint("netdev - our address: ");
+    net_ipv4_print(info->addr);
+
+    kprint("netdev - server address: ");
+    net_ipv4_print(info->router);
+
+    kprint("netdev - dns address: ");
+    net_ipv4_print(info->router);
+
+    kprint("netdev - broad address: ");
+    net_ipv4_print(info->router);
+
+    kprint("netdev - lease time: %u seconds, %u hours\n",
+            n2h_32(info->lease), n2h_32(info->lease) / 60 / 60);
 }
 
 uint8_t *netdev_get_mac(void)
 {
     return netdev_info.mac;
+}
+
+uint8_t *netdev_get_ipv4(void)
+{
+    if (!netdev_info.dhcp_done)
+        return netdev_info.our_ip.ipv4;
 }
 
 void netdev_set_mac(uint64_t mac)

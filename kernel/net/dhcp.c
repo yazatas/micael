@@ -1,12 +1,12 @@
+#include <errno.h>
 #include <drivers/net/rtl8139.h>
+#include <lib/hashmap.h>
 #include <kernel/util.h>
 #include <mm/heap.h>
 #include <net/dhcp.h>
 #include <net/udp.h>
 #include <net/util.h>
-
-#define DHCP_SERVER_PORT     68
-#define DHCP_CLIENT_PORT     67
+#include <net/netdev.h>
 
 #define END_PADDING          28
 #define DHCP_COOKIE  0x63825363
@@ -21,6 +21,7 @@ enum {
     OPT_SUBNET_MASK       =   1,
     OPT_ROUTER            =   3,
     OPT_DNS               =   6,
+    OPT_BROADCAST         =  28,
     OPT_HOST_NAME         =  12,
     OPT_REQUESTED_IP_ADDR =  50,
     OPT_LEASE_TIME        =  51,
@@ -43,26 +44,6 @@ enum {
     MSG_INFORM   = 8
 };
 
-typedef struct dhcp_pkt {
-    uint8_t op;         /* opcode */
-    uint8_t htype;      /* hardware address type */
-    uint8_t hlen;       /* hardware address length */
-    uint8_t hops;       /* private relay agent data */
-    uint32_t xid;       /* random transaction id */
-    uint16_t secs;      /* seconds elapsed */
-    uint16_t flags;     /* flags */
-    uint32_t ciaddr;    /* client ip address */
-    uint32_t yiaddr;    /* your ip address */
-    uint32_t siaddr;    /* server ip address */
-    uint32_t giaddr;    /* relay agent ip address */
-    uint64_t chaddr;    /* client mac address */
-    uint8_t zero[8];    /* zero */
-    char sname[64];     /* server host name */
-    char file[128];     /* boot file name */
-    uint32_t cookie;    /* magic cookie */
-    uint8_t payload[0]; /* options */
-} __packed dhcp_pkt_t;
-
 typedef struct dhcp_options {
     ip_t *subnet_mask;
     ip_t *router_list;
@@ -77,22 +58,11 @@ typedef struct dhcp_options {
     uint32_t param_len;
 } dhcp_options_t;
 
-int dhcp_discover(void)
+static hashmap_t *requests;
+
+static dhcp_pkt_t *__alloc_pkt(size_t size)
 {
-    ip_t dst = {
-        .addr = "255.255.255.255",
-        .ipv4 = { 255, 255, 255, 255 },
-        .type = IPV4_ADDR
-    };
-
-    ip_t src = {
-        .addr = "0.0.0.0",
-        .ipv4 = { 0, 0, 0, 0 },
-        .type = IPV4_ADDR
-    };
-
-    int ret;
-    dhcp_pkt_t *pkt = kzalloc(sizeof(dhcp_pkt_t) + 9);
+    dhcp_pkt_t *pkt = kzalloc(sizeof(dhcp_pkt_t) + size);
 
     pkt->op     = OP_REQUEST;
     pkt->htype  = 1; /* eth */
@@ -101,6 +71,114 @@ int dhcp_discover(void)
     pkt->cookie = h2n_32(DHCP_COOKIE);
 
     kmemcpy(&pkt->chaddr, netdev_get_mac(), pkt->hlen);
+
+    return pkt;
+}
+
+static int __handle_ack(dhcp_pkt_t *in_pkt, size_t size)
+{
+    dhcp_info_t *info = hm_get(requests, &in_pkt->xid);
+
+    if (!info) {
+        kprint("dhcp - received ack but no request sent!\n");
+        return -ENOENT;
+    }
+
+    hm_remove(requests, &in_pkt->xid);
+    netdev_add_dhcp_info(info);
+}
+
+static int __handle_offer(dhcp_pkt_t *in_pkt, size_t size)
+{
+    dhcp_info_t *info = hm_get(requests, &in_pkt->xid);
+
+    if (!info) {
+        kprint("dhcp - received offer but no discover sent!\n");
+        return -ENOENT;
+    } else {
+        for (size_t i = 0; i < size;) {
+            switch (in_pkt->payload[i]) {
+                case OPT_SUBNET_MASK:
+                    kmemcpy(&info->sb_mask, &in_pkt->payload[i + 2], in_pkt->payload[i + 1]);
+                    break;
+
+                case OPT_BROADCAST:
+                    kmemcpy(&info->broadcast, &in_pkt->payload[i + 2], in_pkt->payload[i + 1]);
+                    break;
+
+                case OPT_ROUTER:
+                    kmemcpy(&info->router, &in_pkt->payload[i + 2], in_pkt->payload[i + 1]);
+                    break;
+
+                case OPT_DNS:
+                    kmemcpy(&info->dns, &in_pkt->payload[i + 2], in_pkt->payload[i + 1]);
+                    break;
+
+                case OPT_LEASE_TIME:
+                    kmemcpy(&info->lease, &in_pkt->payload[i + 2], in_pkt->payload[i + 1]);
+                    break;
+
+                case OPT_END:
+                    goto end;
+
+                default:
+                    break;
+            }
+
+            i += 2 + in_pkt->payload[i + 1];
+        }
+end:
+        kmemcpy(&info->addr, &in_pkt->yiaddr, sizeof(uint32_t));
+    }
+
+    int ret;
+    dhcp_pkt_t *pkt = __alloc_pkt(9);
+
+    pkt->yiaddr = in_pkt->yiaddr;
+    pkt->siaddr = in_pkt->siaddr;
+
+    /* craft dhcp options */
+    pkt->payload[0] = OPT_MESSAGE_TYPE;
+    pkt->payload[1] = 1;
+    pkt->payload[2] = MSG_REQUEST;
+
+    pkt->payload[3] = OPT_REQUESTED_IP_ADDR;
+    pkt->payload[4] = 4;
+    kmemcpy(&pkt->payload[5], &pkt->yiaddr, sizeof(pkt->yiaddr));
+
+    pkt->payload[9] = OPT_END;
+
+    ret = udp_send_pkt(
+        &IPV4_UNSPECIFIED,
+        DHCP_CLIENT_PORT,
+        &IPV4_BROADCAST,
+        DHCP_SERVER_PORT,
+        pkt,
+        sizeof(dhcp_pkt_t) + 10
+    );
+
+    kfree(pkt);
+    return ret;
+}
+
+int dhcp_discover(void)
+{
+    if (!requests) {
+        /* TODO: move this code to netdev? */
+        if (!(requests = hm_alloc_hashmap(4, HM_KEY_TYPE_NUM))) {
+            kprint("dhcp - failed to allocate space for dhcp request cache!\n");
+            return -ENOMEM;
+        }
+    }
+
+    int ret;
+    dhcp_pkt_t     *pkt  = __alloc_pkt(9);
+    dhcp_options_t *opts = kzalloc(sizeof(dhcp_options_t));
+
+    if ((errno = hm_insert(requests, &pkt->xid, opts)) < 0) {
+        kprint("dhcp - failed to cache request!\n");
+        return ret;
+    }
 
     /* craft dhcp options */
     pkt->payload[0] = OPT_MESSAGE_TYPE;
@@ -115,8 +193,35 @@ int dhcp_discover(void)
 
     pkt->payload[8] = OPT_END;
 
-    ret = udp_send_pkt(&src, DHCP_CLIENT_PORT, &dst, DHCP_SERVER_PORT, pkt, sizeof(dhcp_pkt_t) + 9);
+    ret = udp_send_pkt(
+        &IPV4_UNSPECIFIED,
+        DHCP_CLIENT_PORT,
+        &IPV4_BROADCAST,
+        DHCP_SERVER_PORT,
+        pkt,
+        sizeof(dhcp_pkt_t) + 9
+    );
 
     kfree(pkt);
     return ret;
+}
+
+int dhcp_handle_pkt(dhcp_pkt_t *pkt, size_t size)
+{
+    switch (pkt->payload[2]) {
+        case MSG_OFFER:
+            return __handle_offer(pkt, size);
+
+        case MSG_ACK:
+            return __handle_ack(pkt, size);
+
+        case MSG_NAK:
+            kprint("dhcp - handle nak\n");
+            break;
+
+        default:
+            kprint("dhcp - unsupported message received\n");
+    }
+
+    return -ENOTSUP;
 }

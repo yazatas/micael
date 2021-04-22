@@ -23,6 +23,18 @@ typedef struct mac {
     };
 } mac_t;
 
+static ip_t IPV4_BROADCAST = {
+    .addr = "255.255.255.255",
+    .ipv4 = { 255, 255, 255, 255 },
+    .type = IPV4_ADDR
+};
+
+static ip_t IPV4_UNSPECIFIED = {
+    .addr = "0.0.0.0",
+    .ipv4 = { 0, 0, 0, 0 },
+    .type = IPV4_ADDR
+};
+
 static inline uint16_t n2h_16(uint16_t n)
 {
     return ((n & 0xff) << 8) | ((n >> 8) & 0xff);
@@ -87,6 +99,16 @@ static inline void net_ipv4_bin2addr(uint8_t *src, char *dst)
         k += p + 1;
     }
     dst[k - 1] = '\0';
+}
+
+static inline void net_ipv4_print(uint32_t addr)
+{
+    kprint("%d.%d.%d.%d\n",
+        (addr >> (0 * 8) & 0xff),
+        (addr >> (1 * 8) & 0xff),
+        (addr >> (2 * 8) & 0xff),
+        (addr >> (3 * 8) & 0xff)
+    );
 }
 
 #endif /* __NET_UTIL_H__ */
