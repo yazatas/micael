@@ -41,9 +41,33 @@ typedef struct arp_ipv4 {
 
 static hashmap_t *requests;
 
-int arp_handle_pkt(arp_pkt_t *pkt, size_t size)
+int arp_handle_pkt(arp_pkt_t *in_pkt, size_t size)
 {
-    kprint("arp - got arp %s\n", n2h_16(pkt->opcode) == 1 ? "request" : "reply");
+    if (n2h_16(in_pkt->opcode) == ARP_REQUEST) {
+
+        return 0;
+
+    } else if (n2h_16(in_pkt->opcode) == ARP_REPLY) {
+        if (in_pkt->plen == IPV4_ADDR_SIZE) {
+            arp_ipv4_t *pl = (arp_ipv4_t *)in_pkt->payload;
+            char *addr     = kzalloc(16);
+
+            net_ipv4_bin2addr(pl->srcpr, addr);
+
+            if (hm_get(requests, addr)) {
+                netdev_add_ipv4_addr_pair(
+                    kmemdup(pl->srchw, HW_ADDR_SIZE),
+                    pl->srcpr
+                );
+                hm_remove(requests, addr);
+            }
+
+            kfree(addr);
+            return 0;
+        }
+    } else {
+        kprint("arp - got unsupported message type \n");
+    }
 
     return -ENOTSUP;
 }
@@ -56,7 +80,7 @@ void arp_resolve(char *addr)
     if (!requests) {
         if (!(requests = hm_alloc_hashmap(8, HM_KEY_TYPE_STR))) {
             kprint("arp - failed to allocate space for arp request cache!\n");
-            return NULL;
+            return;
         }
     }
 

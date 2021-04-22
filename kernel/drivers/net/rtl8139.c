@@ -19,7 +19,7 @@
 #define RX_BUFFER_SIZE  8192
 #define RX_BUFFER_MASK    ~3
 #define RX_BUFFER_OVRH     7
-#define RX_BUFFER_OVRH  0x10
+#define RX_BUFFER_PAD   0x10
 
 typedef struct rtl8139 rtl8139_t;
 
