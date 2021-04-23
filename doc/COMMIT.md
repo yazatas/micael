@@ -19,6 +19,8 @@ DESCRIPTION OF THE COMMIT IN MORE DETAIL (optional though couraged)
 * mm
 * sched
 * sync
+* net
+* crypto
 
 ## Example
 
