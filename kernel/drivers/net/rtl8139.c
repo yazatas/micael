@@ -146,12 +146,12 @@ static int __init(void *arg)
         ;
 
     /* rx buffer initilization */
-    __nic.rx_buffer = mmu_block_alloc(MM_ZONE_NORMAL, 2);
+    __nic.rx_buffer = mmu_block_alloc(MM_ZONE_NORMAL, 2, 0);
     outl(pdev->bar0 + RTL8139_RBSTART, __nic.rx_buffer);
 
     /* tx buffer initialization */
     for (int i = 0; i < TX_BUFFER_SIZE; ++i) {
-        __nic.tx_buffer[i] = mmu_page_alloc(MM_ZONE_NORMAL);
+        __nic.tx_buffer[i] = mmu_page_alloc(MM_ZONE_NORMAL, 0);
         __nic.tx_size[i]   = 0;
         outl(pdev->bar0 + RTL8139_TSAD(i), __nic.tx_buffer[i]);
     }

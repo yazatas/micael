@@ -77,7 +77,7 @@ bheap_t *bh_init(size_t items)
 
     heap->size     = 0;
     heap->capacity = npages * EPP;
-    heap->elems    = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, npages));
+    heap->elems    = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, npages, 0));
 
     return heap;
 }

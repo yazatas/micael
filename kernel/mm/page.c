@@ -382,12 +382,12 @@ void mmu_claim_page(unsigned long address)
     mmu_claim_range(address, PAGE_SIZE);
 }
 
-unsigned long mmu_page_alloc(unsigned memzone)
+unsigned long mmu_page_alloc(unsigned memzone, int flags)
 {
-    return mmu_block_alloc(memzone, 0);
+    return mmu_block_alloc(memzone, 0, flags);
 }
 
-unsigned long mmu_block_alloc(unsigned memzone, unsigned order)
+unsigned long mmu_block_alloc(unsigned memzone, unsigned order, int flags)
 {
     unsigned long address = __alloc_mem(memzone, order);
 

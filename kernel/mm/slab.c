@@ -118,7 +118,7 @@ int mmu_slab_init(void)
     cfe_t *e;
 
     for (int i = 0; i < 20; ++i) {
-        if ((mem = mmu_page_alloc(MM_ZONE_NORMAL)) == INVALID_ADDRESS) {
+        if ((mem = mmu_page_alloc(MM_ZONE_NORMAL, 0)) == INVALID_ADDRESS) {
             kdebug("Failed to allocate memory");
             return -errno;
         }

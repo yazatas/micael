@@ -89,7 +89,7 @@ uint32_t mmu_pf_handler(void *ctx)
         static spinlock_t lock = 0;
         spin_acquire(&lock);
 
-        unsigned long copy = mmu_page_alloc(MM_ZONE_NORMAL);
+        unsigned long copy = mmu_page_alloc(MM_ZONE_NORMAL, 0);
         uint8_t *copy_v    = mmu_native_p_to_v(copy);
         int flags          = MM_PRESENT | MM_USER | MM_READWRITE; /* TODO: preserve flags */
 
