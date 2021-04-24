@@ -84,7 +84,7 @@ void sched_thread_destroy(thread_t *t)
     kmemset(t->kstack_top, 0, KSTACK_SIZE);
     mmu_page_free(mmu_v_to_p(t->kstack_top));
     kmemset(t, 0, sizeof(thread_t));
-    mmu_cache_free_entry(thread_cache, t);
+    mmu_cache_free_entry(thread_cache, t, 0);
 }
 
 int sched_task_add_thread(task_t *parent, thread_t *child)
@@ -219,7 +219,7 @@ void sched_free_threads(task_t *t)
     do {
         kdebug("freeing thread %u", t->nthreads);
         /* mmu_cache_free_page(iter->kstack_top, MM_NO_FLAG); */
-        mmu_cache_free_entry(thread_cache, iter);
+        mmu_cache_free_entry(thread_cache, iter, 0);
         iter = container_of(iter->list.next, thread_t, list);
     } while (--t->nthreads > 1);
 }

@@ -33,8 +33,8 @@ inode_t *inode_generic_alloc(uint32_t flags)
     {
         if (ino) {
             if (ino->i_iops)
-                mmu_cache_free_entry(inode_ops_cache, ino->i_iops);
-            mmu_cache_free_entry(inode_cache, ino);
+                mmu_cache_free_entry(inode_ops_cache, ino->i_iops, 0);
+            mmu_cache_free_entry(inode_cache, ino, 0);
         }
 
         errno = ENOMEM;
@@ -62,9 +62,9 @@ int inode_generic_dealloc(inode_t *ino)
     if (ino->i_count > 1)
         return -EBUSY;
 
-    (void)mmu_cache_free_entry(inode_ops_cache, ino->i_iops);
-    (void)mmu_cache_free_entry(file_ops_cache,  ino->i_fops);
-    (void)mmu_cache_free_entry(inode_cache,     ino);
+    (void)mmu_cache_free_entry(inode_ops_cache, ino->i_iops, 0);
+    (void)mmu_cache_free_entry(file_ops_cache,  ino->i_fops, 0);
+    (void)mmu_cache_free_entry(inode_cache,     ino,         0);
 
     return 0;
 }

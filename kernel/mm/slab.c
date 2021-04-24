@@ -248,7 +248,7 @@ void *mmu_cache_alloc_entry(mm_cache_t *c, mm_flags_t flags)
     return ret;
 }
 
-int mmu_cache_free_entry(mm_cache_t *cache, void *entry)
+int mmu_cache_free_entry(mm_cache_t *cache, void *entry, int flags)
 {
     if (cache == NULL || entry == NULL)
         return -EINVAL;
@@ -256,7 +256,7 @@ int mmu_cache_free_entry(mm_cache_t *cache, void *entry)
     /* kprint("freeing entry 0x%x - 0x%x\n", entry, (uint8_t *)entry + cache->item_size); */
     spin_release(&cache->lock);
 
-    struct cache_free_chunk *cfc = kmalloc(sizeof(struct cache_free_chunk), 0);
+    struct cache_free_chunk *cfc = kmalloc(sizeof(struct cache_free_chunk), flags);
 
     list_init_null(&cfc->list);
     cfc->mem = entry;

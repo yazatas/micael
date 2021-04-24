@@ -87,7 +87,7 @@ int dev_destroy_device(device_t *device)
 
     list_remove(&device->list);
 
-    return mmu_cache_free_entry(dev_cache, device);
+    return mmu_cache_free_entry(dev_cache, device, 0);
 }
 
 int dev_register_pci_driver(int vendor, int device, driver_t *driver)

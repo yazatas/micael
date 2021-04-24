@@ -70,7 +70,7 @@ int kmemcmp(void *s1, void *s2, size_t n)
 
 void *kmemdup(void *ptr, size_t size)
 {
-    void *new = kmalloc(size);
+    void *new = kmalloc(size, 0);
     kmemcpy(new, ptr, size);
     return new;
 }
@@ -78,7 +78,7 @@ void *kmemdup(void *ptr, size_t size)
 char *kstrdup(const char *s)
 {
     size_t n  = kstrlen(s), i;
-    char *new = kmalloc(n + 1);
+    char *new = kmalloc(n + 1, 0);
 
     if (!new)
         return NULL;
@@ -199,7 +199,7 @@ char *kstrncat(char *s1, char *s2, size_t len)
     char *ret = NULL, *rptr = NULL;
     char *ptr = s1;
 
-    ret = rptr = kmalloc(len + 1);
+    ret = rptr = kmalloc(len + 1, 0);
 
     while (*ptr != '\0')
         *rptr = *ptr, rptr++, ptr++;

@@ -24,7 +24,7 @@ file_t *file_generic_alloc(void)
         ((file->f_ops = mmu_cache_alloc_entry(file_ops_cache, MM_ZERO)) == NULL))
     {
         if (file)
-            mmu_cache_free_entry(file_cache, file);
+            mmu_cache_free_entry(file_cache, file, 0);
 
         errno = ENOMEM;
         return NULL;
@@ -47,8 +47,8 @@ int file_generic_dealloc(file_t *file)
     if (file->f_dentry)
         file->f_dentry->d_count--;
 
-    mmu_cache_free_entry(file_ops_cache, file->f_ops);
-    mmu_cache_free_entry(file_cache,     file);
+    mmu_cache_free_entry(file_ops_cache, file->f_ops, 0);
+    mmu_cache_free_entry(file_cache,     file,        0);
 
     return 0;
 }

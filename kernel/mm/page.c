@@ -171,7 +171,7 @@ static unsigned long __split_block(mm_zone_t *zone, unsigned req_order, unsigned
  *
  * This function can fail and it return INVALID_ADDRESS on error
  * and pointer to valid block of memory on succes */
-static unsigned long __alloc_mem(unsigned memzone, unsigned order)
+static unsigned long __alloc_mem(unsigned memzone, unsigned order, int flags)
 {
     /* TODO: this is temporary, pfa and bootmem need better cooperation but
      * right now I'll focus my attention to finalizing x86_64 support */
@@ -212,7 +212,7 @@ static unsigned long __alloc_mem(unsigned memzone, unsigned order)
             mm_block_t *b = __get_free_entry(zone, o);
 
             unsigned long start = b->start;
-            (void)mmu_cache_free_entry(mm_block_cache, b);
+            (void)mmu_cache_free_entry(mm_block_cache, b, flags);
 
             spin_release(&zone->lock);
             return start;
@@ -321,7 +321,7 @@ void mmu_zones_init(void *arg)
      *
      * Use the internal allocation function to allocate the block because currently
      * the page_array points to NULL */
-    unsigned long pa_mem = __alloc_mem(MM_ZONE_NORMAL, 12);
+    unsigned long pa_mem = __alloc_mem(MM_ZONE_NORMAL, 12, 0);
 
     if (pa_mem == INVALID_ADDRESS)
         kpanic("failed to allocate memory for page array");
@@ -389,7 +389,7 @@ unsigned long mmu_page_alloc(unsigned memzone, int flags)
 
 unsigned long mmu_block_alloc(unsigned memzone, unsigned order, int flags)
 {
-    unsigned long address = __alloc_mem(memzone, order);
+    unsigned long address = __alloc_mem(memzone, order, flags);
 
     if (address == INVALID_ADDRESS) {
         kpanic("out of memory");

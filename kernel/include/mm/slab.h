@@ -48,6 +48,6 @@ void *mmu_cache_alloc_entry(mm_cache_t *c, mm_flags_t flags);
  *
  * Return 0 on success
  * Return -EINVAL if either of the parameters is NULL */
-int mmu_cache_free_entry(mm_cache_t *cache, void *entry);
+int mmu_cache_free_entry(mm_cache_t *cache, void *entry, int flags);
 
 #endif /* __SLAB_H__ */
