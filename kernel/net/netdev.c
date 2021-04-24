@@ -9,7 +9,7 @@
 #include <net/udp.h>
 
 static struct {
-    uint8_t mac[8]; /* TODO: use mac_t */
+    mac_t mac;
     hashmap_t *addrs;
     dhcp_info_t *dhcp;
     ip_t our_ip;
@@ -43,16 +43,16 @@ void netdev_add_dhcp_info(dhcp_info_t *info)
     kprint("netdev - dns address: ");
     net_ipv4_print(info->router);
 
-    kprint("netdev - broad address: ");
+    kprint("netdev - broadcast address: ");
     net_ipv4_print(info->router);
 
     kprint("netdev - lease time: %u seconds, %u hours\n",
             n2h_32(info->lease), n2h_32(info->lease) / 60 / 60);
 }
 
-uint8_t *netdev_get_mac(void)
+mac_t *netdev_get_mac(void)
 {
-    return netdev_info.mac;
+    return &netdev_info.mac;
 }
 
 uint8_t *netdev_get_ipv4(void)
@@ -63,12 +63,12 @@ uint8_t *netdev_get_ipv4(void)
 
 void netdev_set_mac(uint64_t mac)
 {
-    netdev_info.mac[0] = (mac >> 16) & 0xff;
-    netdev_info.mac[1] = (mac >> 24) & 0xff;
-    netdev_info.mac[2] = (mac >> 32) & 0xff;
-    netdev_info.mac[3] = (mac >> 40) & 0xff;
-    netdev_info.mac[4] = (mac >>  0) & 0xff;
-    netdev_info.mac[5] = (mac >>  8) & 0xff;
+    netdev_info.mac.b[0] = (mac >> 16) & 0xff;
+    netdev_info.mac.b[1] = (mac >> 24) & 0xff;
+    netdev_info.mac.b[2] = (mac >> 32) & 0xff;
+    netdev_info.mac.b[3] = (mac >> 40) & 0xff;
+    netdev_info.mac.b[4] = (mac >>  0) & 0xff;
+    netdev_info.mac.b[5] = (mac >>  8) & 0xff;
 }
 
 void netdev_add_ipv4_addr_pair(uint8_t *hw, uint8_t *ipv4)
