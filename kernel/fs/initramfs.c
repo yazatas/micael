@@ -157,7 +157,7 @@ static file_t *initramfs_file_open(dentry_t *dntr, int mode)
     file->f_ops     = dntr->d_inode->i_fops;
     dntr->d_count++;
 
-    if ((file->f_private = kmalloc(sizeof(f_private_t))) == NULL) {
+    if ((file->f_private = kmalloc(sizeof(f_private_t), 0)) == NULL) {
         (void)file_generic_dealloc(file);
         return NULL;
     }
@@ -255,7 +255,7 @@ found:
      * point to this new area
      *
      * if the item was file, no need allocate any memory/address space yet */
-    inode->i_private      = kmalloc(sizeof(i_private_t));
+    inode->i_private      = kmalloc(sizeof(i_private_t), 0);
     uint32_t parent_start = (unsigned long)ip->pstart;
     uint32_t parent_size  = parent->d_inode->i_size;
     uint32_t boundary     = ROUND_DOWN(parent_start, PAGE_SIZE);
@@ -329,14 +329,14 @@ static int initramfs_init(superblock_t *sb, void *args)
     sb->s_root          = dentry_alloc_orphan("/", T_IFDIR);
     sb->s_root->d_inode = initramfs_inode_alloc(sb);
 
-    sb->s_private = kmalloc(sizeof(fs_private_t));
+    sb->s_private = kmalloc(sizeof(fs_private_t), 0);
     ((fs_private_t *)sb->s_private)->d_header   = NULL;
     ((fs_private_t *)sb->s_private)->phys_start = (uint8_t *)(unsigned long)ramfs_start;
 
     sb->s_root->d_inode->i_ino     = 1;
     sb->s_root->d_inode->i_flags   = T_IFDIR;
 
-    sb->s_root->d_inode->i_private = kmalloc(sizeof(i_private_t));
+    sb->s_root->d_inode->i_private = kmalloc(sizeof(i_private_t), 0);
     
     /* physical and virtual start address of '/' (memory is identity mapped) */
     ((i_private_t *)sb->s_root->d_inode->i_private)->pstart =
@@ -353,8 +353,8 @@ superblock_t *initramfs_get_sb(fs_type_t *type, char *dev, int flags, void *data
 
     superblock_t *sb = NULL;
 
-    if ((sb        = kmalloc(sizeof(superblock_t))) == NULL ||
-        (sb->s_ops = kmalloc(sizeof(super_ops_t)))  == NULL)
+    if ((sb        = kmalloc(sizeof(superblock_t), 0)) == NULL ||
+        (sb->s_ops = kmalloc(sizeof(super_ops_t), 0))  == NULL)
     {
         errno = ENOMEM;
         return NULL;

@@ -53,12 +53,12 @@ ringbuffer_t *rb_create(size_t size)
 
     ringbuffer_t *rb = NULL;
 
-    if ((rb = kmalloc(sizeof(ringbuffer_t))) == NULL) {
+    if ((rb = kmalloc(sizeof(ringbuffer_t), 0)) == NULL) {
         errno = ENOMEM;
         return NULL;
     }
 
-    if ((rb->data = kmalloc(size)) == NULL) {
+    if ((rb->data = kmalloc(size, 0)) == NULL) {
         kfree(rb);
         errno = ENOMEM;
         return NULL;

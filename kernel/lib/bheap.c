@@ -66,7 +66,7 @@ static inline void *__remove_elem(bheap_t *h, int i)
 
 bheap_t *bh_init(size_t items)
 {
-    bheap_t *heap = kmalloc(sizeof(bheap_t));
+    bheap_t *heap = kmalloc(sizeof(bheap_t), 0);
 
     if (!heap) {
         errno = ENOMEM;

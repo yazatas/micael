@@ -62,7 +62,7 @@ static struct {
 
 static mount_t *alloc_empty_mount(void)
 {
-    mount_t *mnt = kmalloc(sizeof(mount_t));
+    mount_t *mnt = kmalloc(sizeof(mount_t), 0);
     
     if (!mnt)
         return NULL;
@@ -433,7 +433,7 @@ end:
 
 path_t *vfs_path_lookup(char *path, int flags)
 {
-    path_t *retpath   = kmalloc(sizeof(path_t));
+    path_t *retpath   = kmalloc(sizeof(path_t), 0);
     retpath->p_status = LOOKUP_STAT_ENOENT;
     retpath->p_flags  = flags;
 
@@ -570,7 +570,7 @@ file_ctx_t *vfs_alloc_file_ctx(int numfd)
 
     ctx->count = 1;
     ctx->numfd = numfd;
-    ctx->fd    = kmalloc(sizeof(file_t *) * numfd);
+    ctx->fd    = kmalloc(sizeof(file_t *) * numfd, 0);
 
     return ctx;
 }

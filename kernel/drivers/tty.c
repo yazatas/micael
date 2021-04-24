@@ -152,10 +152,10 @@ tty_t *tty_init(void)
     tty_t *tty      = NULL;
     file_ops_t *ops = NULL;
 
-    if ((tty = kmalloc(sizeof(tty_t))) == NULL)
+    if ((tty = kmalloc(sizeof(tty_t), 0)) == NULL)
         return NULL;
 
-    if ((ops = kmalloc(sizeof(file_ops_t))) == NULL)
+    if ((ops = kmalloc(sizeof(file_ops_t), 0)) == NULL)
         return NULL;
 
     ops->read  = __tty_read;

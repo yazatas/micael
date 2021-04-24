@@ -173,7 +173,7 @@ pipe_t *pipe_create(size_t size)
     pipe->file->f_private           = pipe;
     pipe->file->f_dentry->d_private = pipe;
 
-    pipe->mem  = kmalloc(size);
+    pipe->mem  = kmalloc(size, 0);
     pipe->size = size;
     pipe->lock = 0;
     pipe->ptr  = 0;

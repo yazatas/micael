@@ -79,23 +79,23 @@ ssampler_t *ssmplr_init(size_t w_size, unsigned nclasses)
     if (w_size == 0 || w_size == 0 || nclasses < 1)
         return SSMPLR_ERROR(EINVAL);
 
-    ssampler_t *ss = kmalloc(sizeof(ssampler_t));
+    ssampler_t *ss = kmalloc(sizeof(ssampler_t), 0);
 
     if (!ss)
         return SSMPLR_ERROR(ENOMEM);
 
-    if ((ss->samples = kmalloc(nclasses * sizeof(sample_t *))) == NULL) {
+    if ((ss->samples = kmalloc(nclasses * sizeof(sample_t *), 0)) == NULL) {
         kfree(ss);
         return SSMPLR_ERROR(ENOMEM);
     }
 
     /* Initialize every sample class separately */
     for (size_t i = 0; i < nclasses; ++i) {
-        ss->samples[i] = kmalloc(sizeof(sample_t));
+        ss->samples[i] = kmalloc(sizeof(sample_t), 0);
 
         ss->samples[i]->s_ptr    = 0;
         ss->samples[i]->w_total  = 0;
-        ss->samples[i]->data     = kmalloc(w_size);
+        ss->samples[i]->data     = kmalloc(w_size, 0);
     }
 
     ss->w_size   = w_size;

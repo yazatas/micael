@@ -69,7 +69,7 @@ hashmap_t *hm_alloc_hashmap(size_t size, hm_key_type_t type)
 {
     hashmap_t *hm;
 
-    if ((hm = kmalloc(sizeof(hashmap_t))) == NULL)
+    if ((hm = kmalloc(sizeof(hashmap_t), 0)) == NULL)
         return NULL;
 
     if ((hm->elem = kcalloc(size, sizeof(hm_item_t *))) == NULL)
@@ -115,7 +115,7 @@ static int hm_find_free_bucket(hashmap_t *hm, uint32_t key)
 
     for (size_t i = 0; i < BUCKET_MAX_LEN; ++i) {
         if (hm->elem[index] == NULL) {
-            hm->elem[index] = kmalloc(sizeof(hm_item_t));
+            hm->elem[index] = kmalloc(sizeof(hm_item_t), 0);
             return index;
         }
 
