@@ -10,16 +10,6 @@
 #include <net/tcp.h>
 #include <net/udp.h>
 
-enum {
-    PROTO_ICMP = 0x01,
-    PROTO_TCP  = 0x06,
-    PROTO_UDP  = 0x11,
-};
-
-uint8_t E2TH_BROADCAST[6] = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-};
-
 static uint16_t __calculate_checksum(uint16_t *header)
 {
     uint32_t sum  = 0;
@@ -33,23 +23,30 @@ static uint16_t __calculate_checksum(uint16_t *header)
     return ~(carry + sum);
 }
 
-int ipv4_handle_datagram(ipv4_datagram_t *dgram, size_t size)
+int ipv4_handle_pkt(packet_t *pkt)
 {
-    switch (dgram->protocol) {
+    ipv4_datagram_t *dgram = pkt->net.packet;
+
+    pkt->transport.packet = dgram->payload;
+    pkt->transport.proto  = dgram->proto;
+    pkt->transport.size   = pkt->net.size - 20;
+
+    switch (dgram->proto) {
         case PROTO_ICMP:
             return icmp_handle_pkt((icmp_pkt_t *)dgram->payload, n2h_16(dgram->len));
 
         case PROTO_UDP:
-            return udp_handle_pkt((udp_pkt_t *)dgram->payload, n2h_16(dgram->len));
+            return udp_handle_pkt(pkt);
 
         case PROTO_TCP:
             return tcp_handle_pkt((tcp_pkt_t *)dgram->payload, n2h_16(dgram->len));
     }
 
-    return 0;
+    kprint("ipv4 - unsupported packet type: 0x%x\n", dgram->proto);
+    return -ENOTSUP;
 }
 
-int ipv4_send_datagram(ip_t *src, ip_t *dst, void *payload, size_t size)
+int ipv4_send_pkt(ip_t *src, ip_t *dst, void *payload, size_t size)
 {
     kassert(dst && payload && size)
 
@@ -76,11 +73,11 @@ int ipv4_send_datagram(ip_t *src, ip_t *dst, void *payload, size_t size)
     dgram->ihl      = 4;
     dgram->len      = h2n_16(sizeof(ipv4_datagram_t) + size);
     dgram->ttl      = 128;
-    dgram->protocol = PROTO_UDP;
+    dgram->proto    = PROTO_UDP; /* TODO:  */
     dgram->checksum = __calculate_checksum((uint16_t *)dgram);
 
     kmemcpy(&dgram->payload, payload, size);
-    ret = eth_send_frame(eth_dst, ETH_TYPE_IPV4, dgram, sizeof(ipv4_datagram_t) + size);
+    ret = eth_send_frame(eth_dst, PROTO_IPV4, dgram, sizeof(ipv4_datagram_t) + size);
 
     kfree(dgram);
     return ret;

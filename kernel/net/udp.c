@@ -9,18 +9,23 @@
 
 #define UDP_HDR_SIZE 8
 
-int udp_handle_pkt(udp_pkt_t *pkt, size_t size)
+int udp_handle_pkt(packet_t *pkt)
 {
-    pkt->src = n2h_16(pkt->src);
-    pkt->dst = n2h_16(pkt->dst);
+    udp_pkt_t *udp = pkt->transport.packet;
 
-    if (pkt->src == DHCP_SERVER_PORT && pkt->dst == DHCP_CLIENT_PORT) {
-        return dhcp_handle_pkt((dhcp_pkt_t *)pkt->payload, pkt->len);
-    } else {
-        kprint("udp - unhandled packet, src port (%d), dst port (%d)\n",
-                pkt->src, pkt->dst);
-        return -ENOTSUP;
+    udp->src = n2h_16(udp->src);
+    udp->dst = n2h_16(udp->dst);
+    udp->len = n2h_16(udp->len);
+
+    pkt->app.packet = udp->payload;
+    pkt->app.size   = udp->len - UDP_HDR_SIZE;
+
+    switch (udp->dst) {
+        case DHCP_CLIENT_PORT:
+            return dhcp_handle_pkt(pkt);
     }
+
+    return -ENOTSUP;
 }
 
 int udp_send_pkt(ip_t *src_addr, int src_port, ip_t *dst_addr, int dst_port, void *payload, size_t size)
@@ -43,10 +48,10 @@ int udp_send_pkt(ip_t *src_addr, int src_port, ip_t *dst_addr, int dst_port, voi
 
     kmemcpy(pkt->payload, payload, size);
 
-    if (dst_addr->type == IPV4_ADDR)
-        ret = ipv4_send_datagram(src_addr, dst_addr, pkt, sizeof(udp_pkt_t) + size);
+    if (dst_addr->type == PROTO_IPV4)
+        ret = ipv4_send_pkt(src_addr, dst_addr, pkt, sizeof(udp_pkt_t) + size);
     else
-        ret = ipv6_send_datagram(src_addr, dst_addr, pkt, sizeof(udp_pkt_t) + size);
+        ret = ipv6_send_pkt(src_addr, dst_addr, pkt, sizeof(udp_pkt_t) + size);
 
     kfree(pkt);
     return 0;

@@ -3,6 +3,7 @@
 
 #include <kernel/compiler.h>
 #include <kernel/common.h>
+#include <net/types.h>
 #include <net/util.h>
 
 typedef struct arp_pkt {
@@ -19,7 +20,7 @@ typedef struct arp_pkt {
  * Return 0 on success
  * Return -ENOTSUP if "pkt" is not supported
  * Return -EINVAL if "pkt" contains an invalid value */
-int arp_handle_pkt(arp_pkt_t *pkt, size_t size);
+int arp_handle_pkt(packet_t *pkt);
 
 /* Resolve the physical (MAC) address of an IP address
  *

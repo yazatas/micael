@@ -206,22 +206,31 @@ int dhcp_discover(void)
     return ret;
 }
 
-int dhcp_handle_pkt(dhcp_pkt_t *pkt, size_t size)
+int dhcp_handle_pkt(packet_t *in_pkt)
 {
+    int ret;
+    dhcp_pkt_t *pkt = in_pkt->app.packet;
+
     switch (pkt->payload[2]) {
         case MSG_OFFER:
-            return __handle_offer(pkt, size);
+            ret = __handle_offer(pkt, in_pkt->app.size);
+            break;
 
         case MSG_ACK:
-            return __handle_ack(pkt, size);
+            ret = __handle_ack(pkt, in_pkt->app.size);
+            break;
 
         case MSG_NAK:
             kprint("dhcp - handle nak\n");
+            ret = -ENOTSUP;
             break;
 
         default:
             kprint("dhcp - unsupported message received\n");
+            ret = -ENOTSUP;
+            break;
     }
 
-    return -ENOTSUP;
+    netdev_dealloc_pkt(in_pkt);
+    return ret;
 }

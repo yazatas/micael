@@ -10,26 +10,27 @@
 #include <net/netdev.h>
 #include <net/util.h>
 
-#define ETH_HDR_SIZE 14
-
-int eth_handle_frame(eth_frame_t *frame, size_t size)
+int eth_handle_frame(packet_t *pkt)
 {
-    switch (n2h_16(frame->type)) {
-        case ETH_TYPE_IPV4:
-            return ipv4_handle_datagram((ipv4_datagram_t *)frame->payload, size - ETH_HDR_SIZE);
+    /* update fields appropriately and set net.packet point to eth's payload */
+    pkt->link->type = n2h_16(pkt->link->type);
+    pkt->net.packet = pkt->link->payload;
+    pkt->net.size   = pkt->size - ETH_HDR_SIZE;
+    pkt->net.proto  = pkt->link->type;
 
-        case ETH_TYPE_IPV6:
-            return ipv6_handle_datagram((ipv6_datagram_t *)frame->payload, size - ETH_HDR_SIZE);
+    switch (pkt->link->type) {
+        case PROTO_IPV4:
+            return ipv4_handle_pkt(pkt);
 
-        case ETH_TYPE_ARP:
-            return arp_handle_pkt((arp_pkt_t *)frame->payload, size - ETH_HDR_SIZE);
+        case PROTO_IPV6:
+            return ipv6_handle_pkt(pkt);
 
-        default:
-            kprint("eth - unsupported frame type: 0x%x\n", n2h_16(frame->type));
-            return -ENOTSUP;
+        case PROTO_ARP:
+            return arp_handle_pkt(pkt);
     }
 
-    return 0;
+    kprint("eth - unsupported frame type: 0x%x\n", pkt->link->type);
+    return -ENOTSUP;
 }
 
 int eth_send_frame(mac_t *dst, uint16_t type, void *payload, size_t size)

@@ -1,7 +1,9 @@
 #include <errno.h>
+#include <kernel/kassert.h>
 #include <kernel/kprint.h>
 #include <kernel/util.h>
 #include <lib/hashmap.h>
+#include <mm/slab.h>
 #include <net/arp.h>
 #include <net/dhcp.h>
 #include <net/eth.h>
@@ -16,16 +18,19 @@ static struct {
     bool dhcp_done;
 } netdev_info;
 
+static mm_cache_t *pkt_cache;
+
 int netdev_init(void)
 {
     kprint("net - initializing networking subsystem\n");
 
-    if (!(netdev_info.addrs = hm_alloc_hashmap(32, HM_KEY_TYPE_NUM))) {
-        kprint("netdev - failed to allocate cache for address pairs\n");
-        return -ENOMEM;
-    }
-    netdev_info.dhcp_done = false;
+    if (!(pkt_cache = mmu_cache_create(sizeof(packet_t), 0)))
+        kpanic("Failed to allocate SLAB cache for packets");
 
+    if (!(netdev_info.addrs = hm_alloc_hashmap(32, HM_KEY_TYPE_NUM)))
+        kpanic("Failed to allocate cache for address pairs");
+
+    netdev_info.dhcp_done = false;
     dhcp_discover();
 }
 
@@ -79,4 +84,30 @@ void netdev_add_ipv4_addr_pair(uint8_t *hw, uint8_t *ipv4)
         kprint("netdev - failed to insert address pair to cache\n");
         return;
     }
+}
+
+packet_t *netdev_alloc_pkt(void *mem, size_t size)
+{
+    kassert(mem && size);
+
+    if (!mem || !size)
+        return NULL;
+
+    packet_t *pkt = mmu_cache_alloc_entry(pkt_cache, MM_ZERO);
+
+    pkt->link = kmemdup(mem, size);
+    pkt->size = size;
+
+    return pkt;
+}
+
+void netdev_dealloc_pkt(packet_t *pkt)
+{
+    kassert(pkt);
+
+    if (!pkt)
+        return -EINVAL;
+
+    kfree(pkt->link);
+    return mmu_cache_free_entry(pkt_cache, pkt, 0);
 }

@@ -3,6 +3,7 @@
 
 #include <kernel/compiler.h>
 #include <kernel/common.h>
+#include <net/types.h>
 #include <net/util.h>
 
 #define DHCP_SERVER_PORT  67
@@ -38,6 +39,6 @@ typedef struct dhcp_info {
 } dhcp_info_t;
 
 int dhcp_discover(void);
-int dhcp_handle_pkt(dhcp_pkt_t *pkt, size_t size);
+int dhcp_handle_pkt(packet_t *pkt);
 
 #endif /* __DHCP_H__ */

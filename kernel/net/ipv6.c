@@ -9,22 +9,31 @@ enum {
     IPV6_TYPE_UDP  = 0x11,
 };
 
-int ipv6_handle_datagram(ipv6_datagram_t *dgram, size_t size)
+int ipv6_handle_pkt(packet_t *pkt)
 {
+    ipv6_datagram_t *dgram = pkt->net.packet;
+
+    pkt->transport.packet = dgram->payload;
+    pkt->transport.size   = pkt->net.size - sizeof(ipv6_datagram_t);
+
     switch (dgram->next_hdr) {
-        case IPV6_TYPE_ICMP:
-            return icmp_handle_pkt((icmp_pkt_t *)dgram->payload, dgram->size);
+        case PROTO_ICMP:
+            pkt->transport.proto = PROTO_ICMP;
+            return icmp_handle_pkt((icmp_pkt_t *)dgram->payload, n2h_16(dgram->len));
 
-        case IPV6_TYPE_UDP:
-            return udp_handle_pkt((udp_pkt_t *)dgram->payload, dgram->size);
+        case PROTO_UDP:
+            pkt->transport.proto = PROTO_UDP;
+            return udp_handle_pkt(pkt);
 
-        case IPV6_TYPE_TCP:
-            return tcp_handle_pkt((tcp_pkt_t *)dgram->payload, dgram->size);
+        case PROTO_TCP:
+            pkt->transport.proto = PROTO_TCP;
+            return tcp_handle_pkt((tcp_pkt_t *)dgram->payload, n2h_16(dgram->len));
     }
 
     return 0;
 }
 
-int ipv6_send_datagram(ip_t *src, ip_t *dst, void *payload, size_t size)
+int ipv6_send_pkt(ip_t *src, ip_t *dst, void *payload, size_t size)
 {
+    kpanic("todo");
 }

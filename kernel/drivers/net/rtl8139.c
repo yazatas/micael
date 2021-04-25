@@ -34,13 +34,13 @@ static struct rtl8139 {
     size_t tx_size[TX_BUFFER_SIZE];
 } __nic;
 
-static uint32_t __handle_rx(rtl8139_t *rtl)
+uint32_t __handle_rx(rtl8139_t *rtl)
 {
-    uint8_t *data      = mmu_p_to_v(rtl->rx_buffer + rtl->cbr);
-    eth_frame_t *frame = (eth_frame_t *)&data[4];
-    uint16_t size      = ((uint16_t *)data)[1];
+    uint8_t *data = mmu_p_to_v(rtl->rx_buffer + rtl->cbr);
+    uint16_t size = ((uint16_t *)data)[1];
+    packet_t *pkt = netdev_alloc_pkt(&data[4], size);
 
-    eth_handle_frame(frame, size);
+    eth_handle_frame(pkt);
 
     rtl->cbr = (rtl->cbr + size + RX_BUFFER_OVRH) & RX_BUFFER_MASK;
 
