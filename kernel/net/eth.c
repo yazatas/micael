@@ -32,7 +32,7 @@ int eth_handle_frame(eth_frame_t *frame, size_t size)
     return 0;
 }
 
-int eth_send_frame(uint8_t dst[6], uint16_t type, void *payload, size_t size)
+int eth_send_frame(mac_t *dst, uint16_t type, void *payload, size_t size)
 {
     kassert(payload && size);
 
@@ -43,9 +43,9 @@ int eth_send_frame(uint8_t dst[6], uint16_t type, void *payload, size_t size)
 
     eth_frame_t *eth = kzalloc(sizeof(eth_frame_t) + size);
 
-    kmemcpy(eth->dst, dst, sizeof(eth->dst));
+    kmemcpy(eth->dst, dst->b, sizeof(eth->dst));
     kmemcpy(eth->payload, payload, size);
-    kmemcpy(eth->src, netdev_get_mac(), sizeof(eth->src));
+    kmemcpy(eth->src, netdev_get_mac()->b, sizeof(eth->src));
 
     eth->type = h2n_16(type);
 
