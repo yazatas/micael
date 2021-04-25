@@ -1,4 +1,5 @@
 #include <kernel/common.h>
+#include <kernel/kassert.h>
 #include <kernel/kpanic.h>
 #include <kernel/kprint.h>
 #include <kernel/util.h>
@@ -68,14 +69,11 @@ static struct cache_fixed_entry *alloc_fixed_entry(size_t item_size)
         return e;
     }
 
-    kpanic("ALLOCATE MORE MEMORY FOR SLAB");
+    unsigned long mem = mmu_page_alloc(MM_ZONE_NORMAL, 0);
+    kassert(mem != INVALID_ADDRESS);
 
-    /* kdebug("allocating more memory!"); */
-
-    unsigned long mem = mmu_bootmem_alloc_page();
-    void *mem_v       = mmu_p_to_v(mem);
-
-    cfe_t *e = kzalloc(sizeof(cfe_t));
+    void *mem_v = mmu_p_to_v(mem);
+    cfe_t *e    = kzalloc(sizeof(cfe_t));
 
     e->mem       = mem_v;
     e->next_free = mem_v;
