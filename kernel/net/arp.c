@@ -42,7 +42,7 @@ int arp_handle_pkt(packet_t *packet)
     arp_pkt_t *in_pkt = packet->net.packet;
 
     if (n2h_16(in_pkt->opcode) == ARP_REQUEST) {
-        uint8_t *our_ip   = netdev_get_ipv4();
+        uint8_t *our_ip   = netdev_get_ip()->ipv4;
         arp_ipv4_t *in_pl = (arp_ipv4_t *)in_pkt->payload;
 
         if (!our_ip || kmemcmp(our_ip, in_pl->dstpr, sizeof(uint32_t)))
@@ -58,8 +58,8 @@ int arp_handle_pkt(packet_t *packet)
         pkt->plen   = IPV4_ADDR_SIZE;
         pkt->opcode = h2n_16(ARP_REPLY);
 
-        kmemcpy(ipv4->srchw, netdev_get_mac()->b, sizeof(ipv4->srchw));
-        kmemcpy(ipv4->srcpr, netdev_get_ipv4(),   sizeof(ipv4->srcpr));
+        kmemcpy(ipv4->srchw, netdev_get_mac()->b,   sizeof(ipv4->srchw));
+        kmemcpy(ipv4->srcpr, netdev_get_ip()->ipv4, sizeof(ipv4->srcpr));
 
         kmemcpy(ipv4->dsthw, in_pl->srchw, sizeof(ipv4->dsthw));
         kmemcpy(ipv4->dstpr, in_pl->srcpr, sizeof(ipv4->dstpr));

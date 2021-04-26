@@ -60,10 +60,10 @@ mac_t *netdev_get_mac(void)
     return &netdev_info.mac;
 }
 
-uint8_t *netdev_get_ipv4(void)
+ip_t *netdev_get_ip(void)
 {
     if (!netdev_info.dhcp_done)
-        return netdev_info.our_ip.ipv4;
+        return &netdev_info.our_ip;
 }
 
 void netdev_set_mac(uint64_t mac)

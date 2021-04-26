@@ -10,7 +10,7 @@ void netdev_add_ipv4_addr_pair(uint8_t *hw, uint8_t *ipv4);
 void netdev_add_dhcp_info(dhcp_info_t *info);
 
 mac_t *netdev_get_mac(void);
-uint8_t *netdev_get_ipv4(void);
+ip_t  *netdev_get_ip(void);
 
 packet_t *netdev_alloc_pkt(void *mem, size_t size);
 void      netdev_dealloc_pkt(packet_t *pkt);
