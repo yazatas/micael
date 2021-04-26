@@ -36,6 +36,7 @@ typedef struct dhcp_info {
     uint32_t broadcast; /* ipv4 of broadcast */
     uint32_t sb_mask;   /* subnet mask */
     uint32_t lease;     /* lease time */
+    uint8_t  mac[6];    /* mac address of the router */
 } dhcp_info_t;
 
 int dhcp_discover(void);

@@ -51,6 +51,11 @@ void netdev_add_dhcp_info(dhcp_info_t *info)
     kprint("netdev - broadcast address: ");
     net_ipv4_print(info->router);
 
+    kprint("netdev - router mac address: ");
+    for (size_t i = 0; i < sizeof(info->mac); ++i)
+        kprint("%x:", info->mac[i]);
+    kprint("\n");
+
     kprint("netdev - lease time: %u seconds, %u hours\n",
             n2h_32(info->lease), n2h_32(info->lease) / 60 / 60);
 }
