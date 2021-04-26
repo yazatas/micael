@@ -568,6 +568,7 @@ file_ctx_t *vfs_alloc_file_ctx(int numfd)
     if (!ctx)
         return NULL;
 
+    ctx->lock  = 0;
     ctx->count = 1;
     ctx->numfd = numfd;
     ctx->fd    = kmalloc(sizeof(file_t *) * numfd, 0);

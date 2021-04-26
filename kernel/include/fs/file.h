@@ -2,6 +2,7 @@
 #define __FILE_H__
 
 #include <kernel/common.h>
+#include <sync/spinlock.h>
 #include <sys/types.h>
 
 typedef struct file file_t;
@@ -39,6 +40,7 @@ struct file_context {
     int count;        /* number of processes sharing this struct */
     int numfd;        /* number of file descriptors */
     struct file **fd; /* pointer to an array of file objects */
+    spinlock_t lock;  /* spinlock protecting the object */
 };
 
 void file_init(void);
