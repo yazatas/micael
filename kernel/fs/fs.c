@@ -576,6 +576,27 @@ file_ctx_t *vfs_alloc_file_ctx(int numfd)
     return ctx;
 }
 
+int vfs_alloc_fd(file_ctx_t *ctx)
+{
+    if (!ctx)
+        return -EINVAL;
+
+    spin_acquire(&ctx->lock);
+
+    int ret  = ctx->numfd++;
+    void *fd = kzalloc(sizeof(file_t *) * ctx->numfd);
+
+    kmemcpy(fd, ctx->fd, sizeof(file_t *) * ctx->numfd - 1);
+    kfree(ctx->fd);
+    ctx->fd = fd; /* TODO: atomic */
+
+    if (!(ctx->fd[ret] = file_generic_alloc()))
+        return -ENOMEM;
+
+    spin_release(&ctx->lock);
+    return ret;
+}
+
 int vfs_free_fs_ctx(fs_ctx_t *ctx)
 {
     if (!ctx)
