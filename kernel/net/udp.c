@@ -24,11 +24,26 @@ int udp_handle_pkt(packet_t *pkt)
         case DHCP_CLIENT_PORT:
             return dhcp_handle_pkt(pkt);
     }
-
-    return -ENOTSUP;
 }
 
-int udp_send_pkt(ip_t *src_addr, int src_port, ip_t *dst_addr, int dst_port, void *payload, size_t size)
+int udp_send_pkt(packet_t *pkt)
+{
+    kassert(pkt);
+
+    udp_pkt_t *udp = pkt->transport.packet;
+
+    udp->src      = h2n_16(pkt->src_port);
+    udp->dst      = h2n_16(pkt->dst_port);
+    udp->len      = h2n_16(pkt->transport.size);
+    udp->checksum = 0;
+
+    if (pkt->net.proto == PROTO_IPV4)
+        return ipv4_send_pkt(pkt);
+    else
+        return ipv6_send_pkt(pkt);
+}
+
+int udp_send_pkt_old(ip_t *src_addr, int src_port, ip_t *dst_addr, int dst_port, void *payload, size_t size)
 {
     kassert(dst_addr && payload && size);
 

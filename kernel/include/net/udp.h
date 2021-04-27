@@ -10,6 +10,8 @@
 int udp_handle_pkt(packet_t *pkt);
 
 /* TODO:  */
-int udp_send_pkt(ip_t *src_addr, int src_port, ip_t *dst_addr, int dst_port, void *payload, size_t size);
+int udp_send_pkt_old(ip_t *src_addr, int src_port, ip_t *dst_addr, int dst_port, void *payload, size_t size);
+
+int udp_send_pkt(packet_t *pkt);
 
 #endif /* __UDP_H__ */

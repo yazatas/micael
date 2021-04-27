@@ -182,3 +182,13 @@ int netdev_dealloc_pkt(packet_t *pkt)
     kfree(pkt->link);
     return mmu_cache_free_entry(pkt_cache, pkt, 0);
 }
+
+mac_t *netdev_resolve_address(ip_t *ip)
+{
+    mac_t *ret = NULL;
+
+    if (!(ret = hm_get(netdev_info.addrs, ip->ipv4)))
+        ret = &netdev_info.dhcp->mac;
+
+    return ret;
+}

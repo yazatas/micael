@@ -14,6 +14,7 @@ enum TRANSPORT {
 };
 
 enum APPLICATION {
+    PROTO_UNDEF,
     PROTO_DHCP
 };
 
@@ -84,6 +85,15 @@ typedef struct ipv6_datagram {
     char payload[0];
 } __packed ipv6_datagram_t;
 
+typedef struct arp_pkt {
+    uint16_t htype;
+    uint16_t ptype;
+    uint8_t  hlen;
+    uint8_t  plen;
+    uint16_t opcode;
+    char payload[0];
+} __packed arp_pkt_t;
+
 typedef struct udp_pkt {
     uint16_t src;
     uint16_t dst;
@@ -92,26 +102,36 @@ typedef struct udp_pkt {
     char payload[0];
 } __packed udp_pkt_t;
 
+typedef struct tcp_pkt {
+    int value;
+    char payload[0];
+} __packed tcp_pkt_t;
+
 typedef struct packet {
 
-    uint16_t size;
+    short size;
     eth_frame_t *link;
+
+    /* Connectivity information, either filled by
+     * the socket or network/transport layers */
+    ip_t *src_addr, *dst_addr;
+    unsigned short src_port, dst_port;
 
     struct {
         proto_t proto;
-        uint16_t size;
+        short size;
         void *packet;
     } __packed net;
 
     struct {
         proto_t proto;
-        uint16_t size;
+        short size;
         void *packet;
     } __packed transport;
 
     struct {
         proto_t proto;
-        uint16_t size;
+        short size;
         void *packet;
     } __packed app;
 

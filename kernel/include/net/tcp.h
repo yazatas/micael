@@ -4,11 +4,8 @@
 #include <kernel/compiler.h>
 #include <kernel/common.h>
 #include <sync/spinlock.h>
-
-typedef struct tcp_pkt {
-    int value;
-    char payload[0];
-} __packed tcp_pkt_t;
+#include <net/util.h>
+#include <net/types.h>
 
 typedef struct tcp_skb {
     spinlock_t lock; /*  */

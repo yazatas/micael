@@ -33,7 +33,12 @@ int ipv6_handle_pkt(packet_t *pkt)
     return 0;
 }
 
-int ipv6_send_pkt(ip_t *src, ip_t *dst, void *payload, size_t size)
+int ipv6_send_pkt_old(ip_t *src, ip_t *dst, void *payload, size_t size)
 {
-    kpanic("todo");
+    kpanic("ipv6 old todo");
+}
+
+int ipv6_send_pkt(packet_t *pkt)
+{
+    kpanic("ipv6 new todo");
 }

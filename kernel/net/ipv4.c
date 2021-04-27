@@ -42,11 +42,11 @@ int ipv4_handle_pkt(packet_t *pkt)
             return tcp_handle_pkt((tcp_pkt_t *)dgram->payload, n2h_16(dgram->len));
     }
 
-    kprint("ipv4 - unsupported packet type: 0x%x\n", dgram->proto);
+    /* kprint("ipv4 - unsupported packet type: 0x%x\n", dgram->proto); */
     return -ENOTSUP;
 }
 
-int ipv4_send_pkt(ip_t *src, ip_t *dst, void *payload, size_t size)
+int ipv4_send_pkt_old(ip_t *src, ip_t *dst, void *payload, size_t size)
 {
     kassert(dst && payload && size)
 
@@ -81,4 +81,23 @@ int ipv4_send_pkt(ip_t *src, ip_t *dst, void *payload, size_t size)
 
     kfree(dgram);
     return ret;
+}
+
+int ipv4_send_pkt(packet_t *pkt)
+{
+    kassert(pkt);
+
+    ipv4_datagram_t *dgram = pkt->net.packet;
+
+    kmemcpy(&dgram->src, pkt->src_addr->ipv4, sizeof(dgram->src));
+    kmemcpy(&dgram->dst, pkt->dst_addr->ipv4, sizeof(dgram->dst));
+
+    dgram->version  = 5;
+    dgram->ihl      = 4;
+    dgram->len      = h2n_16(pkt->net.size);
+    dgram->ttl      = 128;
+    dgram->proto    = pkt->transport.proto;
+    dgram->checksum = __calculate_checksum((uint16_t *)dgram);
+
+    return eth_send_pkt(pkt);
 }

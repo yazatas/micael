@@ -4,16 +4,8 @@
 #include <kernel/compiler.h>
 #include <kernel/common.h>
 #include <net/types.h>
+#include <net/types.h>
 #include <net/util.h>
-
-typedef struct arp_pkt {
-    uint16_t htype;
-    uint16_t ptype;
-    uint8_t  hlen;
-    uint8_t  plen;
-    uint16_t opcode;
-    char payload[0];
-} __packed arp_pkt_t;
 
 /* Handle ARP packet
  *

@@ -159,7 +159,7 @@ end:
 
     out_pkt->payload[9] = OPT_END;
 
-   ret = udp_send_pkt(
+   ret = udp_send_pkt_old(
         &IPV4_UNSPECIFIED,
         DHCP_CLIENT_PORT,
         &IPV4_BROADCAST,
@@ -204,7 +204,7 @@ int dhcp_discover(void)
 
     pkt->payload[8] = OPT_END;
 
-    ret = udp_send_pkt(
+    ret = udp_send_pkt_old(
         &IPV4_UNSPECIFIED,
         DHCP_CLIENT_PORT,
         &IPV4_BROADCAST,
