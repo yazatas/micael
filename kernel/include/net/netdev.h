@@ -21,4 +21,7 @@ packet_t *netdev_alloc_pkt_out(int net, int transport, size_t size);
 /* Free memory occupied by the packet */
 int netdev_dealloc_pkt(packet_t *pkt);
 
+/* Return the MAC address of an IP address */
+mac_t *netdev_resolve_address(ip_t *ip);
+
 #endif /* __NET_H__ */
