@@ -47,6 +47,9 @@ void init_bsp(void *arg)
      * Use boot memory allocator to initialize PFA, SLAB and Heap */
     mmu_init(arg);
 
+    /* parse symbol and string tables from the image */
+    multiboot2_parse_elf(arg);
+
     /* parse ACPI tables and initialize the Local APIC of BSP all I/O APICs */
     acpi_init();
     ioapic_initialize_all();

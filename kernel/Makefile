@@ -36,6 +36,7 @@ KERNEL_OBJS= \
 	kernel/irq.o \
 	kernel/kprint.o \
 	kernel/kpanic.o \
+	kernel/ktrace.o \
 	kernel/util.o \
 	kernel/tick.o \
 	kernel/mp.o
