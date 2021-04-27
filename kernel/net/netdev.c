@@ -33,7 +33,11 @@ int netdev_init(void)
     if (!(netdev_info.addrs = hm_alloc_hashmap(32, HM_KEY_TYPE_NUM)))
         kpanic("Failed to allocate cache for address pairs");
 
+    if ((errno = hm_insert(netdev_info.addrs, IPV4_BROADCAST.ipv4, &ETH_BROADCAST)))
+        kpanic("netdev - failed to insert address pair to cache\n");
+
     netdev_info.dhcp_done = false;
+
     dhcp_discover();
 }
 
