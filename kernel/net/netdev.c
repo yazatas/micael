@@ -51,10 +51,11 @@ void netdev_add_dhcp_info(dhcp_info_t *info)
     kprint("netdev - broadcast address: ");
     net_ipv4_print(info->router);
 
-    kprint("netdev - router mac address: ");
-    for (size_t i = 0; i < sizeof(info->mac); ++i)
-        kprint("%x:", info->mac[i]);
-    kprint("\n");
+    /* save router's ip/mac address pair to address map */
+    if ((errno = hm_insert(netdev_info.addrs, &info->router, &info->mac))) {
+        kprint("netdev - failed to insert address pair to cache\n");
+        return;
+    }
 
     kprint("netdev - lease time: %u seconds, %u hours\n",
             n2h_32(info->lease), n2h_32(info->lease) / 60 / 60);

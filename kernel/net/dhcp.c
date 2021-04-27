@@ -138,8 +138,8 @@ end:
         ipv4_datagram_t *dgram = pkt->net.packet;
         eth_frame_t *eth       = pkt->link;
 
-        if (!kmemcmp(&dgram->src, &info->router, sizeof(uint32_t)))
-             kmemcpy(info->mac,    eth->src,     sizeof(info->mac));
+        if (!kmemcmp(&dgram->src,  &info->router, sizeof(uint32_t)))
+             kmemcpy(info->mac.b,   eth->src,     sizeof(info->mac));
     }
 
     int ret;
