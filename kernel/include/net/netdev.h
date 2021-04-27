@@ -12,7 +12,13 @@ void netdev_add_dhcp_info(dhcp_info_t *info);
 mac_t *netdev_get_mac(void);
 ip_t  *netdev_get_ip(void);
 
-packet_t *netdev_alloc_pkt(void *mem, size_t size);
-void      netdev_dealloc_pkt(packet_t *pkt);
+/* Allocate memory for an incoming packet */
+packet_t *netdev_alloc_pkt_in(size_t size);
+
+/* Allocate memory for an outgoing packet */
+packet_t *netdev_alloc_pkt_out(int net, int transport, size_t size);
+
+/* Free memory occupied by the packet */
+int netdev_dealloc_pkt(packet_t *pkt);
 
 #endif /* __NET_H__ */

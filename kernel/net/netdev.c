@@ -1,13 +1,16 @@
 #include <errno.h>
+#include <kernel/kpanic.h>
 #include <kernel/kassert.h>
 #include <kernel/kprint.h>
 #include <kernel/util.h>
 #include <lib/hashmap.h>
+#include <mm/heap.h>
 #include <mm/slab.h>
 #include <net/arp.h>
 #include <net/dhcp.h>
 #include <net/eth.h>
 #include <net/netdev.h>
+#include <net/socket.h>
 #include <net/udp.h>
 
 static struct {
@@ -92,22 +95,84 @@ void netdev_add_ipv4_addr_pair(uint8_t *hw, uint8_t *ipv4)
     }
 }
 
-packet_t *netdev_alloc_pkt(void *mem, size_t size)
+packet_t *netdev_alloc_pkt_in(size_t size)
 {
-    kassert(mem && size);
+    kassert(size);
 
-    if (!mem || !size)
+    if (!size)
         return NULL;
 
     packet_t *pkt = mmu_cache_alloc_entry(pkt_cache, MM_ZERO);
-
-    pkt->link = kmemdup(mem, size);
-    pkt->size = size;
+    pkt->link     = kzalloc(size);
+    pkt->size     = size;
 
     return pkt;
 }
 
-void netdev_dealloc_pkt(packet_t *pkt)
+packet_t *netdev_alloc_pkt_out(int net, int transport, size_t size)
+{
+    size_t pkt_size       = sizeof(eth_frame_t) + size;
+    size_t net_size       = 0;
+    size_t transport_size = 0;
+
+    switch (net) {
+        case PROTO_IPV4:
+            net_size  = sizeof(ipv4_datagram_t);
+            pkt_size += sizeof(ipv4_datagram_t);
+            break;
+
+        case PROTO_IPV6:
+            net_size  = sizeof(ipv6_datagram_t);
+            pkt_size += sizeof(ipv6_datagram_t);
+            break;
+
+        case PROTO_ARP:
+            net_size  = sizeof(arp_pkt_t);
+            pkt_size += sizeof(arp_pkt_t);
+            break;
+    }
+
+    switch (transport) {
+        case PROTO_UDP:
+            transport_size  = sizeof(udp_pkt_t);
+            pkt_size       += sizeof(udp_pkt_t);
+            break;
+
+        case PROTO_TCP:
+            transport_size  = sizeof(tcp_pkt_t);
+            pkt_size       += sizeof(tcp_pkt_t);
+            break;
+
+        case PROTO_ICMP:
+            transport_size  = sizeof(icmp_pkt_t);
+            pkt_size       += sizeof(icmp_pkt_t);
+            break;
+    }
+
+    /* Allocate packet so that we only need to one allocation and one copy.
+     * Set the headers of different layers point to correct locations and
+     * set their sizes correctly */
+    packet_t *pkt = mmu_cache_alloc_entry(pkt_cache, MM_ZERO);
+
+    pkt->size = pkt_size;
+    pkt->link = kzalloc(pkt_size);
+
+    pkt->net.proto  = net;
+    pkt->net.size   = pkt_size - sizeof(eth_frame_t);
+    pkt->net.packet = (uint8_t *)pkt->link + sizeof(eth_frame_t);
+
+    pkt->transport.proto  = transport;
+    pkt->transport.size   = pkt->net.size - net_size;
+    pkt->transport.packet = (uint8_t *)pkt->net.packet + net_size;
+
+    pkt->app.proto  = PROTO_UNDEF;
+    pkt->app.size   = pkt->transport.size - transport_size;
+    pkt->app.packet = (uint8_t *)pkt->transport.packet + transport_size;
+
+    return pkt;
+}
+
+int netdev_dealloc_pkt(packet_t *pkt)
 {
     kassert(pkt);
 
