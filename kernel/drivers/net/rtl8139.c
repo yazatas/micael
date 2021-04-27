@@ -36,18 +36,22 @@ static struct rtl8139 {
 
 uint32_t __handle_rx(rtl8139_t *rtl)
 {
-    uint8_t *data = mmu_p_to_v(rtl->rx_buffer + rtl->cbr);
-    uint16_t size = ((uint16_t *)data)[1];
-    packet_t *pkt = netdev_alloc_pkt(&data[4], size);
+    do {
+        uint8_t *data = mmu_p_to_v(rtl->rx_buffer + rtl->cbr);
+        uint16_t size = ((uint16_t *)data)[1];
+        packet_t *pkt = netdev_alloc_pkt_in(size);
 
-    eth_handle_frame(pkt);
+        kmemcpy(pkt->link, &data[4], size);
+        eth_handle_frame(pkt);
 
-    rtl->cbr = (rtl->cbr + size + RX_BUFFER_OVRH) & RX_BUFFER_MASK;
+        rtl->cbr = (rtl->cbr + size + RX_BUFFER_OVRH) & RX_BUFFER_MASK;
 
-    if (rtl->cbr >= RX_BUFFER_SIZE)
-        rtl->cbr -= RX_BUFFER_SIZE;
+        if (rtl->cbr >= RX_BUFFER_SIZE)
+            rtl->cbr -= RX_BUFFER_SIZE;
 
-    outw(rtl->base + RTL8139_CAPR, rtl->cbr - RX_BUFFER_PAD);
+        outw(rtl->base + RTL8139_CAPR, rtl->cbr - RX_BUFFER_PAD);
+
+    } while (!(inb(rtl->base + RTL8139_CR) & 1));
 }
 
 static void rtl8139_cmd_tx(rtl8139_t *rtl)
