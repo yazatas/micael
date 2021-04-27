@@ -6,7 +6,6 @@
 #include <net/types.h>
 
 int eth_handle_frame(packet_t *pkt);
-int eth_send_frame(mac_t *dst, uint16_t type, void *payload, size_t size);
 int eth_send_pkt(packet_t *pkt);
 
 #endif /* __ETH_H__ */

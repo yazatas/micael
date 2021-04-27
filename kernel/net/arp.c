@@ -39,6 +39,7 @@ static hashmap_t *requests;
 
 int arp_handle_pkt(packet_t *packet)
 {
+#if 0
     arp_pkt_t *in_pkt = packet->net.packet;
 
     if (n2h_16(in_pkt->opcode) == ARP_REQUEST) {
@@ -92,6 +93,7 @@ int arp_handle_pkt(packet_t *packet)
     }
 
     return -ENOTSUP;
+#endif
 }
 
 void arp_resolve(char *addr)
@@ -99,6 +101,7 @@ void arp_resolve(char *addr)
     if (!addr)
         return;
 
+#if 0
     if (!requests) {
         if (!(requests = hm_alloc_hashmap(8, HM_KEY_TYPE_STR))) {
             kprint("arp - failed to allocate space for arp request cache!\n");
@@ -128,4 +131,5 @@ void arp_resolve(char *addr)
     net_ipv4_addr2bin(addr, ipv4->dstpr);
     eth_send_frame(&ETH_BROADCAST, PROTO_ARP, pkt, size);
     kfree(pkt);
+#endif
 }

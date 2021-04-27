@@ -46,43 +46,6 @@ int ipv4_handle_pkt(packet_t *pkt)
     return -ENOTSUP;
 }
 
-int ipv4_send_pkt_old(ip_t *src, ip_t *dst, void *payload, size_t size)
-{
-    kassert(dst && payload && size)
-
-    if (!dst || !payload || !size) {
-        kprint("ipv4 - invalid dst addr (0x%x), payload (0x%x) or size (%u)\n",
-                dst, payload, size);
-        return -EINVAL;
-    }
-
-    int ret;
-    ipv4_datagram_t *dgram = kzalloc(sizeof(ipv4_datagram_t) + size);
-    mac_t *eth_dst         = NULL;
-
-    if (!kstrcmp(dst->addr, IPV4_BROADCAST.addr)) {
-        eth_dst = &ETH_BROADCAST;
-    } else {
-        kpanic("ipv4 - resolve address, todo");
-    }
-
-    kmemcpy(&dgram->src, src->ipv4, sizeof(dgram->src));
-    kmemcpy(&dgram->dst, dst->ipv4, sizeof(dgram->dst));
-
-    dgram->version  = 5;
-    dgram->ihl      = 4;
-    dgram->len      = h2n_16(sizeof(ipv4_datagram_t) + size);
-    dgram->ttl      = 128;
-    dgram->proto    = PROTO_UDP; /* TODO:  */
-    dgram->checksum = __calculate_checksum((uint16_t *)dgram);
-
-    kmemcpy(&dgram->payload, payload, size);
-    ret = eth_send_frame(eth_dst, PROTO_IPV4, dgram, sizeof(ipv4_datagram_t) + size);
-
-    kfree(dgram);
-    return ret;
-}
-
 int ipv4_send_pkt(packet_t *pkt)
 {
     kassert(pkt);

@@ -1,3 +1,4 @@
+#include <kernel/kpanic.h>
 #include <net/icmp.h>
 #include <net/ipv6.h>
 #include <net/tcp.h>
@@ -31,11 +32,6 @@ int ipv6_handle_pkt(packet_t *pkt)
     }
 
     return 0;
-}
-
-int ipv6_send_pkt_old(ip_t *src, ip_t *dst, void *payload, size_t size)
-{
-    kpanic("ipv6 old todo");
 }
 
 int ipv6_send_pkt(packet_t *pkt)

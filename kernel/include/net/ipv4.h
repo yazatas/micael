@@ -8,7 +8,7 @@
 
 int ipv4_handle_pkt(packet_t *pkt);
 
-int ipv4_send_pkt_old(ip_t *src, ip_t *dst, void *payload, size_t size);
+int ipv4_handle_pkt(packet_t *pkt);
 
 int ipv4_send_pkt(packet_t *pkt);
 
