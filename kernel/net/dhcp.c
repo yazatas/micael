@@ -61,17 +61,18 @@ typedef struct dhcp_options {
 
 static hashmap_t *requests;
 
-static dhcp_pkt_t *__alloc_pkt(size_t size)
+static packet_t *__alloc_dhcp_pkt(size_t size)
 {
-    dhcp_pkt_t *pkt = kzalloc(sizeof(dhcp_pkt_t) + size);
+    packet_t *pkt    = netdev_alloc_pkt_out(PROTO_IPV4, PROTO_UDP, sizeof(dhcp_pkt_t) + size);
+    dhcp_pkt_t *dhcp = pkt->app.packet;
 
-    pkt->op     = OP_REQUEST;
-    pkt->htype  = 1; /* eth */
-    pkt->hlen   = 6;
-    pkt->xid    = h2n_32(0x13371338);
-    pkt->cookie = h2n_32(DHCP_COOKIE);
+    dhcp->op     = OP_REQUEST;
+    dhcp->htype  = 1; /* eth */
+    dhcp->hlen   = 6;
+    dhcp->xid    = h2n_32(0x13371338);
+    dhcp->cookie = h2n_32(DHCP_COOKIE);
 
-    kmemcpy(&pkt->chaddr, netdev_get_mac()->b, pkt->hlen);
+    kmemcpy(&dhcp->chaddr, netdev_get_mac()->b, dhcp->hlen);
 
     return pkt;
 }
@@ -90,35 +91,35 @@ static int __handle_ack(packet_t *in_pkt)
     netdev_add_dhcp_info(info);
 }
 
-static int __handle_offer(packet_t *pkt)
+static int __handle_offer(packet_t *in_pkt)
 {
-    dhcp_pkt_t *in_pkt = pkt->app.packet;
-    dhcp_info_t *info  = hm_get(requests, &in_pkt->xid);
+    dhcp_pkt_t *in_dhcp = in_pkt->app.packet;
+    dhcp_info_t *info   = hm_get(requests, &in_dhcp->xid);
 
     if (!info) {
         kprint("dhcp - received offer but no discover sent!\n");
         return -ENOENT;
     } else {
-        for (size_t i = 0; i < pkt->app.size;) {
-            switch (in_pkt->payload[i]) {
+        for (short i = 0; i < in_pkt->app.size;) {
+            switch (in_dhcp->payload[i]) {
                 case OPT_SUBNET_MASK:
-                    kmemcpy(&info->sb_mask, &in_pkt->payload[i + 2], in_pkt->payload[i + 1]);
+                    kmemcpy(&info->sb_mask, &in_dhcp->payload[i + 2], in_dhcp->payload[i + 1]);
                     break;
 
                 case OPT_BROADCAST:
-                    kmemcpy(&info->broadcast, &in_pkt->payload[i + 2], in_pkt->payload[i + 1]);
+                    kmemcpy(&info->broadcast, &in_dhcp->payload[i + 2], in_dhcp->payload[i + 1]);
                     break;
 
                 case OPT_ROUTER:
-                    kmemcpy(&info->router, &in_pkt->payload[i + 2], in_pkt->payload[i + 1]);
+                    kmemcpy(&info->router, &in_dhcp->payload[i + 2], in_dhcp->payload[i + 1]);
                     break;
 
                 case OPT_DNS:
-                    kmemcpy(&info->dns, &in_pkt->payload[i + 2], in_pkt->payload[i + 1]);
+                    kmemcpy(&info->dns, &in_dhcp->payload[i + 2], in_dhcp->payload[i + 1]);
                     break;
 
                 case OPT_LEASE_TIME:
-                    kmemcpy(&info->lease, &in_pkt->payload[i + 2], in_pkt->payload[i + 1]);
+                    kmemcpy(&info->lease, &in_dhcp->payload[i + 2], in_dhcp->payload[i + 1]);
                     break;
 
                 case OPT_END:
@@ -128,48 +129,48 @@ static int __handle_offer(packet_t *pkt)
                     break;
             }
 
-            i += 2 + in_pkt->payload[i + 1];
+            i += 2 + in_dhcp->payload[i + 1];
         }
 end:
-        kmemcpy(&info->addr, &in_pkt->yiaddr, sizeof(uint32_t));
+        kmemcpy(&info->addr, &in_dhcp->yiaddr, sizeof(uint32_t));
 
         /* If the sender of the packet is the same as the server, save the mac address */
-        kassert(pkt->net.proto == PROTO_IPV4);
-        ipv4_datagram_t *dgram = pkt->net.packet;
-        eth_frame_t *eth       = pkt->link;
+        kassert(in_pkt->net.proto == PROTO_IPV4);
+        ipv4_datagram_t *dgram = in_pkt->net.packet;
+        eth_frame_t *eth       = in_pkt->link;
 
         if (!kmemcmp(&dgram->src,  &info->router, sizeof(uint32_t)))
              kmemcpy(info->mac.b,   eth->src,     sizeof(info->mac));
     }
 
     int ret;
-    dhcp_pkt_t *out_pkt = __alloc_pkt(9);
+    packet_t *out_pkt = __alloc_dhcp_pkt(10);
+    dhcp_pkt_t *dhcp  = out_pkt->app.packet;
 
-    out_pkt->yiaddr = in_pkt->yiaddr;
-    out_pkt->siaddr = in_pkt->siaddr;
+    ipv4_datagram_t *dgram = out_pkt->net.packet;
+
+    dhcp->yiaddr = in_dhcp->yiaddr;
+    dhcp->siaddr = in_dhcp->siaddr;
 
     /* craft dhcp options */
-    out_pkt->payload[0] = OPT_MESSAGE_TYPE;
-    out_pkt->payload[1] = 1;
-    out_pkt->payload[2] = MSG_REQUEST;
+    dhcp->payload[0] = OPT_MESSAGE_TYPE;
+    dhcp->payload[1] = 1;
+    dhcp->payload[2] = MSG_REQUEST;
 
-    out_pkt->payload[3] = OPT_REQUESTED_IP_ADDR;
-    out_pkt->payload[4] = 4;
-    kmemcpy(&out_pkt->payload[5], &out_pkt->yiaddr, sizeof(out_pkt->yiaddr));
+    dhcp->payload[3] = OPT_REQUESTED_IP_ADDR;
+    dhcp->payload[4] = 4;
+    kmemcpy(&dhcp->payload[5], &dhcp->yiaddr, sizeof(dhcp->yiaddr));
 
-    out_pkt->payload[9] = OPT_END;
+    dhcp->payload[9] = OPT_END;
 
-   ret = udp_send_pkt_old(
-        &IPV4_UNSPECIFIED,
-        DHCP_CLIENT_PORT,
-        &IPV4_BROADCAST,
-        DHCP_SERVER_PORT,
-        out_pkt,
-        sizeof(dhcp_pkt_t) + 10
-    );
+    out_pkt->src_addr = &IPV4_UNSPECIFIED;
+    out_pkt->src_port = DHCP_CLIENT_PORT;
 
-    kfree(out_pkt);
-    return ret;
+    out_pkt->dst_addr = &IPV4_BROADCAST;
+    out_pkt->dst_port = DHCP_SERVER_PORT;
+
+    kmemcpy(out_pkt->app.packet, dhcp, sizeof(dhcp_pkt_t) + 10);
+    return udp_send_pkt(out_pkt);
 }
 
 int dhcp_discover(void)
@@ -183,38 +184,37 @@ int dhcp_discover(void)
     }
 
     int ret;
-    dhcp_pkt_t     *pkt  = __alloc_pkt(9);
+    packet_t *pkt        = __alloc_dhcp_pkt(9);
+    dhcp_pkt_t *dhcp     = pkt->app.packet;
     dhcp_options_t *opts = kzalloc(sizeof(dhcp_options_t));
 
-    if ((errno = hm_insert(requests, &pkt->xid, opts)) < 0) {
+    if ((errno = hm_insert(requests, &dhcp->xid, opts)) < 0) {
         kprint("dhcp - failed to cache request!\n");
         return ret;
     }
 
     /* craft dhcp options */
-    pkt->payload[0] = OPT_MESSAGE_TYPE;
-    pkt->payload[1] = 1;
-    pkt->payload[2] = MSG_DISCOVER;
+    dhcp->payload[0] = OPT_MESSAGE_TYPE;
+    dhcp->payload[1] = 1;
+    dhcp->payload[2] = MSG_DISCOVER;
 
-    pkt->payload[3] = OPT_PARAMETER_REQUEST;
-    pkt->payload[4] = 3;
-    pkt->payload[5] = OPT_SUBNET_MASK;
-    pkt->payload[6] = OPT_ROUTER;
-    pkt->payload[7] = OPT_DNS;
+    dhcp->payload[3] = OPT_PARAMETER_REQUEST;
+    dhcp->payload[4] = 3;
+    dhcp->payload[5] = OPT_SUBNET_MASK;
+    dhcp->payload[6] = OPT_ROUTER;
+    dhcp->payload[7] = OPT_DNS;
 
-    pkt->payload[8] = OPT_END;
+    dhcp->payload[8] = OPT_END;
 
-    ret = udp_send_pkt_old(
-        &IPV4_UNSPECIFIED,
-        DHCP_CLIENT_PORT,
-        &IPV4_BROADCAST,
-        DHCP_SERVER_PORT,
-        pkt,
-        sizeof(dhcp_pkt_t) + 9
-    );
+    pkt->src_addr = &IPV4_UNSPECIFIED;
+    pkt->src_port = DHCP_CLIENT_PORT;
 
-    kfree(pkt);
-    return ret;
+    pkt->dst_addr = &IPV4_BROADCAST;
+    pkt->dst_port = DHCP_SERVER_PORT;
+
+    kmemcpy(pkt->app.packet, dhcp, sizeof(dhcp_pkt_t) + 9);
+
+    return udp_send_pkt(pkt);
 }
 
 int dhcp_handle_pkt(packet_t *in_pkt)
