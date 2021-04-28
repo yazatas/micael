@@ -177,7 +177,11 @@ static int __init(void *arg)
     irq_install_handler(VECNUM_IRQ_START + pdev->int_line, __irq_handler, &__nic);
 
     /* initialize network manager */
-    netdev_set_mac(__nic.mac);
+    netdev_hw_info_t hwinfo = {
+        .mac = __nic.mac,
+        .mtu = 1500
+    };
+    netdev_set_hw_info(hwinfo);
     netdev_init();
 
     return 0;

@@ -19,6 +19,7 @@ static struct {
     dhcp_info_t *dhcp;
     ip_t our_ip;
     bool dhcp_done;
+    size_t mtu;
 } netdev_info;
 
 static mm_cache_t *pkt_cache;
@@ -79,14 +80,20 @@ ip_t *netdev_get_ip(void)
         return &netdev_info.our_ip;
 }
 
-void netdev_set_mac(uint64_t mac)
+size_t netdev_get_mtu(void)
 {
-    netdev_info.mac.b[0] = (mac >> 16) & 0xff;
-    netdev_info.mac.b[1] = (mac >> 24) & 0xff;
-    netdev_info.mac.b[2] = (mac >> 32) & 0xff;
-    netdev_info.mac.b[3] = (mac >> 40) & 0xff;
-    netdev_info.mac.b[4] = (mac >>  0) & 0xff;
-    netdev_info.mac.b[5] = (mac >>  8) & 0xff;
+    return netdev_info.mtu;
+}
+
+void netdev_set_hw_info(netdev_hw_info_t hwinfo)
+{
+    netdev_info.mac.b[0] = (hwinfo.mac >> 16) & 0xff;
+    netdev_info.mac.b[1] = (hwinfo.mac >> 24) & 0xff;
+    netdev_info.mac.b[2] = (hwinfo.mac >> 32) & 0xff;
+    netdev_info.mac.b[3] = (hwinfo.mac >> 40) & 0xff;
+    netdev_info.mac.b[4] = (hwinfo.mac >>  0) & 0xff;
+    netdev_info.mac.b[5] = (hwinfo.mac >>  8) & 0xff;
+    netdev_info.mtu      = hwinfo.mtu;
 }
 
 void netdev_add_ipv4_addr_pair(uint8_t *hw, uint8_t *ipv4)
