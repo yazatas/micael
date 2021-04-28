@@ -79,6 +79,7 @@ static struct cache_fixed_entry *alloc_fixed_entry(size_t item_size)
     e->next_free = mem_v;
     e->num_free  = (PAGE_SIZE / item_size) - 1;
 
+    spin_release(&fe_lock);
     return e;
 }
 
