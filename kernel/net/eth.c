@@ -38,10 +38,15 @@ int eth_send_pkt(packet_t *pkt)
     kassert(pkt);
 
     eth_frame_t *eth = pkt->link;
-    mac_t *dst       = netdev_resolve_address(pkt->dst_addr);
+    mac_t *dst       = NULL;
 
-    kmemcpy(eth->dst,                  dst->b, sizeof(eth->dst));
-    kmemcpy(eth->src,     netdev_get_mac()->b, sizeof(eth->src));
+    /* ARP has filled the destination address as it also deal with MAC addresses
+     * TODO find a cleaner way to do address resolution */
+    if (pkt->net.proto != PROTO_ARP) {
+        dst = netdev_resolve_address(pkt->dst_addr);
+        kmemcpy(eth->dst, dst->b, sizeof(eth->dst));
+    }
+    kmemcpy(eth->src, netdev_get_mac()->b, sizeof(eth->src));
 
     eth->type = h2n_16(pkt->net.proto);
 
