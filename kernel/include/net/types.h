@@ -63,8 +63,7 @@ typedef struct ipv4_datagram {
     uint8_t ecn:2;
     uint16_t len;
     uint16_t iden;
-    uint8_t flags:3;
-    uint16_t frag_off:13;
+    uint16_t f_off;
     uint8_t ttl;
     uint8_t proto;
     uint16_t checksum;
@@ -119,19 +118,19 @@ typedef struct packet {
 
     struct {
         proto_t proto;
-        short size;
+        unsigned short size;
         void *packet;
     } __packed net;
 
     struct {
         proto_t proto;
-        short size;
+        unsigned short size;
         void *packet;
     } __packed transport;
 
     struct {
         proto_t proto;
-        short size;
+        unsigned short size;
         void *packet;
     } __packed app;
 

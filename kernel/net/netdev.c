@@ -9,6 +9,7 @@
 #include <net/arp.h>
 #include <net/dhcp.h>
 #include <net/eth.h>
+#include <net/ipv4.h>
 #include <net/netdev.h>
 #include <net/socket.h>
 #include <net/udp.h>
@@ -39,6 +40,7 @@ int netdev_init(void)
 
     netdev_info.dhcp_done = false;
 
+    ipv4_init();
     dhcp_discover();
 }
 

@@ -6,7 +6,7 @@
 #include <net/util.h>
 #include <net/types.h>
 
-int ipv4_handle_pkt(packet_t *pkt);
+void ipv4_init(void);
 
 int ipv4_handle_pkt(packet_t *pkt);
 
