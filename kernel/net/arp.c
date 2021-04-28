@@ -39,36 +39,39 @@ static hashmap_t *requests;
 
 int arp_handle_pkt(packet_t *packet)
 {
-#if 0
     arp_pkt_t *in_pkt = packet->net.packet;
 
     if (n2h_16(in_pkt->opcode) == ARP_REQUEST) {
+
         uint8_t *our_ip   = netdev_get_ip()->ipv4;
         arp_ipv4_t *in_pl = (arp_ipv4_t *)in_pkt->payload;
 
         if (!our_ip || kmemcmp(our_ip, in_pl->dstpr, sizeof(uint32_t)))
             return -ENOSYS;
 
-        size_t size       = sizeof(arp_pkt_t) + sizeof(arp_ipv4_t);
-        arp_pkt_t *pkt    = kzalloc(size);
-        arp_ipv4_t *ipv4  = (arp_ipv4_t *)pkt->payload;
+        packet_t *pkt    = netdev_alloc_pkt_L3(sizeof(arp_pkt_t) + sizeof(arp_ipv4_t));
+        eth_frame_t *eth = pkt->link;
 
-        pkt->htype  = h2n_16(ARP_ETHERNET);
-        pkt->ptype  = h2n_16(PROTO_IPV4);
-        pkt->hlen   = HW_ADDR_SIZE;
-        pkt->plen   = IPV4_ADDR_SIZE;
-        pkt->opcode = h2n_16(ARP_REPLY);
+        pkt->net.size  = sizeof(arp_pkt_t) + sizeof(arp_ipv4_t);
+        pkt->net.proto = PROTO_ARP;
+
+        arp_pkt_t *arp   = pkt->net.packet;
+        arp_ipv4_t *ipv4 = (arp_ipv4_t *)arp->payload;
+
+        arp->htype  = h2n_16(ARP_ETHERNET);
+        arp->ptype  = h2n_16(PROTO_IPV4);
+        arp->hlen   = HW_ADDR_SIZE;
+        arp->plen   = IPV4_ADDR_SIZE;
+        arp->opcode = h2n_16(ARP_REPLY);
 
         kmemcpy(ipv4->srchw, netdev_get_mac()->b,   sizeof(ipv4->srchw));
         kmemcpy(ipv4->srcpr, netdev_get_ip()->ipv4, sizeof(ipv4->srcpr));
 
+        kmemcpy(eth->dst,    in_pl->srchw, sizeof(eth->dst));
         kmemcpy(ipv4->dsthw, in_pl->srchw, sizeof(ipv4->dsthw));
         kmemcpy(ipv4->dstpr, in_pl->srcpr, sizeof(ipv4->dstpr));
 
-        eth_send_frame(&ETH_BROADCAST, PROTO_ARP, pkt, size);
-        kfree(pkt);
-
-        return 0;
+        return eth_send_pkt(pkt);
 
     } else if (n2h_16(in_pkt->opcode) == ARP_REPLY) {
         if (in_pkt->plen == IPV4_ADDR_SIZE) {
@@ -93,7 +96,6 @@ int arp_handle_pkt(packet_t *packet)
     }
 
     return -ENOTSUP;
-#endif
 }
 
 void arp_resolve(char *addr)
@@ -101,7 +103,6 @@ void arp_resolve(char *addr)
     if (!addr)
         return;
 
-#if 0
     if (!requests) {
         if (!(requests = hm_alloc_hashmap(8, HM_KEY_TYPE_STR))) {
             kprint("arp - failed to allocate space for arp request cache!\n");
@@ -114,22 +115,26 @@ void arp_resolve(char *addr)
         return;
     }
 
-    size_t size      = sizeof(arp_pkt_t) + sizeof(arp_ipv4_t);
-    arp_pkt_t *pkt   = kzalloc(size);
-    arp_ipv4_t *ipv4 = (arp_ipv4_t *)pkt->payload;
+    packet_t *pkt    = netdev_alloc_pkt_L3(sizeof(arp_pkt_t) + sizeof(arp_ipv4_t));
+    eth_frame_t *eth = pkt->link;
 
-    pkt->htype  = h2n_16(ARP_ETHERNET);
-    pkt->ptype  = h2n_16(PROTO_IPV4);
-    pkt->hlen   = HW_ADDR_SIZE;
-    pkt->plen   = IPV4_ADDR_SIZE;
-    pkt->opcode = h2n_16(ARP_REQUEST);
+    pkt->net.size  = sizeof(arp_pkt_t) + sizeof(arp_ipv4_t);
+    pkt->net.proto = PROTO_ARP;
+
+    arp_pkt_t *arp   = pkt->net.packet;
+    arp_ipv4_t *ipv4 = (arp_ipv4_t *)arp->payload;
+
+    arp->htype  = h2n_16(ARP_ETHERNET);
+    arp->ptype  = h2n_16(PROTO_IPV4);
+    arp->hlen   = HW_ADDR_SIZE;
+    arp->plen   = IPV4_ADDR_SIZE;
+    arp->opcode = h2n_16(ARP_REQUEST);
 
     kmemcpy(ipv4->srchw, netdev_get_mac()->b, sizeof(ipv4->srchw));
     kmemset(ipv4->srcpr, 0, sizeof(ipv4->srcpr));
     kmemset(ipv4->dsthw, 0, sizeof(ipv4->dsthw));
 
     net_ipv4_addr2bin(addr, ipv4->dstpr);
-    eth_send_frame(&ETH_BROADCAST, PROTO_ARP, pkt, size);
-    kfree(pkt);
-#endif
+
+    eth_send_pkt(pkt);
 }
