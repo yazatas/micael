@@ -113,7 +113,7 @@ packet_t *netdev_alloc_pkt_in(size_t size)
     return pkt;
 }
 
-packet_t *netdev_alloc_pkt_out(int net, int transport, size_t size)
+packet_t *netdev_alloc_pkt_L5(int net, int transport, size_t size)
 {
     size_t pkt_size       = sizeof(eth_frame_t) + size;
     size_t net_size       = 0;
@@ -153,7 +153,7 @@ packet_t *netdev_alloc_pkt_out(int net, int transport, size_t size)
             break;
     }
 
-    /* Allocate packet so that we only need to one allocation and one copy.
+    /* Allocate packet so that we only need to do one allocation and one copy.
      * Set the headers of different layers point to correct locations and
      * set their sizes correctly */
     packet_t *pkt = mmu_cache_alloc_entry(pkt_cache, MM_ZERO);
@@ -172,6 +172,61 @@ packet_t *netdev_alloc_pkt_out(int net, int transport, size_t size)
     pkt->app.proto  = PROTO_UNDEF;
     pkt->app.size   = pkt->transport.size - transport_size;
     pkt->app.packet = (uint8_t *)pkt->transport.packet + transport_size;
+
+    return pkt;
+}
+
+packet_t *netdev_alloc_pkt_L4(int net, size_t size)
+{
+    /* Allocate packet so that we only need to do one allocation and one copy.
+     * Set the headers of different layers point to correct locations and
+     * set their sizes correctly */
+    packet_t *pkt = mmu_cache_alloc_entry(pkt_cache, MM_ZERO);
+
+    size_t pkt_size = sizeof(eth_frame_t) + size;
+    size_t net_size = 0;
+
+    switch (net) {
+        case PROTO_IPV4:
+            net_size  = sizeof(ipv4_datagram_t);
+            pkt_size += sizeof(ipv4_datagram_t);
+            break;
+
+        case PROTO_IPV6:
+            net_size  = sizeof(ipv6_datagram_t);
+            pkt_size += sizeof(ipv6_datagram_t);
+            break;
+
+        case PROTO_ARP:
+            net_size  = sizeof(arp_pkt_t);
+            pkt_size += sizeof(arp_pkt_t);
+            break;
+    }
+
+    pkt->size = pkt_size;
+    pkt->link = kzalloc(pkt_size);
+
+    pkt->net.size   = pkt_size - sizeof(eth_frame_t);
+    pkt->net.packet = (uint8_t *)pkt->link + sizeof(eth_frame_t);
+
+    pkt->transport.size = pkt->net.size - net_size;
+    pkt->transport.packet = (uint8_t *)pkt->net.packet + net_size;
+
+    return pkt;
+}
+
+packet_t *netdev_alloc_pkt_L3(size_t size)
+{
+    /* Allocate packet so that we only need to do one allocation and one copy.
+     * Set the headers of different layers point to correct locations and
+     * set their sizes correctly */
+    packet_t *pkt = mmu_cache_alloc_entry(pkt_cache, MM_ZERO);
+
+    pkt->size = sizeof(eth_frame_t) + size;
+    pkt->link = kzalloc(pkt->size);
+
+    pkt->net.size   = size;
+    pkt->net.packet = (uint8_t *)pkt->link + sizeof(eth_frame_t);
 
     return pkt;
 }

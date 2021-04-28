@@ -16,7 +16,9 @@ ip_t  *netdev_get_ip(void);
 packet_t *netdev_alloc_pkt_in(size_t size);
 
 /* Allocate memory for an outgoing packet */
-packet_t *netdev_alloc_pkt_out(int net, int transport, size_t size);
+packet_t *netdev_alloc_pkt_L5(int net, int transport, size_t size);
+packet_t *netdev_alloc_pkt_L4(int net, size_t size);
+packet_t *netdev_alloc_pkt_L3(size_t size);
 
 /* Free memory occupied by the packet */
 int netdev_dealloc_pkt(packet_t *pkt);

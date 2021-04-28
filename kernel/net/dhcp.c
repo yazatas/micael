@@ -63,7 +63,7 @@ static hashmap_t *requests;
 
 static packet_t *__alloc_dhcp_pkt(size_t size)
 {
-    packet_t *pkt    = netdev_alloc_pkt_out(PROTO_IPV4, PROTO_UDP, sizeof(dhcp_pkt_t) + size);
+    packet_t *pkt    = netdev_alloc_pkt_L5(PROTO_IPV4, PROTO_UDP, sizeof(dhcp_pkt_t) + size);
     dhcp_pkt_t *dhcp = pkt->app.packet;
 
     dhcp->op     = OP_REQUEST;
