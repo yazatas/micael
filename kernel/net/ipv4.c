@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <crypto/random.h>
 #include <kernel/kassert.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
@@ -134,18 +135,66 @@ int ipv4_handle_pkt(packet_t *pkt)
 int ipv4_send_pkt(packet_t *pkt)
 {
     kassert(pkt);
+    kassert(pkt->net.size <= IPV4_PAYLOAD_MAX);
 
-    ipv4_datagram_t *dgram = pkt->net.packet;
+    ipv4_datagram_t *ipv4, *dgram;
+    uint16_t mtu, left, ptr;
+    packet_t *frag;
+    int ret;
+
+    dgram = pkt->net.packet;
+    mtu   = netdev_get_mtu() - sizeof(ipv4_datagram_t);
 
     kmemcpy(&dgram->src, pkt->src_addr->ipv4, sizeof(dgram->src));
     kmemcpy(&dgram->dst, pkt->dst_addr->ipv4, sizeof(dgram->dst));
 
     dgram->version  = 5;
     dgram->ihl      = 4;
-    dgram->len      = h2n_16(pkt->net.size);
     dgram->ttl      = 128;
+    dgram->iden     = h2n_16(random_gen16());
     dgram->proto    = pkt->transport.proto;
+    dgram->len      = h2n_16(pkt->net.size);
     dgram->checksum = __calculate_checksum((uint16_t *)dgram);
 
-    return eth_send_pkt(pkt);
+    if (pkt->net.size < mtu - IPV4_HDR_SIZE)
+        return eth_send_pkt(pkt);
+
+    /* if the upper level wants to send a packet that is larger than MTU,
+    * we must fragment the packet into multiple IPv4 datagrams */
+    frag = netdev_alloc_pkt_L3(mtu + IPV4_HDR_SIZE);
+    left = pkt->net.size - IPV4_HDR_SIZE;
+    ptr  = 0;
+
+    /* instruct lower levels not to free the packet
+    * as we will reuse this same packet for all IPv4 fragments */
+    frag->flags = NF_REUSE;
+
+    /* copy the frame from the input and update it as the loop progresses */
+    kmemcpy(frag->net.packet, dgram, IPV4_HDR_SIZE);
+
+    ipv4 = frag->net.packet;
+
+    while (left > mtu) {
+        ipv4->len      = h2n_16(mtu + IPV4_HDR_SIZE);
+        ipv4->f_off    = h2n_16(IPV4_MORE_FRAGS | (ptr / 8));
+        ipv4->checksum = 0;
+        ipv4->checksum = (__calculate_checksum((uint16_t *)ipv4));
+
+        kmemcpy(ipv4->payload, (uint8_t *)dgram->payload + ptr, mtu);
+        eth_send_pkt(frag);
+
+        ptr  += mtu;
+        left -= mtu;
+    }
+
+    ipv4->len      = h2n_16(left + IPV4_HDR_SIZE);
+    ipv4->f_off    = h2n_16(ptr / 8);
+    ipv4->checksum = 0;
+    ipv4->checksum = __calculate_checksum((uint16_t *)ipv4);
+
+    kmemcpy(ipv4->payload, (uint8_t *)dgram->payload + ptr, left);
+    ret = eth_send_pkt(frag);
+    netdev_dealloc_pkt(pkt);
+
+    return ret;
 }

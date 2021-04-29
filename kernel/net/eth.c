@@ -51,7 +51,9 @@ int eth_send_pkt(packet_t *pkt)
     eth->type = h2n_16(pkt->net.proto);
 
     rtl8139_send_pkt((uint8_t *)eth, pkt->size);
-    netdev_dealloc_pkt(pkt);
+
+    if (!(pkt->flags & NF_REUSE))
+        netdev_dealloc_pkt(pkt);
 
     return 0;
 }

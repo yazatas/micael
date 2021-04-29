@@ -24,6 +24,11 @@ enum HEADER_SIZES {
     UDP_HDR_SIZE  =  8
 };
 
+enum NET_FLAGS {
+    NF_NONE  = 0 << 0,
+    NF_REUSE = 1 << 0,
+};
+
 typedef uint16_t proto_t;
 
 typedef struct ip {
@@ -109,6 +114,7 @@ typedef struct tcp_pkt {
 typedef struct packet {
 
     short size;
+    int flags;
     eth_frame_t *link;
 
     /* Connectivity information, either filled by
