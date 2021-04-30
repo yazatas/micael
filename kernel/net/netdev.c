@@ -47,7 +47,7 @@ int netdev_init(void)
 
 void netdev_add_dhcp_info(dhcp_info_t *info)
 {
-    netdev_info.dhcp = info;
+    netdev_info.dhcp = kmemdup(info, sizeof(dhcp_info_t));
     kmemcpy(netdev_info.our_ip.ipv4, &info->addr, sizeof(uint32_t));
 
     kprint("netdev - our address: ");
