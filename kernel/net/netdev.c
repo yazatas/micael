@@ -42,6 +42,7 @@ int netdev_init(void)
 
     ipv4_init();
     dhcp_discover();
+    socket_init();
 }
 
 void netdev_add_dhcp_info(dhcp_info_t *info)

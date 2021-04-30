@@ -1,6 +1,8 @@
 #ifndef __NET_TYPES_H__
 #define __NET_TYPES_H__
 
+#include <sys/socket.h>
+
 enum NETWORK {
     PROTO_IPV4 = 0x0800,
     PROTO_ARP  = 0x0806,
