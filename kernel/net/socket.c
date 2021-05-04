@@ -34,3 +34,36 @@ int socket_handle_pkt(packet_t *pkt)
     netdev_dealloc_pkt(pkt);
     return ret;
 }
+
+int socket_alloc(file_ctx_t *ctx, int domain, int type, int proto)
+{
+    kassert(!proto && domain == AF_INET && (type == SOCK_DGRAM || type == SOCK_STREAM));
+
+    if (!ctx || domain != AF_INET || !(type == SOCK_DGRAM || type == SOCK_STREAM) || proto)
+        return -EINVAL;
+
+    int fd = vfs_alloc_fd(ctx);
+
+    if (fd < 0) {
+        kprint("socket - failed to allocate a file descriptor\n");
+        return fd;
+    }
+
+    /* initialize a socket object and save it to the file's private data */
+    socket_t *sock = kzalloc(sizeof(socket_t));
+
+    sock->domain = domain;
+    sock->proto  = type;
+    wq_init_head(&sock->wq);
+
+    ctx->fd[fd]->f_private = sock;
+
+    switch (type) {
+        case SOCK_DGRAM:
+            udp_init_socket(ctx->fd[fd]);
+            sock->udp = kzalloc(sizeof(udp_skb_t));
+            break;
+    }
+
+    return fd;
+}
