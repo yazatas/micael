@@ -9,10 +9,12 @@
 #include <kernel/util.h>
 #include <mm/mmu.h>
 #include <mm/heap.h>
+#include <net/socket.h>
 #include <sched/sched.h>
 #include <sched/syscall.h>
+#include <sys/socket.h>
 
-#define MAX_SYSCALLS 8
+#define MAX_SYSCALLS 9
 
 typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
@@ -189,6 +191,16 @@ int32_t sys_wait(isr_regs_t *cpu)
     return 0;
 }
 
+int32_t sys_socket(isr_regs_t *cpu)
+{
+    int domain      = (int)cpu->rdx;
+    int type        = (int)cpu->rbx;
+    int proto       = (size_t)cpu->rcx;
+    task_t *current = sched_get_active();
+
+    return socket_alloc(current->file_ctx, domain, type, proto);
+}
+
 static syscall_t syscalls[MAX_SYSCALLS] = {
     [0] = sys_read,
     [1] = sys_write,
@@ -196,6 +208,7 @@ static syscall_t syscalls[MAX_SYSCALLS] = {
     [3] = sys_execv,
     [6] = sys_exit,
     [7] = sys_wait,
+    [8] = sys_socket,
 };
 
 uint32_t syscall_handler(void *ctx)
