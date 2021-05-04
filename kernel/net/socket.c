@@ -31,6 +31,16 @@ int socket_handle_pkt(packet_t *pkt)
     int dst = ((udp_pkt_t *)pkt->transport.packet)->dst;
     int ret = -ENOTSUP;
 
+    for (int i = 0; i < MAX_SOCKETS; ++i) {
+        if (sockets[i].active && sockets[i].port == dst) {
+            if (pkt->transport.proto == PROTO_UDP) {
+                ret = udp_write_skb(sockets[i].sock, pkt);
+                wq_wakeup(&sockets[i].sock->wq);
+                return ret;
+            }
+        }
+    }
+
     netdev_dealloc_pkt(pkt);
     return ret;
 }

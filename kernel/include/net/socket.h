@@ -32,4 +32,7 @@ int socket_init(void);
  * Return -EINVAL if one of parameters is invalid */
 int socket_alloc(file_ctx_t *ctx, int domain, int type, int proto);
 
+/* TODO:  */
+int socket_handle_pkt(packet_t *pkt);
+
 #endif /* __SOCKET_H__ */

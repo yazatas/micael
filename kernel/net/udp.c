@@ -69,6 +69,9 @@ int udp_handle_pkt(packet_t *pkt)
     switch (udp->dst) {
         case DHCP_CLIENT_PORT:
             return dhcp_handle_pkt(pkt);
+
+        default:
+            return socket_handle_pkt(pkt);
     }
 }
 
