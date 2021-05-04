@@ -35,4 +35,7 @@ int socket_alloc(file_ctx_t *ctx, int domain, int type, int proto);
 /* TODO:  */
 int socket_handle_pkt(packet_t *pkt);
 
+/* TODO:  */
+int socket_bind(file_ctx_t *ctx, int sockfd, saddr_in_t *addr, socklen_t addrlen);
+
 #endif /* __SOCKET_H__ */

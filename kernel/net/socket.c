@@ -19,6 +19,25 @@ struct sock {
     socket_t *sock;
 } sockets[MAX_SOCKETS];
 
+static int __add_listener(ip_t *src_addr, short src_port, socket_t *sock)
+{
+    (void)src_addr; /* TODO:  */
+
+    int i = 0;
+
+    for (; i < MAX_SOCKETS && sockets[i].active; ++i)
+        ;
+
+    if (i == MAX_SOCKETS)
+        return -ENOMEM;
+
+    sockets[i].port   = src_port;
+    sockets[i].active = true;
+    sockets[i].sock   = sock;
+
+    return 0;
+}
+
 int socket_init(void)
 {
     kmemset(sockets, 0, sizeof(sockets));
@@ -73,7 +92,30 @@ int socket_alloc(file_ctx_t *ctx, int domain, int type, int proto)
             udp_init_socket(ctx->fd[fd]);
             sock->udp = kzalloc(sizeof(udp_skb_t));
             break;
+
+        case SOCK_STREAM:
+            tcp_init_socket(ctx->fd[fd]);
+            sock->tcp = kzalloc(sizeof(tcp_skb_t));
+            break;
     }
 
     return fd;
+}
+
+int socket_bind(file_ctx_t *ctx, int sockfd, saddr_in_t *addr, socklen_t addrlen)
+{
+    if (!ctx || sockfd < 2 || sockfd >= ctx->numfd || !addr || !addrlen)
+        return -EINVAL;
+
+    /* TODO: validate address & port */
+
+    socket_t *sock = ctx->fd[sockfd]->f_private;
+    sock->src_port = addr->sin_port;
+
+    if (addr->sin_addr.s_addr == INADDR_ANY)
+        sock->src_addr = netdev_get_ip();
+    else
+        kpanic("validate address");
+
+    return __add_listener(sock->src_addr, sock->src_port, sock);
 }
