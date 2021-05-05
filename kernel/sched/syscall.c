@@ -14,7 +14,7 @@
 #include <sched/syscall.h>
 #include <sys/socket.h>
 
-#define MAX_SYSCALLS 10
+#define MAX_SYSCALLS 12
 
 typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
@@ -211,6 +211,30 @@ int32_t sys_bind(isr_regs_t *cpu)
     return socket_bind(current->file_ctx, sockfd, addr, slen);
 }
 
+int32_t sys_send(isr_regs_t *cpu)
+{
+    int sockfd       = cpu->rdi;
+    void *buf        = (void *)cpu->rsi;
+    int len          = cpu->rdx;
+    int flags        = cpu->rcx;
+    task_t *current  = sched_get_active();
+
+    return socket_send(current->file_ctx, sockfd, buf, len, flags, NULL, 0);
+}
+
+int32_t sys_sendto(isr_regs_t *cpu)
+{
+    int sockfd       = cpu->rdi;
+    void *buf        = (void *)cpu->rsi;
+    int len          = cpu->rdx;
+    int flags        = cpu->rcx;
+    saddr_in_t *addr = (saddr_in_t *)cpu->r8;
+    socklen_t slen   = (socklen_t)cpu->r9;
+    task_t *current  = sched_get_active();
+
+    return socket_send(current->file_ctx, sockfd, buf, len, flags, addr, slen);
+}
+
 static syscall_t syscalls[MAX_SYSCALLS] = {
     [0] = sys_read,
     [1] = sys_write,
@@ -219,7 +243,9 @@ static syscall_t syscalls[MAX_SYSCALLS] = {
     [6] = sys_exit,
     [7] = sys_wait,
     [8] = sys_socket,
-    [9] = sys_bind
+    [9] = sys_bind,
+    [10] = sys_send,
+    [11] = sys_sendto
 };
 
 uint32_t syscall_handler(void *ctx)
