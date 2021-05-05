@@ -119,3 +119,39 @@ int socket_bind(file_ctx_t *ctx, int sockfd, saddr_in_t *addr, socklen_t addrlen
 
     return __add_listener(sock->src_addr, sock->src_port, sock);
 }
+
+int socket_send(file_ctx_t *ctx, int sockfd, void *buf, size_t len,
+                int flags, saddr_in_t *dest_addr, socklen_t addrlen)
+{
+    if (!ctx || sockfd < 2 || sockfd >= ctx->numfd || !buf || !len)
+        return -EINVAL;
+
+    /* TODO: check that socket is valid */
+    /* TODO: make sure len makes sense */
+    packet_t *pkt;
+    socket_t *sock = ctx->fd[sockfd]->f_private;
+
+    switch (sock->proto) {
+        case PROTO_UDP:
+            pkt = netdev_alloc_pkt_L5(PROTO_IPV4, PROTO_UDP, len);
+            break;
+    }
+
+    pkt->src_addr = sock->src_addr;
+    pkt->src_port = sock->src_port;
+
+    if (sock->proto == SOCK_DGRAM) {
+        if (!dest_addr || !addrlen) {
+            kprint("socket - destination address required for udp sockets!\n");
+            return -EINVAL;
+        }
+
+        pkt->dst_port = dest_addr->sin_port;
+        pkt->dst_addr = kzalloc(sizeof(ip_t));
+
+        kmemcpy(pkt->dst_addr->ipv4, &dest_addr->sin_addr.s_addr, sizeof(uint32_t));
+    }
+
+    kmemcpy(pkt->app.packet, buf, len);
+    return file_write(ctx->fd[sockfd], flags, pkt->size, pkt);
+}
