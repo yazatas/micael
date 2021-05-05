@@ -155,3 +155,14 @@ int socket_send(file_ctx_t *ctx, int sockfd, void *buf, size_t len,
     kmemcpy(pkt->app.packet, buf, len);
     return file_write(ctx->fd[sockfd], flags, pkt->size, pkt);
 }
+
+int socket_recv(file_ctx_t *ctx, int sockfd, void *buf, size_t len,
+                int flags, saddr_in_t *dest_addr, socklen_t *addrlen)
+{
+    if (!ctx || sockfd < 2 || sockfd >= ctx->numfd)
+        return -EINVAL;
+
+    kassert(!dest_addr && !addrlen);
+
+    return file_read(ctx->fd[sockfd], flags, len, buf);
+}
