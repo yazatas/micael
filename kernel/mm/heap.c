@@ -190,8 +190,10 @@ void *kmalloc(size_t size, int flags)
 
         __alloc_arena();
 
-        if (!(block = __find_free(&__mem, size)))
+        if (!(block = __find_free(&__mem, size))) {
+            kassert(NULL);
             return NULL;
+        }
     }
 
     if (flags & MM_ZERO)
