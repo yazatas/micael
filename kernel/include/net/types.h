@@ -109,7 +109,14 @@ typedef struct udp_pkt {
 } __packed udp_pkt_t;
 
 typedef struct tcp_pkt {
-    int value;
+    uint16_t src;
+    uint16_t dst;
+    uint32_t seq;
+    uint32_t aseq;
+    uint16_t off; /* offset + flags */
+    uint16_t len;
+    uint16_t cks; /* checksum */
+    uint16_t uptr;
     char payload[0];
 } __packed tcp_pkt_t;
 
