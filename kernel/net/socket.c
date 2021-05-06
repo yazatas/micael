@@ -192,3 +192,29 @@ int socket_recv(file_ctx_t *ctx, int sockfd, void *buf, size_t len,
 
     return file_read(ctx->fd[sockfd], flags, len, buf);
 }
+
+int socket_connect(file_ctx_t *ctx, int sockfd, saddr_in_t *dest_addr, socklen_t addrlen)
+{
+    if (!ctx || sockfd < 2 || sockfd >= ctx->numfd)
+        return -EINVAL;
+
+    int ret;
+    socket_t *sock = ctx->fd[sockfd]->f_private;
+
+    if (sock->proto != SOCK_STREAM)
+        return -ENOTSUP;
+
+    if (!sock->src_addr || !sock->src_port || !dest_addr || !addrlen)
+        return -EFAULT;
+
+    if ((ret = tcp_connect(ctx->fd[sockfd], dest_addr, addrlen)) < 0) {
+        kprint("socket - failed to connect to remote host!");
+        return ret;
+    }
+
+    sock->dst_port = dest_addr->sin_port;
+    sock->dst_addr = kzalloc(sizeof(ip_t));
+    kmemcpy(sock->dst_addr->ipv4, &dest_addr->sin_addr.s_addr, sizeof(uint32_t));
+
+    return ret;
+}
