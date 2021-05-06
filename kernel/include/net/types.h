@@ -27,8 +27,9 @@ enum HEADER_SIZES {
 };
 
 enum NET_FLAGS {
-    NF_NONE  = 0 << 0,
-    NF_REUSE = 1 << 0,
+    NF_NONE   = 0 << 0,
+    NF_REUSE  = 1 << 0,
+    NF_NO_RTO = 1 << 1,
 };
 
 typedef uint16_t proto_t;
