@@ -9,7 +9,7 @@ bitmap_t *bm_alloc_bitmap(size_t nmemb)
     bitmap_t *bm;
     size_t num_bits;
 
-    if ((bm = kmalloc(sizeof(bitmap_t))) == NULL) {
+    if ((bm = kmalloc(sizeof(bitmap_t), 0)) == NULL) {
         return NULL;
     }
 

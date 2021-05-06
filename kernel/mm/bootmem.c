@@ -61,7 +61,7 @@ struct bootmem_mmap **mmu_bootmem_release(int *num_entries)
 {
     kassert(num_entries != NULL);
 
-    bootmem_mmap_t **map = kmalloc(sizeof(bootmem_mmap_t *) * 5);
+    bootmem_mmap_t **map = kmalloc(sizeof(bootmem_mmap_t *) * 5, 0);
 
     for (size_t i = 0; i < 5; ++i) {
         int start = bm_find_first_unset(
@@ -79,7 +79,7 @@ struct bootmem_mmap **mmu_bootmem_release(int *num_entries)
          * I we allocate page 0x8000 now, the next page on the list is 0x9000 
          *
          * "start" marks the next available page. From that we can calculate the amount of pages in use */
-        map[i] = kmalloc(sizeof(bootmem_mmap_t));
+        map[i] = kmalloc(sizeof(bootmem_mmap_t), 0);
 
         map[i]->start  = mem_info.ranges[i].start;
         map[i]->npages = start;

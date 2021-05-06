@@ -8,6 +8,8 @@ include $(DIR_SYNC)/make.config
 include $(DIR_MM)/make.config
 include $(DIR_FS)/make.config
 include $(DIR_LIB)/make.config
+include $(DIR_NET)/make.config
+include $(DIR_CRYPTO)/make.config
 include $(ACPICA_DIR)/make.config
 include $(ACPI_DIR)/make.config
 
@@ -27,17 +29,20 @@ KERNEL_OBJS= \
 	$(KERNEL_MM_OBJS) \
 	$(KERNEL_FS_OBJS) \
 	$(KERNEL_LIB_OBJS) \
-	$(KERNEL_ACPICA_OBJS) \
+	$(KERNEL_NET_OBJS) \
+	$(KERNEL_CRYPTO_OBJS) \
 	$(KERNEL_ACPI_OBJS) \
 	kernel/kmain.o \
 	kernel/irq.o \
 	kernel/kprint.o \
 	kernel/kpanic.o \
+	kernel/ktrace.o \
 	kernel/util.o \
 	kernel/tick.o \
 	kernel/mp.o
 
-OBJS = $(KERNEL_OBJS) $(OTHER_OBJS)
+OBJS = $(KERNEL_OBJS) $(OTHER_OBJS) $(KERNEL_ACPICA_OBJS)
+CLEAN_OBJS = $(KERNEL_OBJS) $(OTHER_OBJS)
 LINK_LIST = $(OBJS) $(LDFLAGS)
 
 .PHONY: all clean install copy-headers install-kernel
@@ -79,5 +84,8 @@ $(ROOTDIR)/toolchain/ramfs.bin:
 
 clean:
 	rm -f micael.kernel kernel.map
-	rm -f $(OBJS) *.o */*.o */*/*.o
-	rm -f $(OBJS:.o=.d) *.d */*.d */*/*.d
+	rm -f $(CLEAN_OBJS)
+
+clean-all:
+	rm -f micael.kernel kernel.map
+	rm -f $(OBJS)

@@ -150,6 +150,13 @@ fs_ctx_t *vfs_alloc_fs_ctx(dentry_t *pwd);
  *  EINVAL if "numfd" is 0 */
 file_ctx_t *vfs_alloc_file_ctx(int numfd);
 
+/* Allocate space for a new file object in "ctx" and
+ * return the the file descriptor (index) of the new file.
+ *
+ * Return file descriptor on sucess
+ * Return -EINVAL if "ctx" is NULL */
+int vfs_alloc_fd(file_ctx_t *ctx);
+
 /* Free the file system context pointed to by "ctx"
  *
  * Return 0 on success

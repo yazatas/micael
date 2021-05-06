@@ -135,7 +135,7 @@ int ps2_init(void)
     if ((ps2_pipe = pipe_create(64)) == NULL)
         return -errno;
 
-    if ((ops = kmalloc(sizeof(file_ops_t))) == NULL)
+    if ((ops = kmalloc(sizeof(file_ops_t), 0)) == NULL)
         goto error;
 
     ops->read  = __read;

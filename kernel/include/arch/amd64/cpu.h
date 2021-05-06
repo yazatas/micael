@@ -12,9 +12,10 @@ typedef struct task task_t;
 #define KGS_BASE  0xC0000102
 
 typedef struct isr_regs {
-    uint64_t eax, ecx, edx, ebx, ebp, esi, edi;
+    uint64_t rax, rcx, rdx, rbx, rbp, rsi, rdi;
+    uint64_t r8, r9, r10, rr1, r12, r13, r14, r15;
     uint64_t isr_num, err_num;
-    uint64_t eip, cs, eflags, esp, ss;
+    uint64_t rip, cs, eflags, rsp, ss;
 } __attribute__((packed)) isr_regs_t;
 
 static inline void disable_irq(void)

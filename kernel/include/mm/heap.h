@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void *kmalloc(size_t size);
+void *kmalloc(size_t size, int flags);
 void *kzalloc(size_t size);
 void *kcalloc(size_t nmemb, size_t size);
 void *krealloc(void *ptr, size_t size);

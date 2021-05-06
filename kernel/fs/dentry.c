@@ -241,7 +241,7 @@ int dentry_dealloc(dentry_t *dntr)
 
     list_remove(&dntr->d_list);
     hm_dealloc_hashmap(dntr->d_children);
-    (void)mmu_cache_free_entry(dentry_cache, dntr);
+    (void)mmu_cache_free_entry(dentry_cache, dntr, 0);
 
     return ret;
 }

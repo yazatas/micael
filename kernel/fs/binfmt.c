@@ -16,7 +16,7 @@ void binfmt_init(void)
 
 void binfmt_add_loader(binfmt_loader_t loader)
 {
-    binfmt_t *bfmt = kmalloc(sizeof(binfmt_t));
+    binfmt_t *bfmt = kmalloc(sizeof(binfmt_t), 0);
     bfmt->loader = loader;
 
     list_init(&bfmt->list);

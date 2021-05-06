@@ -4,6 +4,7 @@
 
 #include <lib/hashmap.h>
 #include <mm/heap.h>
+#include <sync/spinlock.h>
 
 #define BUCKET_MAX_LEN 12
 #define KEY_SIZE       12
@@ -19,6 +20,7 @@ typedef struct hm_item {
 struct hashmap {
     size_t len;
     size_t cap;
+    spinlock_t lock;
 
     hm_item_t **elem;
     uint32_t (*hm_hash)(void *);
@@ -67,14 +69,15 @@ hashmap_t *hm_alloc_hashmap(size_t size, hm_key_type_t type)
 {
     hashmap_t *hm;
 
-    if ((hm = kmalloc(sizeof(hashmap_t))) == NULL)
+    if ((hm = kmalloc(sizeof(hashmap_t), 0)) == NULL)
         return NULL;
 
     if ((hm->elem = kcalloc(size, sizeof(hm_item_t *))) == NULL)
         return NULL;
 
-    hm->len = 0;
-    hm->cap = size;
+    hm->len  = 0;
+    hm->lock = 0;
+    hm->cap  = size;
 
     if (type == HM_KEY_TYPE_NUM) {
         hm->hm_hash = hm_hash_num;
@@ -112,7 +115,7 @@ static int hm_find_free_bucket(hashmap_t *hm, uint32_t key)
 
     for (size_t i = 0; i < BUCKET_MAX_LEN; ++i) {
         if (hm->elem[index] == NULL) {
-            hm->elem[index] = kmalloc(sizeof(hm_item_t));
+            hm->elem[index] = kmalloc(sizeof(hm_item_t), 0);
             return index;
         }
 
@@ -139,16 +142,21 @@ int hm_insert(hashmap_t *hm, void *ukey, void *elem)
     if ((key = hm->hm_hash(ukey)) == UINT32_MAX)
         return -EINVAL;
 
+    spin_acquire(&hm->lock);
+
     index = hm_find_free_bucket(hm, key);
 
-    if (index < 0)
+    if (index < 0) {
+        spin_release(&hm->lock);
         return -ENOSPC;
+    }
 
     hm->elem[index]->data     = elem;
     hm->elem[index]->key      = key;
     hm->elem[index]->occupied = true;
     hm->len++;
 
+    spin_release(&hm->lock);
     return 0;
 }
 
@@ -163,17 +171,21 @@ int hm_remove(hashmap_t *hm, void *ukey)
     if ((key = hm->hm_hash(ukey)) == UINT32_MAX)
         return -EINVAL;
 
+    spin_acquire(&hm->lock);
+
     index = key % hm->cap;
 
     for (size_t i = 0; i < BUCKET_MAX_LEN; ++i) {
         if (hm->elem[index]->key == key) {
             hm->elem[index]->occupied = false;
+            spin_release(&hm->lock);
             return 0;
         }
 
         index = (index + 1) % hm->cap;
     }
 
+    spin_release(&hm->lock);
     return -ENOENT;
 }
 

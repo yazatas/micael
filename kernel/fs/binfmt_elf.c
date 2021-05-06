@@ -62,7 +62,7 @@ static bool __loader_32(void *addr, int argc, char **argv)
         size_t nwritten       = 0;
 
         while (nwritten < nleft) {
-            unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL);
+            unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL, 0);
             mmu_map_page(page, v_start, mm_flags);
 
             size_t read_size = MIN(PAGE_SIZE, nleft);
@@ -75,7 +75,7 @@ static bool __loader_32(void *addr, int argc, char **argv)
 
     /* allocate user stack and copy argc + argv there */
     uint32_t mm_flags = MM_PRESENT | MM_READWRITE | MM_USER;
-    mmu_map_page(mmu_page_alloc(MM_ZONE_NORMAL), USER_STACK_START - PAGE_SIZE, mm_flags);
+    mmu_map_page(mmu_page_alloc(MM_ZONE_NORMAL, 0), USER_STACK_START - PAGE_SIZE, mm_flags);
 
     /* TODO: where is argv mapped? */
     /* TODO: add argc + argv to stack */
@@ -114,7 +114,7 @@ static bool __loader_64(void *addr, int argc, char **argv)
         size_t nwritten       = 0;
 
         while (nwritten < nleft) {
-            unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL);
+            unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL, 0);
             mmu_map_page(page, v_start, mm_flags);
 
             size_t read_size = MIN(PAGE_SIZE, nleft);
@@ -127,7 +127,7 @@ static bool __loader_64(void *addr, int argc, char **argv)
 
     /* allocate user stack and copy argc + argv there */
     uint32_t mm_flags = MM_PRESENT | MM_READWRITE | MM_USER;
-    mmu_map_page(mmu_page_alloc(MM_ZONE_NORMAL), USER_STACK_START - PAGE_SIZE, mm_flags);
+    mmu_map_page(mmu_page_alloc(MM_ZONE_NORMAL, 0), USER_STACK_START - PAGE_SIZE, mm_flags);
 
     /* TODO: where is argv mapped? */
     /* TODO: add argc + argv to stack */
@@ -147,7 +147,7 @@ bool binfmt_elf_loader(file_t *file, int argc, char **argv)
 
     /* kdebug("in binfmt_elf_loader..."); */
 
-    unsigned long mem = (unsigned long)mmu_p_to_v(mmu_page_alloc(MM_ZONE_NORMAL));
+    unsigned long mem = (unsigned long)mmu_p_to_v(mmu_page_alloc(MM_ZONE_NORMAL, 0));
     size_t fsize      = file->f_dentry->d_inode->i_size;
     size_t pages      = (fsize / PAGE_SIZE) + 1;
     void *addr        = (void *)mem;

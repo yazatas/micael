@@ -24,7 +24,7 @@ void AcpiOsPrintf(const char *fmt, ...)
 
 void *AcpiOsAllocate(ACPI_SIZE size)
 {
-    return kmalloc(size);
+    return kmalloc(size, 0);
 }
 
 void AcpiOsFree(void *ptr)
@@ -107,7 +107,7 @@ ACPI_STATUS AcpiOsWritePciConfiguration (ACPI_PCI_ID *pci_id, uint32_t Register,
 
 ACPI_STATUS AcpiOsCreateSemaphore(uint32_t max, uint32_t init, ACPI_SEMAPHORE *out_handle)
 {
-    *out_handle = kmalloc(sizeof(spinlock_t));
+    *out_handle = kzalloc(sizeof(spinlock_t));
     return AE_OK;
 }
 
@@ -149,7 +149,7 @@ ACPI_STATUS AcpiOsSignalSemaphore(ACPI_SEMAPHORE handle, uint32_t units)
 
 ACPI_STATUS AcpiOsCreateLock(ACPI_SPINLOCK *out_handle)
 {
-    *out_handle = kmalloc(sizeof(spinlock_t));
+    *out_handle = kzalloc(sizeof(spinlock_t));
     return AE_OK;
 }
 

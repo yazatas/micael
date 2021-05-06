@@ -11,14 +11,14 @@ void mmu_zones_init(void *arg);
  *
  * Return pointer to allocated page structure on success
  * Return INVALID_ADDRESS on error and set errno */
-unsigned long mmu_block_alloc(unsigned memzone, unsigned order);
+unsigned long mmu_block_alloc(unsigned memzone, unsigned order, int flags);
 
 /* Allocate one page of memory from requested memory zone
  * This is the same as calling: mmu_block_alloc(zone, 0);
  *
  * Return pointer to allocated page structure on success
  * Return INVALID_ADDRESS on error and set errno */
-unsigned long mmu_page_alloc(unsigned memzone);
+unsigned long mmu_page_alloc(unsigned memzone, int flags);
 
 /* Release page starting address "address"
  * Try to coalesce with buddy if possible

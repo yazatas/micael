@@ -52,7 +52,7 @@ int mmu_native_init(void)
 
 static uint64_t __alloc_entry(void)
 {
-    uint64_t addr = mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL);
+    uint64_t addr = mmu_page_alloc(MM_ZONE_DMA | MM_ZONE_NORMAL, MM_HIGH_PRIO);
     kmemset((void *)amd64_p_to_v(addr), 0, PAGE_SIZE);
 
     return addr | MM_PRESENT | MM_READWRITE;
@@ -139,7 +139,7 @@ void *mmu_native_build_dir(void)
     uint64_t pml4_p;
     uint64_t *pml4_v;
 
-    if ((pml4_p = mmu_page_alloc(MM_ZONE_NORMAL)) == INVALID_ADDRESS)
+    if ((pml4_p = mmu_page_alloc(MM_ZONE_NORMAL, 0)) == INVALID_ADDRESS)
         return NULL;
 
     pml4_v = amd64_p_to_v(pml4_p);

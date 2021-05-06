@@ -62,7 +62,7 @@ static struct {
 
 static mount_t *alloc_empty_mount(void)
 {
-    mount_t *mnt = kmalloc(sizeof(mount_t));
+    mount_t *mnt = kmalloc(sizeof(mount_t), 0);
     
     if (!mnt)
         return NULL;
@@ -433,7 +433,7 @@ end:
 
 path_t *vfs_path_lookup(char *path, int flags)
 {
-    path_t *retpath   = kmalloc(sizeof(path_t));
+    path_t *retpath   = kmalloc(sizeof(path_t), 0);
     retpath->p_status = LOOKUP_STAT_ENOENT;
     retpath->p_flags  = flags;
 
@@ -568,11 +568,33 @@ file_ctx_t *vfs_alloc_file_ctx(int numfd)
     if (!ctx)
         return NULL;
 
+    ctx->lock  = 0;
     ctx->count = 1;
     ctx->numfd = numfd;
-    ctx->fd    = kmalloc(sizeof(file_t *) * numfd);
+    ctx->fd    = kmalloc(sizeof(file_t *) * numfd, 0);
 
     return ctx;
+}
+
+int vfs_alloc_fd(file_ctx_t *ctx)
+{
+    if (!ctx)
+        return -EINVAL;
+
+    spin_acquire(&ctx->lock);
+
+    int ret  = ctx->numfd++;
+    void *fd = kzalloc(sizeof(file_t *) * ctx->numfd);
+
+    kmemcpy(fd, ctx->fd, sizeof(file_t *) * ctx->numfd - 1);
+    kfree(ctx->fd);
+    ctx->fd = fd; /* TODO: atomic */
+
+    if (!(ctx->fd[ret] = file_generic_alloc()))
+        return -ENOMEM;
+
+    spin_release(&ctx->lock);
+    return ret;
 }
 
 int vfs_free_fs_ctx(fs_ctx_t *ctx)

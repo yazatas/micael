@@ -9,7 +9,7 @@ void native_dump_registers(isr_regs_t *cpu_state)
 {
     if (!cpu_state) {
 
-        uint64_t eax, ebx, ecx, edx, edi, cr3, cr2;
+        uint64_t rax, rbx, rcx, rdx, rdi, cr3, cr2;
 
         asm volatile ("mov %%rax, %0\n\
                        mov %%rbx, %1\n\
@@ -20,14 +20,14 @@ void native_dump_registers(isr_regs_t *cpu_state)
                        mov %%rax, %5\n\
                        mov %%cr3, %%rax\n\
                        mov %%rax, %6"
-                       : "=g"(eax), "=g"(ebx), "=g"(ecx), "=g"(edx),
-                         "=g"(edi), "=g"(cr2), "=g"(cr3));
+                       : "=g"(rax), "=g"(rbx), "=g"(rcx), "=g"(rdx),
+                         "=g"(rdi), "=g"(cr2), "=g"(cr3));
 
         kprint("\nregister contents:\n");
         kprint("\trax: 0x%016x %20u\n\trbx: 0x%016x %20u\n\trcx: 0x%016x %20u\n"
                "\trdx: 0x%016x %20u\n\trdi: 0x%016x %20u\n\tcr2: 0x%016x %20u\n"
-               "\tcr3: 0x%016x %20u\n\n", REG(eax), REG(ebx), REG(ecx),
-               REG(edx), REG(edi),    REG(cr2), REG(cr3));
+               "\tcr3: 0x%016x %20u\n\n", REG(rax), REG(rbx), REG(rcx),
+               REG(rdx), REG(rdi), REG(cr2), REG(cr3));
     } else {
         kprint("\nRegister contents:\n");
         kprint("\trax: 0x%016x %20u\n"
@@ -38,19 +38,19 @@ void native_dump_registers(isr_regs_t *cpu_state)
                "\trdi: 0x%016x %20u\n"
                "\trbp: 0x%016x %20u\n"
                "\trsp: 0x%016x %20u\n"
-               "\trip: 0x%016x %20u\n",     cpu_state->eax, cpu_state->eax,
-            cpu_state->ecx, cpu_state->ecx, cpu_state->edx, cpu_state->edx,
-            cpu_state->ebx, cpu_state->ebx, cpu_state->esi, cpu_state->esi,
-            cpu_state->edi, cpu_state->edi, cpu_state->ebp, cpu_state->ebp,
-            cpu_state->esp, cpu_state->esp, cpu_state->eip, cpu_state->eip);
+               "\trip: 0x%016x %20u\n",     cpu_state->rax, cpu_state->rax,
+            cpu_state->rcx, cpu_state->rcx, cpu_state->rdx, cpu_state->rdx,
+            cpu_state->rbx, cpu_state->rbx, cpu_state->rsi, cpu_state->rsi,
+            cpu_state->rdi, cpu_state->rdi, cpu_state->rbp, cpu_state->rbp,
+            cpu_state->rsp, cpu_state->rsp, cpu_state->rip, cpu_state->rip);
     }
 }
 
 void native_context_prepare(task_t *task, void *ip, void *sp)
 {
-    task->threads->bootstrap.eip    = (unsigned long)ip;
-    task->threads->bootstrap.ebp    = (unsigned long)sp;
-    task->threads->bootstrap.esp    = (unsigned long)sp;
+    task->threads->bootstrap.rip    = (unsigned long)ip;
+    task->threads->bootstrap.rbp    = (unsigned long)sp;
+    task->threads->bootstrap.rsp    = (unsigned long)sp;
     task->threads->bootstrap.eflags = (1 << 9); /* enable interrupts */
 
     task->threads->bootstrap.cs     = SEG_USER_CODE;

@@ -9,18 +9,20 @@
 #include <kernel/util.h>
 #include <mm/mmu.h>
 #include <mm/heap.h>
+#include <net/socket.h>
 #include <sched/sched.h>
 #include <sched/syscall.h>
+#include <sys/socket.h>
 
-#define MAX_SYSCALLS 8
+#define MAX_SYSCALLS 17
 
 typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
 int32_t sys_read(isr_regs_t *cpu)
 {
-    int fd          = (int)cpu->edx;
-    void *buf       = (void *)cpu->ebx;
-    size_t len      = (size_t)cpu->ecx;
+    int fd          = (int)cpu->rdx;
+    void *buf       = (void *)cpu->rbx;
+    size_t len      = (size_t)cpu->rcx;
     task_t *current = sched_get_active();
 
     if ((buf == NULL) ||
@@ -44,9 +46,9 @@ int32_t sys_read(isr_regs_t *cpu)
 
 int32_t sys_write(isr_regs_t *cpu)
 {
-    int fd          = (int)cpu->edx;
-    void *buf       = (void *)cpu->ebx;
-    size_t len      = (size_t)cpu->ecx;
+    int fd          = (int)cpu->rdx;
+    void *buf       = (void *)cpu->rbx;
+    size_t len      = (size_t)cpu->rcx;
     task_t *current = sched_get_active();
 
     if ((buf == NULL) ||
@@ -81,14 +83,14 @@ int32_t sys_fork(isr_regs_t *cpu)
     sched_task_set_state(t, T_READY);
 
     /* return 0 to child, pid to parent */
-    t->threads->exec_state->eax = 0;
+    t->threads->exec_state->rax = 0;
 
     return t->pid;
 }
 
 int32_t sys_execv(isr_regs_t *cpu)
 {
-    char *p      = (char *)cpu->ebx;
+    char *p      = (char *)cpu->rbx;
     file_t *file = NULL;
     path_t *path = NULL;
 
@@ -122,7 +124,7 @@ error:
 
 int32_t sys_exit(isr_regs_t *cpu)
 {
-    int status      = cpu->eax;
+    int status      = cpu->rax;
     task_t *current = sched_get_active();
     task_t *parent  = current->parent;
 
@@ -189,6 +191,103 @@ int32_t sys_wait(isr_regs_t *cpu)
     return 0;
 }
 
+int32_t sys_socket(isr_regs_t *cpu)
+{
+    int domain      = (int)cpu->rdx;
+    int type        = (int)cpu->rbx;
+    int proto       = (size_t)cpu->rcx;
+    task_t *current = sched_get_active();
+
+    return socket_alloc(current->file_ctx, domain, type, proto);
+}
+
+int32_t sys_bind(isr_regs_t *cpu)
+{
+    int sockfd       = cpu->rdi;
+    saddr_in_t *addr = (saddr_in_t *)cpu->rsi;
+    socklen_t slen   = (socklen_t)cpu->rdx;
+    task_t *current  = sched_get_active();
+
+    return socket_bind(current->file_ctx, sockfd, addr, slen);
+}
+
+int32_t sys_send(isr_regs_t *cpu)
+{
+    int sockfd       = cpu->rdi;
+    void *buf        = (void *)cpu->rsi;
+    int len          = cpu->rdx;
+    int flags        = cpu->rcx;
+    task_t *current  = sched_get_active();
+
+    return socket_send(current->file_ctx, sockfd, buf, len, flags, NULL, 0);
+}
+
+int32_t sys_sendto(isr_regs_t *cpu)
+{
+    int sockfd       = cpu->rdi;
+    void *buf        = (void *)cpu->rsi;
+    int len          = cpu->rdx;
+    int flags        = cpu->rcx;
+    saddr_in_t *addr = (saddr_in_t *)cpu->r8;
+    socklen_t slen   = (socklen_t)cpu->r9;
+    task_t *current  = sched_get_active();
+
+    return socket_send(current->file_ctx, sockfd, buf, len, flags, addr, slen);
+}
+
+int32_t sys_recv(isr_regs_t *cpu)
+{
+    int sockfd       = cpu->rdi;
+    void *buf        = (void *)cpu->rsi;
+    int len          = cpu->rdx;
+    int flags        = cpu->rcx;
+    task_t *current  = sched_get_active();
+
+    return socket_recv(current->file_ctx, sockfd, buf, len, flags, NULL, NULL);
+}
+
+int32_t sys_recvfrom(isr_regs_t *cpu)
+{
+    int sockfd       = cpu->rdi;
+    void *buf        = (void *)cpu->rsi;
+    int len          = cpu->rdx;
+    int flags        = cpu->rcx;
+    saddr_in_t *addr = (saddr_in_t *)cpu->r8;
+    socklen_t *slen  = (socklen_t *)cpu->r9;
+    task_t *current  = sched_get_active();
+
+    return socket_recv(current->file_ctx, sockfd, buf, len, flags, addr, slen);
+}
+
+int32_t sys_connect(isr_regs_t *cpu)
+{
+    int sockfd       = cpu->rdi;
+    saddr_in_t *addr = (saddr_in_t *)cpu->rsi;
+    socklen_t slen   = (socklen_t)cpu->rdx;
+    task_t *current  = sched_get_active();
+
+    return socket_connect(current->file_ctx, sockfd, addr, slen);
+}
+
+int32_t sys_listen(isr_regs_t *cpu)
+{
+    int sockfd      = cpu->rdi;
+    int backlog     = cpu->rsi;
+    task_t *current = sched_get_active();
+
+    return socket_listen(current->file_ctx, sockfd, backlog);
+}
+
+int32_t sys_accept(isr_regs_t *cpu)
+{
+    int sockfd       = cpu->rdi;
+    saddr_in_t *addr = (saddr_in_t *)cpu->rsi;
+    socklen_t *slen  = (socklen_t)cpu->rdx;
+    task_t *current  = sched_get_active();
+
+    return socket_accept(current->file_ctx, sockfd, addr, slen);
+}
+
 static syscall_t syscalls[MAX_SYSCALLS] = {
     [0] = sys_read,
     [1] = sys_write,
@@ -196,20 +295,28 @@ static syscall_t syscalls[MAX_SYSCALLS] = {
     [3] = sys_execv,
     [6] = sys_exit,
     [7] = sys_wait,
+    [8] = sys_socket,
+    [9] = sys_bind,
+    [10] = sys_send,
+    [11] = sys_sendto,
+    [12] = sys_recv,
+    [13] = sys_recvfrom,
+    [14] = sys_connect,
+    [15] = sys_listen
 };
 
 uint32_t syscall_handler(void *ctx)
 {
     isr_regs_t *cpu = (isr_regs_t *)ctx;
 
-    if (cpu->eax >= MAX_SYSCALLS) {
+    if (cpu->rax >= MAX_SYSCALLS) {
         kpanic("unsupported system call");
     } else {
         task_t *current = sched_get_active();
-        int32_t ret     = syscalls[cpu->eax](cpu);
+        int32_t ret     = syscalls[cpu->rax](cpu);
 
-        /* return value is transferred in eax */
-        current->threads->exec_state->eax = ret;
+        /* return value is transferred in rax */
+        current->threads->exec_state->rax = ret;
     }
 
     return IRQ_HANDLED;

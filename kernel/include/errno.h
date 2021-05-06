@@ -15,6 +15,8 @@ int errno;
 #define ENOTDIR 10      /* Not a directory */
 #define ENOTSUP 11      /* Operation not supported */
 #define ENXIO   12      /* No such device or address */
+#define EAGAIN  13      /* Try again */
+#define EFAULT  14      /* Bad address */
 #define EINPROGRESS 115 /* Operation now in progress */
 
 #define EMAX    13 /* Used by the kstrerror() */

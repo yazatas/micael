@@ -27,7 +27,7 @@ Drivers
 * RTL8139
 * PC speaker driver
 
-## v0.4.0: Amalthea
+## v0.4.0: Harpalyke
 
 * Networking
 

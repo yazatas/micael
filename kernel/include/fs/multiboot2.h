@@ -95,6 +95,8 @@ size_t multiboot2_map_memory(
     void (*callback)(unsigned, unsigned long, size_t)
 );
 
+size_t multiboot2_parse_elf(unsigned long *address);
+
 typedef unsigned char           multiboot_uint8_t;
 typedef unsigned short          multiboot_uint16_t;
 typedef unsigned int            multiboot_uint32_t;

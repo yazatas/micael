@@ -35,3 +35,8 @@ clean:
 	$(MAKE) --directory=kernel clean
 	$(MAKE) --directory=toolchain clean
 	@rm -rf sysroot isodir micael.iso kernel.sym toolchain/ramfs.bin
+
+clean-all:
+	$(MAKE) --directory=kernel clean-all
+	$(MAKE) --directory=toolchain clean
+	@rm -rf sysroot isodir micael.iso kernel.sym toolchain/ramfs.bin

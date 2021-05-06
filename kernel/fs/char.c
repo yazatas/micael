@@ -108,5 +108,5 @@ void cdev_dealloc(cdev_t *dev)
         kdebug("failed to unset bit");
     }
 
-    mmu_cache_free_entry(cdev_cache, dev);
+    mmu_cache_free_entry(cdev_cache, dev, 0);
 }

@@ -453,7 +453,7 @@ task_t *mts_get_next(void)
         /* TODO: move spinlock to SLAB! */
         spin_acquire(&mts.lock);
         list_remove(&q->active->list);
-        mmu_cache_free_entry(mts.st_cache, q->active);
+        mmu_cache_free_entry(mts.st_cache, q->active, 0);
         spin_release(&mts.lock);
         q->active = NULL;
         goto setup_active;

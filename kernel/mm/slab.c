@@ -1,4 +1,5 @@
 #include <kernel/common.h>
+#include <kernel/kassert.h>
 #include <kernel/kpanic.h>
 #include <kernel/kprint.h>
 #include <kernel/util.h>
@@ -68,19 +69,17 @@ static struct cache_fixed_entry *alloc_fixed_entry(size_t item_size)
         return e;
     }
 
-    kpanic("ALLOCATE MORE MEMORY FOR SLAB");
+    unsigned long mem = mmu_page_alloc(MM_ZONE_NORMAL, 0);
+    kassert(mem != INVALID_ADDRESS);
 
-    /* kdebug("allocating more memory!"); */
-
-    unsigned long mem = mmu_bootmem_alloc_page();
-    void *mem_v       = mmu_p_to_v(mem);
-
-    cfe_t *e = kzalloc(sizeof(cfe_t));
+    void *mem_v = mmu_p_to_v(mem);
+    cfe_t *e    = kzalloc(sizeof(cfe_t));
 
     e->mem       = mem_v;
     e->next_free = mem_v;
     e->num_free  = (PAGE_SIZE / item_size) - 1;
 
+    spin_release(&fe_lock);
     return e;
 }
 
@@ -118,7 +117,7 @@ int mmu_slab_init(void)
     cfe_t *e;
 
     for (int i = 0; i < 20; ++i) {
-        if ((mem = mmu_page_alloc(MM_ZONE_NORMAL)) == INVALID_ADDRESS) {
+        if ((mem = mmu_page_alloc(MM_ZONE_NORMAL, 0)) == INVALID_ADDRESS) {
             kdebug("Failed to allocate memory");
             return -errno;
         }
@@ -248,7 +247,7 @@ void *mmu_cache_alloc_entry(mm_cache_t *c, mm_flags_t flags)
     return ret;
 }
 
-int mmu_cache_free_entry(mm_cache_t *cache, void *entry)
+int mmu_cache_free_entry(mm_cache_t *cache, void *entry, int flags)
 {
     if (cache == NULL || entry == NULL)
         return -EINVAL;
@@ -256,7 +255,7 @@ int mmu_cache_free_entry(mm_cache_t *cache, void *entry)
     /* kprint("freeing entry 0x%x - 0x%x\n", entry, (uint8_t *)entry + cache->item_size); */
     spin_release(&cache->lock);
 
-    struct cache_free_chunk *cfc = kmalloc(sizeof(struct cache_free_chunk));
+    struct cache_free_chunk *cfc = kmalloc(sizeof(struct cache_free_chunk), flags);
 
     list_init_null(&cfc->list);
     cfc->mem = entry;

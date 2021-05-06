@@ -205,7 +205,7 @@ static int *__init_sata_port(device_t *dev, struct ahci_port_regs *port)
     /* the ahci device must be stopped before modifying lb/fb */
     __sata_port_stop(port);
 
-    unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL);
+    unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL, 0);
 
     port->p_clb  = page & 0xffffffff;
     port->p_clbu = page >> 32;
@@ -213,7 +213,7 @@ static int *__init_sata_port(device_t *dev, struct ahci_port_regs *port)
     port->p_fb = (page + 0x400) & 0xffffffff;
     port->p_fb = (page + 0x400) >> 32;
 
-    unsigned long block = mmu_block_alloc(1, MM_ZONE_NORMAL);
+    unsigned long block = mmu_block_alloc(1, MM_ZONE_NORMAL, 0);
     kmemset(mmu_p_to_v(block), 0, PAGE_SIZE * 2);
 
     struct ahci_cmd_header *cmd_list = mmu_p_to_v(page);

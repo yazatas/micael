@@ -6,6 +6,7 @@
 void *kmemcpy(void *restrict dstptr, const void *restrict srcptr, size_t size);
 void *kmemset(void *buf, int c, size_t size);
 void *kmemmove(void *dstptr, const void *srcptr, size_t size);
+void *kmemdup(void *src, size_t size);
 
 char *kstrdup(const char *s);
 char *kstrchr(const char *s, int c);

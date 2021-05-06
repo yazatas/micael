@@ -14,3 +14,5 @@ See doc/OVERVIEW.md and doc/ROADMAP.md for more details
    * devfs
    * initramfs
 * VESA VBE 3.0 GFX Driver
+* Network stack
+   * Ethernet/ARP/IPv4/UDP/TCP/DHCP

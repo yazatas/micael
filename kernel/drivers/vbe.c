@@ -90,7 +90,7 @@ static void vbe_get_font(void)
      * reserves space for 8x32 fonts, the font map "overflows" to 0xB000 and beyond 
      * We're not going to use the last 16 bytes of glyphs which means that one page
      * of memory is enough for us */
-    unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL);
+    unsigned long page = mmu_page_alloc(MM_ZONE_NORMAL, 0);
     font_map           = mmu_p_to_v(page);
     vga_mem            = mmu_p_to_v(0xA0000);
 
@@ -130,8 +130,8 @@ static void vbe_get_font(void)
 void vbe_init(void)
 {
     vga_mem        = (uint8_t *)mmu_p_to_v(0xA0000);
-    line_buffer[0] = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, 2));
-    line_buffer[1] = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, 2));
+    line_buffer[0] = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, 2, 0));
+    line_buffer[1] = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, 2, 0));
 
     vbe_get_font();
 

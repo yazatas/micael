@@ -1,3 +1,6 @@
+#include <arch/amd64/mm/mmu.h>
+#include <kernel/compiler.h>
+#include <kernel/kassert.h>
 #include <kernel/kprint.h>
 #include <kernel/kpanic.h>
 #include <kernel/util.h>
@@ -5,254 +8,281 @@
 #include <mm/heap.h>
 #include <mm/mmu.h>
 #include <mm/page.h>
+#include <mm/slab.h>
 #include <sync/spinlock.h>
 #include <stdbool.h>
 #include <sys/types.h>
 #include <errno.h>
 
-typedef struct meta {
+#define SPLIT_THRESHOLD  8
+#define HEAP_ARENA_SIZE  2 /* 1 << 2 */
+
+typedef struct mm_chunk {
     size_t size;
-    uint8_t flags;
-    struct meta *next;
-    struct meta *prev;
-} __attribute__((packed)) meta_t;
+    bool free;
+    struct mm_chunk *next;
+    struct mm_chunk *prev;
+} __packed mm_chunk_t;
 
-#define META_SIZE      sizeof(meta_t)
-#define IS_FREE(x)     (x->flags & 0x1)
-#define MARK_FREE(x)   (x->flags |= 0x1)
-#define UNMARK_FREE(x) (x->flags &= ~0x1)
-#define GET_BASE(x)    ((meta_t*)x - 1)
+typedef struct mm_arena {
+    size_t size;
+    mm_chunk_t *base;
+    spinlock_t lock;
+    struct mm_arena *next;
+    struct mm_arena *prev;
+} __packed mm_arena_t;
 
-static meta_t        *kernel_base;
-static unsigned long *HEAP_START;
-static unsigned long *HEAP_BREAK;
-static spinlock_t     lock = 0;
+static mm_arena_t __mem;
+static mm_arena_t __high_prio;
+static mm_cache_t *arena_cache;
+static bool initialized = false;
 
-/* TODO: this needs a rewrite!!! 
- *
- * kernel page directory structures and the whole mmu 
- * has changes a lot since this was written so update
- * it to make compatible with today's mmu */
-
-/* 4MB of initial memory is allocated on system startup, if that memory has run out
- * we must allocate new page table. I think this kind of abstraction should be mmu's
- * job to provide so don't write PT allocation here. Instead call mmu_alloc_pt */
-static meta_t *morecore(size_t size)
+void print_heap(void)
 {
-    kpanic("morecore not implemented");
+    size_t total  = 0;
+    size_t free   = 0;
+    size_t blocks = 0;
+    mm_arena_t *iter = &__mem;
 
-    size_t pgcount = size / 0x1000 + 1;
-    meta_t *tmp = (meta_t*)HEAP_BREAK;
+    while (iter) {
 
-    for (size_t i = 0; i < pgcount; ++i) {
-        /* mmu_map_page((void *)mmu_alloc_page(), HEAP_BREAK, MM_PRESENT | MM_READWRITE); */
-        HEAP_BREAK = (unsigned long *)((uint8_t *)HEAP_BREAK + 0x1000);
-    }
-    /* mmu_flush_TLB(); */
+        mm_chunk_t *b = iter->base;
 
-    /* place the new block at the beginning of block list */
-    tmp->size = pgcount * 0x1000 - META_SIZE;
-    kernel_base->prev = tmp;
-    tmp->next = kernel_base;
-    tmp->prev = NULL;
-    kernel_base = tmp;
-    MARK_FREE(tmp);
+        while (b) {
+            total  += b->size + sizeof(mm_chunk_t);
+            blocks += 1;
 
-    return tmp;
-}
+            if (b->free)
+                free += b->size;
 
-/* append b2 to b1 (b2 becomes invalid) */
-static inline void merge_blocks(meta_t *b1, meta_t *b2)
-{
-    b1->size += b2->size + META_SIZE;
-    b1->next = b2->next;
-    if (b2->next)
-        b2->next->prev = b1;
-}
-
-static void split_block(meta_t *b, size_t split)
-{
-    if (b->size <= split + META_SIZE)
-        return;
-
-    meta_t *tmp = (meta_t*)((uint8_t*)b + split + META_SIZE);
-    tmp->size = b->size - split - META_SIZE;
-    b->size = split;
-    MARK_FREE(tmp);
-
-    tmp->next = b->next;
-    if (b->next)
-        b->next->prev = tmp;
-    tmp->prev = b;
-    b->next = tmp;
-}
-
-static meta_t *find_free_block(size_t size)
-{
-    meta_t *b = kernel_base, *tmp = NULL;
-
-    while (b && !(IS_FREE(b) && b->size >= size)) {
-        b = b->next;
-    }
-
-    if (b != NULL) {
-        UNMARK_FREE(b);
-        split_block(b, size);
-    }
-    return b;
-}
-
-void *kmalloc(size_t size)
-{
-    spin_acquire(&lock);
-
-    meta_t *b;
-
-    if ((b = find_free_block(size)) == NULL) {
-        kdebug("requesting more memory from kernel!");
-
-        if ((b = morecore(size + META_SIZE)) == NULL) {
-            kpanic("kernel heap exhausted");
+            kprint("%x: %u %d\n", b, b->size, b->free);
+            b = b->next;
         }
 
-        split_block(b, size);
-        UNMARK_FREE(b);
+        iter = iter->next;
     }
 
-    kmemset(b + 1, 0, size);
+    kprint("total blocks %u, total %u bytes, free %u bytes\n", blocks, total, free);
+}
 
-    spin_release(&lock);
-    return b + 1;
+void __alloc_arena(void)
+{
+    if (!initialized)
+        kpanic("__alloc_arena() not implemented for booting!");
+
+    /* Allocate new arena and initialize it */
+    mm_arena_t *arena = mmu_cache_alloc_entry(arena_cache, MM_HIGH_PRIO);
+    unsigned long mem = mmu_block_alloc(MM_ZONE_NORMAL, HEAP_ARENA_SIZE, MM_HIGH_PRIO);
+
+    arena->base = mmu_p_to_v(mem);
+    arena->size = PAGE_SIZE * (1 << HEAP_ARENA_SIZE);
+    arena->lock = 0;
+
+    arena->base->free = 1;
+    arena->base->next = NULL;
+    arena->base->prev = NULL;
+    arena->base->size = PAGE_SIZE * (1 << HEAP_ARENA_SIZE) - sizeof(mm_chunk_t);
+
+    /* add the new arena at the end of the normal heap arena list */
+    mm_arena_t *iter = &__mem;
+
+    while (iter->next)
+        iter = iter->next;
+
+    spin_acquire(&__mem.lock);
+
+    __mem.next  = arena;
+    arena->prev = &__mem;
+
+    spin_release(&__mem.lock);
+}
+
+mm_chunk_t *__split_block(mm_chunk_t *block, size_t size)
+{
+    if (block->size - size < sizeof(mm_chunk_t) + SPLIT_THRESHOLD)
+        return block;
+
+    mm_chunk_t *new = (mm_chunk_t *)((uint8_t *)block + sizeof(mm_chunk_t) + size);
+
+    new->size   = block->size - size - sizeof(mm_chunk_t);
+    new->free   = 1;
+    block->size = size;
+
+    if (block->next)
+        block->next->prev = new;
+
+    new->next   = block->next;
+    block->next = new;
+    new->prev   = block;
+
+    return block;
+}
+
+mm_chunk_t *__find_free(mm_arena_t *arena, size_t size)
+{
+    mm_arena_t *iter = arena;
+
+    while (iter) {
+        spin_acquire(&iter->lock);
+        mm_chunk_t *block = iter->base;
+
+        while (block && !(block->free && block->size >= size))
+            block = block->next;
+
+        if (block) {
+            /* TODO: lock current and next block (if exists) */
+            /* TODO: release arena lock */
+
+            void *ret = __split_block(block, size);
+            spin_release(&iter->lock);
+            return ret;
+        }
+
+        spin_release(&iter->lock);
+        iter = iter->next;
+    }
+
+    return NULL;
+}
+
+mm_chunk_t *__merge_blocks_prev(mm_chunk_t *cur, mm_chunk_t *prev)
+{
+    if (!prev || !prev->free)
+        return cur;
+
+    mm_chunk_t *head = prev;
+
+    head->size = prev->size + cur->size + sizeof(mm_chunk_t);
+    head->next = cur->next;
+
+    if (cur->next)
+        cur->next->prev = head;
+
+    return __merge_blocks_prev(prev, prev->prev);
+}
+
+void __merge_blocks_next(mm_chunk_t *cur, mm_chunk_t *next)
+{
+    if (!next || !next->free)
+        return;
+
+    cur->size += next->size + sizeof(mm_chunk_t);
+    cur->next  = next->next;
+
+    if (next->next)
+        next->next->prev = cur;
+
+    __merge_blocks_next(cur, cur->next);
+}
+
+void *kmalloc(size_t size, int flags)
+{
+    mm_chunk_t *block = NULL;
+
+    if (flags & MM_HIGH_PRIO)
+        block = __find_free(&__high_prio, size);
+    else
+        block = __find_free(&__mem, size);
+
+    if (!block) {
+        if (flags & MM_HIGH_PRIO)
+            kpanic("high priority arena exhausted!");
+
+        __alloc_arena();
+
+        if (!(block = __find_free(&__mem, size))) {
+            kassert(NULL);
+            return NULL;
+        }
+    }
+
+    if (flags & MM_ZERO)
+        kmemset(block + 1, 0, size);
+
+    block->free = 0;
+    return block + 1;
 }
 
 void *kzalloc(size_t size)
 {
-    void *b = kmalloc(size);
+    void *mem = kmalloc(size, 0);
 
-    kmemset(b, 0, size);
-    return b;
+    kmemset(mem, 0, size);
+    return mem;
 }
 
 void *kcalloc(size_t nmemb, size_t size)
 {
-    void *b = kmalloc(nmemb * size);
-
-    kmemset(b, 0, nmemb * size);
-    return b;
+    return kzalloc(nmemb * size);
 }
 
-void *krealloc(void *ptr, size_t size)
+void kfree(void *mem)
 {
-    /* check if merging adjacent blocks achieves the goal size */
-    meta_t *b = GET_BASE(ptr), *tmp;
-    size_t new_size = b->size;
+    /* spin_acquire(&lock); */
 
-    if (b->prev && IS_FREE(b->prev)) new_size += b->prev->size + META_SIZE;
-    if (b->next && IS_FREE(b->next)) new_size += b->next->size + META_SIZE;
+    mm_chunk_t *block = (mm_chunk_t *)mem - 1;
+    block->free = 1;
+    /* kprint("free block %x\n", block); */
+    /* block = __merge_blocks_prev(block, block->prev); */
+    /* __merge_blocks_next(block, block->next); */
 
-    if (new_size >= size) {
-        if (b->prev != NULL && IS_FREE(b->prev)) {
-            merge_blocks(b->prev, b);
-            kmemmove(b->prev + 1, b + 1, b->size);
-            b = b->prev;
-        }
-
-        if (b->next != NULL && IS_FREE(b->next)) {
-            merge_blocks(b, b->next);
-        }
-        split_block(b, size);
-
-    } else {
-        tmp = find_free_block(size);
-        if (!tmp) {
-            tmp = morecore(size);
-            split_block(tmp, size);
-        }
-
-        UNMARK_FREE(tmp);
-        kmemcpy(tmp + 1, b + 1, b->size);
-        kfree(ptr);
-        b = tmp;
-    }
-
-    return b + 1;
-}
-
-/* mark the current block as free and 
- * merge adjacent free blocks if possible 
- *
- * hell breaks loose if ptr doesn't point to the beginning of memory block */
-void kfree(void *ptr)
-{
-    if (!ptr)
-        return;
-
-    spin_acquire(&lock);
-
-    meta_t *b = GET_BASE(ptr), *tmp;
-    MARK_FREE(b);
-
-    if (b->prev != NULL && IS_FREE(b->prev)) {
-        merge_blocks(b->prev, b);
-        b = b->prev;
-    }
-
-    if (b->next != NULL && IS_FREE(b->next))
-        merge_blocks(b, b->next);
-
-    spin_release(&lock);
-}
-
-static int __heap_init(void *heap_start, unsigned order)
-{
-    if (heap_start == NULL)
-        return -EINVAL;
-
-    size_t HEAP_SIZE = PAGE_SIZE * (1 << order);
-
-    HEAP_START = heap_start;
-    kernel_base = heap_start;
-    kernel_base->size = HEAP_SIZE;
-    kernel_base->next = NULL;
-    kernel_base->prev = NULL;
-    MARK_FREE(kernel_base);
-    HEAP_BREAK = (unsigned long *)((unsigned long)HEAP_START + HEAP_SIZE);
-
-    return 0;
+    /* spin_release(&lock); */
 }
 
 int mmu_heap_preinit(void)
 {
-    /* Allocate one page of memory for booting */
-    unsigned long mem = mmu_bootmem_alloc_page();
+    /* Allocate 16 KB of memory for booting */
+    unsigned long mem = mmu_bootmem_alloc_block(2);
 
     if (mem == INVALID_ADDRESS) {
         kdebug("failed to allocate memory for heap!");
         return -ENOMEM;
     }
 
-    return __heap_init(mmu_p_to_v(mem), 0);
+    __mem.base = mmu_p_to_v(mem);
+    __mem.size = PAGE_SIZE * (1 << 2);
+    __mem.lock = 0;
+
+    __mem.base->size = PAGE_SIZE * (1 << 2) - sizeof(mm_chunk_t);
+    __mem.base->free = 1;
+    __mem.base->next = NULL;
+    __mem.base->prev = NULL;
+
+    return 0;
 }
 
 int mmu_heap_init(void)
 {
-    unsigned long mem = mmu_block_alloc(MM_ZONE_NORMAL, 6);
+    unsigned long mem = mmu_block_alloc(MM_ZONE_NORMAL, HEAP_ARENA_SIZE, 0);
+    unsigned long hp  = mmu_block_alloc(MM_ZONE_NORMAL, 1, 0);
 
-    if (mem == INVALID_ADDRESS) {
-        kdebug("failed to allocate memory for heap!");
-        return -ENOMEM;
-    }
+    kassert(mem != INVALID_ADDRESS);
+    kassert(hp  != INVALID_ADDRESS);
 
-    return __heap_init(mmu_p_to_v(mem), 6);
-}
+    if (mem == INVALID_ADDRESS || hp == INVALID_ADDRESS)
+        kpanic("Failed to allocate physical memory for heap");
 
-void heap_initialize(uint32_t *heap_start_v)
-{
-    HEAP_START = (void *)heap_start_v;
+    __mem.base = mmu_p_to_v(mem);
+    __mem.size = PAGE_SIZE * (1 << HEAP_ARENA_SIZE);
+    __mem.lock = 0;
 
-    kernel_base = (meta_t*)HEAP_START;
-    kernel_base->size = 0x1000 - META_SIZE;
-    kernel_base->next = kernel_base->prev = NULL;
-    MARK_FREE(kernel_base);
-    HEAP_BREAK = (void *)((unsigned long)HEAP_START + 0x1000);
+    __mem.base->free = 1;
+    __mem.base->next = NULL;
+    __mem.base->prev = NULL;
+    __mem.base->size = PAGE_SIZE * (1 << HEAP_ARENA_SIZE) - sizeof(mm_chunk_t);
+
+    __high_prio.base = mmu_p_to_v(hp);
+    __high_prio.size = PAGE_SIZE * (1 << 1);
+    __high_prio.lock = 0;
+
+    __high_prio.base->free = 1;
+    __high_prio.base->next = NULL;
+    __high_prio.base->prev = NULL;
+    __high_prio.base->size = PAGE_SIZE * (1 << 1) - sizeof(mm_chunk_t);
+
+    if (!(arena_cache = mmu_cache_create(sizeof(mm_arena_t), 0)))
+        kpanic("Failed to allocate SLAB cache for heap arenas!");
+
+    initialized = true;
+    return 0;
 }

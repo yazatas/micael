@@ -66,7 +66,7 @@ static inline void *__remove_elem(bheap_t *h, int i)
 
 bheap_t *bh_init(size_t items)
 {
-    bheap_t *heap = kmalloc(sizeof(bheap_t));
+    bheap_t *heap = kmalloc(sizeof(bheap_t), 0);
 
     if (!heap) {
         errno = ENOMEM;
@@ -77,7 +77,7 @@ bheap_t *bh_init(size_t items)
 
     heap->size     = 0;
     heap->capacity = npages * EPP;
-    heap->elems    = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, npages));
+    heap->elems    = mmu_p_to_v(mmu_block_alloc(MM_ZONE_NORMAL, npages, 0));
 
     return heap;
 }
