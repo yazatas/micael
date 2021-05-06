@@ -218,3 +218,16 @@ int socket_connect(file_ctx_t *ctx, int sockfd, saddr_in_t *dest_addr, socklen_t
 
     return ret;
 }
+
+int socket_listen(file_ctx_t *ctx, int sockfd, int backlog)
+{
+    if (!ctx || sockfd < 2 || sockfd >= ctx->numfd)
+        return -EINVAL;
+
+    socket_t *sock = ctx->fd[sockfd]->f_private;
+
+    if (sock->proto != SOCK_STREAM)
+        return -ENOTSUP;
+
+    return tcp_listen(ctx->fd[sockfd], backlog);
+}
