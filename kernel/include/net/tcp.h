@@ -30,5 +30,6 @@ int tcp_write_skb(socket_t *sock, packet_t *pkt);
 
 int       tcp_connect(file_t *fd, saddr_in_t *addr, socklen_t addrlen);
 int       tcp_listen(file_t *fd, int backlog);
+socket_t *tcp_accept(file_t *fd, saddr_in_t *addr, socklen_t *addrlen);
 
 #endif /* __TCP_H__ */

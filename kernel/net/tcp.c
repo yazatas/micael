@@ -454,3 +454,89 @@ int tcp_listen(file_t *fd, int backlog)
 
     return 0;
 }
+
+socket_t *tcp_accept(file_t *fd, saddr_in_t *addr, socklen_t *addrlen)
+{
+    socket_t *sock = fd->f_private;
+    tcp_skb_t *skb = sock->tcp;
+    tcp_ctx_t *ctx = sock->s_private;
+
+    if (!(sock->flags & TCP_STATE_PASSIVE)) {
+        errno = ENOTSUP;
+        return NULL;
+    }
+
+    if (ctx->nclients == TCP_MAX_CLIENTS) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    for (;;) {
+        for (volatile int k = 0; k < 200000; ++k)
+            cpu_relax();
+
+        if (READ_ONCE(sock->flags) & TCP_STATE_SYN_RECEIVED)
+            break;
+    }
+
+    packet_t *in_pkt  = __skb_get(skb);
+    tcp_pkt_t *in_tcp = in_pkt->transport.packet;
+
+    packet_t *out_pkt  = netdev_alloc_pkt_L4(PROTO_IPV4, sizeof(tcp_pkt_t));
+    tcp_pkt_t *out_tcp = out_pkt->transport.packet;
+    out_pkt->net.proto = PROTO_IPV4;
+    out_pkt->flags = NF_REUSE | NF_NO_RTO;
+
+    out_pkt->src_addr = sock->src_addr;
+    ipv4_datagram_t *dgram = in_pkt->net.packet;
+    out_pkt->dst_addr = kzalloc(sizeof(ip_t));
+    kmemcpy(out_pkt->dst_addr->ipv4, &(uint32_t){ n2h_32(dgram->src) }, sizeof(uint32_t));
+
+    out_pkt->transport.proto = PROTO_TCP;
+    out_pkt->transport.size  = sizeof(tcp_pkt_t);
+
+    out_tcp->src  = h2n_16(sock->src_port);
+    out_tcp->dst  = h2n_16(in_tcp->src);
+    out_tcp->off  = TCP_NO_OPTS | TCP_FLAG_SYN | TCP_FLAG_ACK;
+    out_tcp->len  = h2n_16(TCP_WINDOW_SIZE);
+    out_tcp->seq  = 0;
+    out_tcp->aseq = h2n_32(in_tcp->seq + 1);
+    out_tcp->cks  = 0;
+    out_tcp->cks  = __calculate_checksum(out_pkt);
+
+    for (;;) {
+        tcp_send_pkt(out_pkt);
+
+        for (volatile int k = 0; k < 200000; ++k)
+            cpu_relax();
+
+        if (READ_ONCE(sock->flags) & TCP_STATE_CONNECTED)
+            break;
+    }
+
+    socket_t *client = kzalloc(sizeof(socket_t));
+
+    client->src_addr = kzalloc(sizeof(ip_t));
+    client->dst_addr = kzalloc(sizeof(ip_t));
+    client->src_port = sock->src_port;
+    client->dst_port = in_tcp->src;
+
+    kmemcpy(client->src_addr, sock->src_addr,    sizeof(ip_t));
+    kmemcpy(client->dst_addr, out_pkt->dst_addr, sizeof(ip_t));
+
+    client->domain = sock->domain;
+    client->proto  = sock->proto;
+    client->tcp    = kzalloc(sizeof(tcp_skb_t));
+    wq_init_head(&client->wq);
+
+    client->s_private = kzalloc(sizeof(tcp_ctx_t));
+    tcp_ctx_t *c_ctx = client->s_private;
+
+    c_ctx->seq      = 1;
+    c_ctx->aseq     = in_tcp->seq + 1;
+    c_ctx->nclients = 0;
+    c_ctx->flags    = TCP_STATE_CONNECTED;
+
+    ctx->clients[ctx->nclients] = client;
+    return ctx->clients[ctx->nclients++];
+}
