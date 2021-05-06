@@ -28,6 +28,7 @@ void tcp_init_socket_ops(file_t *fd);
 int tcp_read_skb(socket_t *sock, void *buf, size_t size);
 int tcp_write_skb(socket_t *sock, packet_t *pkt);
 
-int tcp_connect(file_t *fd, saddr_in_t *addr, socklen_t addrlen);
+int       tcp_connect(file_t *fd, saddr_in_t *addr, socklen_t addrlen);
+int       tcp_listen(file_t *fd, int backlog);
 
 #endif /* __TCP_H__ */

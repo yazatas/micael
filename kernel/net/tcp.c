@@ -444,3 +444,13 @@ connected:
 
     return 0;
 }
+
+int tcp_listen(file_t *fd, int backlog)
+{
+    kassert(fd);
+
+    socket_t *sock = fd->f_private;
+    sock->flags |= TCP_STATE_PASSIVE;
+
+    return 0;
+}
