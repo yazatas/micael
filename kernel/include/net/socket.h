@@ -55,4 +55,7 @@ int socket_send(file_ctx_t *ctx, int sockfd, void *buf, size_t len,
 int socket_recv(file_ctx_t *ctx, int sockfd, void *buf, size_t len,
                 int flags, saddr_in_t *dest_addr, socklen_t *addrlen);
 
+/* TODO:  */
+int socket_connect(file_ctx_t *ctx, int sockfd, saddr_in_t *dest_addr, socklen_t addrlen);
+
 #endif /* __SOCKET_H__ */
