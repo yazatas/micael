@@ -14,7 +14,7 @@
 #include <sched/syscall.h>
 #include <sys/socket.h>
 
-#define MAX_SYSCALLS 16
+#define MAX_SYSCALLS 17
 
 typedef int32_t (*syscall_t)(isr_regs_t *cpu);
 
@@ -276,6 +276,16 @@ int32_t sys_listen(isr_regs_t *cpu)
     task_t *current = sched_get_active();
 
     return socket_listen(current->file_ctx, sockfd, backlog);
+}
+
+int32_t sys_accept(isr_regs_t *cpu)
+{
+    int sockfd       = cpu->rdi;
+    saddr_in_t *addr = (saddr_in_t *)cpu->rsi;
+    socklen_t *slen  = (socklen_t)cpu->rdx;
+    task_t *current  = sched_get_active();
+
+    return socket_accept(current->file_ctx, sockfd, addr, slen);
 }
 
 static syscall_t syscalls[MAX_SYSCALLS] = {
