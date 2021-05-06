@@ -28,7 +28,7 @@ int ipv6_handle_pkt(packet_t *pkt)
 
         case PROTO_TCP:
             pkt->transport.proto = PROTO_TCP;
-            return tcp_handle_pkt((tcp_pkt_t *)dgram->payload, n2h_16(dgram->len));
+            return tcp_handle_pkt(pkt);
     }
 
     return 0;

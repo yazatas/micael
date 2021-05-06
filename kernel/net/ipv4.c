@@ -125,7 +125,7 @@ int ipv4_handle_pkt(packet_t *pkt)
             return udp_handle_pkt(pkt);
 
         case PROTO_TCP:
-            return tcp_handle_pkt((tcp_pkt_t *)dgram->payload, n2h_16(dgram->len));
+            return tcp_handle_pkt(pkt);
     }
 
     /* kprint("ipv4 - unsupported packet type: 0x%x\n", dgram->proto); */
