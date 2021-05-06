@@ -61,4 +61,7 @@ int socket_connect(file_ctx_t *ctx, int sockfd, saddr_in_t *dest_addr, socklen_t
 /* TODO:  */
 int socket_listen(file_ctx_t *ctx, int sockfd, int backlog);
 
+/* TODO:  */
+int socket_accept(file_ctx_t *ctx, int sockfd, saddr_in_t *addr, socklen_t *addrlen);
+
 #endif /* __SOCKET_H__ */

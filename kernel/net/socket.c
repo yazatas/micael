@@ -231,3 +231,25 @@ int socket_listen(file_ctx_t *ctx, int sockfd, int backlog)
 
     return tcp_listen(ctx->fd[sockfd], backlog);
 }
+
+int socket_accept(file_ctx_t *ctx, int sockfd, saddr_in_t *addr, socklen_t *addrlen)
+{
+    if (!ctx || sockfd < 2 || sockfd >= ctx->numfd)
+        return -EINVAL;
+
+    socket_t *sock = tcp_accept(ctx->fd[sockfd], addr, addrlen);
+
+    if (!sock)
+        return -errno;
+
+    int fd = vfs_alloc_fd(ctx);
+
+    if (fd < 0) {
+        kprint("socket - failed to allocate a file descriptor\n");
+        return fd;
+    }
+
+    ctx->fd[fd]->f_private = sock;
+    tcp_init_socket_ops(ctx->fd[fd]);
+    return fd;
+}
