@@ -21,6 +21,13 @@ typedef struct tcp_skb {
     packet_t *packets[SKB_MAX_SIZE]; /* packets */
 } tcp_skb_t;
 
-int tcp_handle_pkt(tcp_pkt_t *pkt, size_t size);
+int tcp_handle_pkt(packet_t *pkt);
+int tcp_send_pkt(packet_t *pkt);
+void tcp_init_socket(file_t *fd);
+void tcp_init_socket_ops(file_t *fd);
+int tcp_read_skb(socket_t *sock, void *buf, size_t size);
+int tcp_write_skb(socket_t *sock, packet_t *pkt);
+
+int tcp_connect(file_t *fd, saddr_in_t *addr, socklen_t addrlen);
 
 #endif /* __TCP_H__ */
