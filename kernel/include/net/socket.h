@@ -12,10 +12,19 @@
 typedef struct socket {
     int domain;      /* ipv4/ipv6 */
     int proto;       /* udp/tcp */
-    int flags;       /* socket flags */
+    int flags;       /* socket flags */ /* TODO: remove and use s_private */
+    void *s_private; /* socket private data */
 
+    union {
+        udp_skb_t *udp;
+        tcp_skb_t *tcp;
+    };
+
+    /* TODO: conn_t? */
     ip_t *src_addr;       /* ip address where the socket is bound to */
     short src_port;       /* port where to socket is bound to */
+    ip_t *dst_addr;       /* destination ip address (if connected) */
+    short dst_port;       /* destination port (if connected) */
     spinlock_t lock;      /* spinlock protecting the socket */
     wait_queue_head_t wq; /* wait queue used for threads waiting on the socket */
 } socket_t;

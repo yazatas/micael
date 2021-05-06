@@ -56,6 +56,10 @@ int socket_handle_pkt(packet_t *pkt)
                 ret = udp_write_skb(sockets[i].sock, pkt);
                 wq_wakeup(&sockets[i].sock->wq);
                 return ret;
+            } else if (pkt->transport.proto == PROTO_TCP) {
+                ret = tcp_write_skb(sockets[i].sock, pkt);
+                wq_wakeup(&sockets[i].sock->wq);
+                return ret;
             }
         }
     }
@@ -135,6 +139,10 @@ int socket_send(file_ctx_t *ctx, int sockfd, void *buf, size_t len,
         case PROTO_UDP:
             pkt = netdev_alloc_pkt_L5(PROTO_IPV4, PROTO_UDP, len);
             break;
+
+        case SOCK_STREAM:
+            pkt = netdev_alloc_pkt_L5(PROTO_IPV4, PROTO_TCP, len);
+            break;
     }
 
     pkt->src_addr = sock->src_addr;
@@ -150,6 +158,24 @@ int socket_send(file_ctx_t *ctx, int sockfd, void *buf, size_t len,
         pkt->dst_addr = kzalloc(sizeof(ip_t));
 
         kmemcpy(pkt->dst_addr->ipv4, &dest_addr->sin_addr.s_addr, sizeof(uint32_t));
+    }
+
+    if (sock->proto == SOCK_STREAM) {
+        if (dest_addr || addrlen) {
+            kprint("socket - calling sendto(2) for SOCK_STREAM!\n");
+            return -ENOTSUP;
+        }
+
+        if (!sock->dst_addr || !sock->dst_port) {
+            kprint("%d %d\n", sock->dst_addr, sock->dst_port);
+            kprint("socket - calling sendto(2) for SOCK_STREAM but socket is not connected!\n");
+            return -ENOTSUP;
+        }
+
+        pkt->dst_port = sock->dst_port;
+        pkt->dst_addr = kzalloc(sizeof(ip_t));
+
+        kmemcpy(pkt->dst_addr->ipv4, sock->dst_addr->ipv4, sizeof(uint32_t));
     }
 
     kmemcpy(pkt->app.packet, buf, len);
