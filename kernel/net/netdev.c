@@ -57,10 +57,10 @@ void netdev_add_dhcp_info(dhcp_info_t *info)
     net_ipv4_print(info->router);
 
     kprint("netdev - dns address: ");
-    net_ipv4_print(info->router);
+    net_ipv4_print(info->dns);
 
     kprint("netdev - broadcast address: ");
-    net_ipv4_print(info->router);
+    net_ipv4_print(info->broadcast);
 
     /* save router's ip/mac address pair to address map */
     if ((errno = hm_insert(netdev_info.addrs, &info->router, &info->mac))) {
