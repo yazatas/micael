@@ -136,7 +136,7 @@ int socket_send(file_ctx_t *ctx, int sockfd, void *buf, size_t len,
     socket_t *sock = ctx->fd[sockfd]->f_private;
 
     switch (sock->proto) {
-        case PROTO_UDP:
+        case SOCK_DGRAM:
             pkt = netdev_alloc_pkt_L5(PROTO_IPV4, PROTO_UDP, len);
             break;
 
