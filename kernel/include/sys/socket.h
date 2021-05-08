@@ -19,7 +19,7 @@ enum {
 typedef unsigned int socklen_t;
 
 typedef struct in_addr {
-    unsigned long s_addr;
+    unsigned int s_addr;
 } in_addr_t;
 
 typedef struct sockaddr_in {
