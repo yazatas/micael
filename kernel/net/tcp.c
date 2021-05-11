@@ -415,19 +415,11 @@ int tcp_connect(file_t *fd, saddr_in_t *dest_addr, socklen_t addrlen)
 
     sock->flags |= TCP_STATE_SYN_SENT;
 
-    /* TODO: implement proper sleeping mechanism */
-    for (int i = 0; i < TCP_SYN_RETRIES; ++i) {
-        tcp_send_pkt(pkt);
+    tcp_send_pkt(pkt);
+    wq_wait_event(&sock->wq, current, NULL);
 
-        for (volatile int k = 0; k < 200000; ++k)
-            cpu_relax();
-
-        if (READ_ONCE(sock->tcp->npkts) || !(READ_ONCE(sock->flags) & TCP_STATE_SYN_SENT))
-            break;
-    }
-
-    if (!(READ_ONCE(sock->tcp->npkts))) {
-        if (READ_ONCE(sock->flags) & TCP_STATE_PORT_CLOSED)
+    if (!sock->tcp->npkts && sock->flags & TCP_STATE_SYN_SENT) {
+        if (sock->flags & TCP_STATE_PORT_CLOSED)
             return -EFAULT;
         return -EINVAL;
     }
@@ -435,7 +427,7 @@ int tcp_connect(file_t *fd, saddr_in_t *dest_addr, socklen_t addrlen)
     in_pkt = __skb_get(sock->tcp);
     in_tcp = in_pkt->transport.packet;
 
-    if (READ_ONCE(sock->flags) & TCP_STATE_CONNECTED)
+    if (sock->flags & TCP_STATE_CONNECTED)
         goto connected;
 
     tcp->off  = TCP_NO_OPTS | TCP_FLAG_ACK;
