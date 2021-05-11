@@ -283,17 +283,15 @@ static int __handle_accept(socket_t *sock, packet_t *pkt)
     tcp_ctx_t *ctx = sock->s_private;
 
     if ((tcp->off & TCP_FLAG_MASK) == TCP_FLAG_SYN) {
-        kprint("syn received\n");
-        __skb_put(skb, pkt);
         sock->flags |= TCP_STATE_SYN_RECEIVED;
-        /* TODO: send syn + ack */
+        __skb_put(skb, pkt);
+        wq_wakeup(&sock->wq);
         return 0;
     }
     
     if ((tcp->off & TCP_FLAG_MASK) == TCP_FLAG_ACK) {
-        kprint("ack received, connection established\n");
         sock->flags |= TCP_STATE_CONNECTED;
-        /* TODO: wq_wakeup() */
+        wq_wakeup(&sock->wq);
         return 0;
     } 
     
@@ -473,6 +471,7 @@ socket_t *tcp_accept(file_t *fd, saddr_in_t *addr, socklen_t *addrlen)
     socket_t *sock = fd->f_private;
     tcp_skb_t *skb = sock->tcp;
     tcp_ctx_t *ctx = sock->s_private;
+    task_t *cur    = sched_get_active();
 
     if (!(sock->flags & TCP_STATE_PASSIVE)) {
         errno = ENOTSUP;
@@ -484,13 +483,8 @@ socket_t *tcp_accept(file_t *fd, saddr_in_t *addr, socklen_t *addrlen)
         return NULL;
     }
 
-    for (;;) {
-        for (volatile int k = 0; k < 200000; ++k)
-            cpu_relax();
-
-        if (READ_ONCE(sock->flags) & TCP_STATE_SYN_RECEIVED)
-            break;
-    }
+    /* wait until we receive syn from client */
+    wq_wait_event(&sock->wq, cur, NULL);
 
     packet_t *in_pkt  = __skb_get(skb);
     tcp_pkt_t *in_tcp = in_pkt->transport.packet;
@@ -517,15 +511,12 @@ socket_t *tcp_accept(file_t *fd, saddr_in_t *addr, socklen_t *addrlen)
     out_tcp->cks  = 0;
     out_tcp->cks  = __calculate_checksum(out_pkt);
 
-    for (;;) {
-        tcp_send_pkt(out_pkt);
+    /* send syn+ack and wait for ack */
+    tcp_send_pkt(out_pkt);
+    wq_wait_event(&sock->wq, cur, NULL);
 
-        for (volatile int k = 0; k < 200000; ++k)
-            cpu_relax();
-
-        if (READ_ONCE(sock->flags) & TCP_STATE_CONNECTED)
-            break;
-    }
+    if (!(sock->flags & TCP_STATE_CONNECTED))
+        return -EFAULT;
 
     socket_t *client = kzalloc(sizeof(socket_t));
 
