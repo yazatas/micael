@@ -208,7 +208,7 @@ int socket_connect(file_ctx_t *ctx, int sockfd, saddr_in_t *dest_addr, socklen_t
         return -EFAULT;
 
     if ((ret = tcp_connect(ctx->fd[sockfd], dest_addr, addrlen)) < 0) {
-        kprint("socket - failed to connect to remote host!");
+        kprint("socket - failed to connect to remote host!\n");
         return ret;
     }
 

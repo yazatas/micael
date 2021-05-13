@@ -4,7 +4,9 @@
 #include <kernel/common.h>
 #include <kernel/kassert.h>
 #include <kernel/kpanic.h>
+#include <kernel/tick.h>
 #include <kernel/util.h>
+#include <lib/hashmap.h>
 #include <mm/heap.h>
 #include <net/ipv4.h>
 #include <net/ipv6.h>
@@ -12,6 +14,7 @@
 #include <net/socket.h>
 #include <net/tcp.h>
 #include <sched/sched.h>
+#include <sync/barrier.h>
 #include <sync/wait.h>
 
 #define TO_U32(ip)        ((ip[3] << 24) | (ip[2] << 16) | (ip[1] << 8) | ip[0])
@@ -22,6 +25,7 @@
 #define TCP_SYN_RETRIES        5
 #define TCP_WINDOW_SIZE     1460
 #define TCP_FLAG_MASK     0xff00
+#define TCP_RETRANSMIT       250
 
 enum {
     TCP_FLAG_FIN = 1 <<  8,
@@ -52,7 +56,16 @@ typedef struct tcp_ctx {
 
     /* TODO: accepted clients? */
     socket_t *clients[TCP_MAX_CLIENTS];
+    hashmap_t *rt_queue;
+    spinlock_t lock;
 } tcp_ctx_t;
+
+typedef struct tcp_retransmit_ctx {
+    socket_t *sock;  /* socket through which the packet was sent */
+    uint32_t seq;    /* tcp sequence number of the packet */
+    int retries;     /* how many retransmits before giving up */
+    timer_t *tmr;    /* timer for the retransmission object */
+} tcp_rt_ctx_t;
 
 static uint16_t __calculate_checksum(packet_t *pkt)
 {
@@ -116,6 +129,58 @@ static packet_t *__skb_get(tcp_skb_t *skb)
     return pkt;
 }
 
+static void __retransmit_pkt(void *ctx)
+{
+    tcp_rt_ctx_t *rt_ctx = ctx;
+    tcp_ctx_t *tcp_ctx   = rt_ctx->sock->s_private;
+    packet_t *pkt        = NULL;
+
+    spin_acquire(&tcp_ctx->lock);
+
+    if ((pkt = hm_get(tcp_ctx->rt_queue, &rt_ctx->seq))) {
+        tcp_send_pkt(pkt);
+
+        if (--rt_ctx->retries) {
+            list_init_null(&rt_ctx->tmr->list);
+            spin_release(&tcp_ctx->lock);
+            tick_install_timer(rt_ctx->tmr);
+            return;
+        } else {
+            netdev_dealloc_pkt(pkt);
+            hm_remove(tcp_ctx->rt_queue, &rt_ctx->seq);
+        }
+    }
+
+    spin_release(&tcp_ctx->lock);
+}
+
+static int __send_pkt(socket_t *sock, packet_t *pkt)
+{
+    kassert(pkt);
+
+    if (!(pkt->flags & NF_NO_RTO)) {
+        tcp_pkt_t *tcp       = pkt->transport.packet;
+        tcp_rt_ctx_t *rt_ctx = kzalloc(sizeof(timer_t));
+        tcp_ctx_t *ctx       = sock->s_private;
+
+        rt_ctx->tmr     = kzalloc(sizeof(timer_t));
+        rt_ctx->seq     = n2h_32(tcp->seq) + pkt->transport.size - sizeof(tcp_pkt_t);
+        rt_ctx->retries = TCP_SYN_RETRIES;
+        rt_ctx->sock    = sock;
+
+        rt_ctx->tmr->wait     = TCP_RETRANSMIT;
+        rt_ctx->tmr->expr     = 0;
+        rt_ctx->tmr->ctx      = rt_ctx;
+        rt_ctx->tmr->callback = __retransmit_pkt;
+
+        hm_insert(ctx->rt_queue, &rt_ctx->seq, pkt);
+        list_init_null(&rt_ctx->tmr->list);
+        tick_install_timer(rt_ctx->tmr);
+    }
+
+    return tcp_send_pkt(pkt);
+}
+
 static ssize_t __tcp_write(file_t *file, off_t flags, size_t size, void *buf)
 {
     int ret;
@@ -135,7 +200,7 @@ static ssize_t __tcp_write(file_t *file, off_t flags, size_t size, void *buf)
 
     ctx->seq += pkt->transport.size - sizeof(tcp_pkt_t);
 
-    return tcp_send_pkt(pkt);
+    return __send_pkt(sock, pkt);
 }
 
 static ssize_t __tcp_read(file_t *file, off_t flags, size_t size, void *buf)
@@ -200,6 +265,8 @@ void tcp_init_socket(file_t *fd)
     ctx->aseq     = 0;
     ctx->nclients = 0;
     ctx->flags    = TCP_STATE_NONE;
+    ctx->rt_queue = hm_alloc_hashmap(16, HM_KEY_TYPE_NUM);
+    ctx->lock     = 0;
 }
 
 int tcp_handle_pkt(packet_t *pkt)
@@ -265,10 +332,16 @@ static int __handle_connected(socket_t *sock, packet_t *pkt)
 
         ctx->aseq += pkt->transport.size - sizeof(tcp_pkt_t) - 4;
 
-        return __send_pkt(sock, ack);
+        return tcp_send_pkt(ack);
     } else  {
         if ((tcp->off & TCP_FLAG_MASK) == TCP_FLAG_ACK) {
-            /* TODO:  */
+            spin_acquire(&ctx->lock);
+
+            if (hm_remove(ctx->rt_queue, &tcp->aseq) == -EINVAL)
+                kprint("tcp - received ack for an unsent segment: %u\n", tcp->aseq);
+
+            spin_release(&ctx->lock);
+
         } else {
             kprint("unknown packet type %x\n", tcp->off & TCP_FLAG_MASK);
             kassert(1 == 0);
