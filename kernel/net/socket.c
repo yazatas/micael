@@ -136,7 +136,7 @@ int socket_send(file_ctx_t *ctx, int sockfd, void *buf, size_t len,
     socket_t *sock = ctx->fd[sockfd]->f_private;
 
     switch (sock->proto) {
-        case PROTO_UDP:
+        case SOCK_DGRAM:
             pkt = netdev_alloc_pkt_L5(PROTO_IPV4, PROTO_UDP, len);
             break;
 
@@ -208,7 +208,7 @@ int socket_connect(file_ctx_t *ctx, int sockfd, saddr_in_t *dest_addr, socklen_t
         return -EFAULT;
 
     if ((ret = tcp_connect(ctx->fd[sockfd], dest_addr, addrlen)) < 0) {
-        kprint("socket - failed to connect to remote host!");
+        kprint("socket - failed to connect to remote host!\n");
         return ret;
     }
 

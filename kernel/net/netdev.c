@@ -57,10 +57,10 @@ void netdev_add_dhcp_info(dhcp_info_t *info)
     net_ipv4_print(info->router);
 
     kprint("netdev - dns address: ");
-    net_ipv4_print(info->router);
+    net_ipv4_print(info->dns);
 
     kprint("netdev - broadcast address: ");
-    net_ipv4_print(info->router);
+    net_ipv4_print(info->broadcast);
 
     /* save router's ip/mac address pair to address map */
     if ((errno = hm_insert(netdev_info.addrs, &info->router, &info->mac))) {
@@ -119,6 +119,7 @@ packet_t *netdev_alloc_pkt_in(size_t size)
     packet_t *pkt = mmu_cache_alloc_entry(pkt_cache, MM_ZERO);
     pkt->link     = kzalloc(size);
     pkt->size     = size;
+    pkt->flags    = 0;
 
     return pkt;
 }
@@ -168,8 +169,9 @@ packet_t *netdev_alloc_pkt_L5(int net, int transport, size_t size)
      * set their sizes correctly */
     packet_t *pkt = mmu_cache_alloc_entry(pkt_cache, MM_ZERO);
 
-    pkt->size = pkt_size;
-    pkt->link = kzalloc(pkt_size);
+    pkt->size  = pkt_size;
+    pkt->link  = kzalloc(pkt_size);
+    pkt->flags = 0;
 
     pkt->net.proto  = net;
     pkt->net.size   = pkt_size - sizeof(eth_frame_t);
@@ -213,8 +215,9 @@ packet_t *netdev_alloc_pkt_L4(int net, size_t size)
             break;
     }
 
-    pkt->size = pkt_size;
-    pkt->link = kzalloc(pkt_size);
+    pkt->size  = pkt_size;
+    pkt->link  = kzalloc(pkt_size);
+    pkt->flags = 0;
 
     pkt->net.size   = pkt_size - sizeof(eth_frame_t);
     pkt->net.packet = (uint8_t *)pkt->link + sizeof(eth_frame_t);
@@ -232,8 +235,9 @@ packet_t *netdev_alloc_pkt_L3(size_t size)
      * set their sizes correctly */
     packet_t *pkt = mmu_cache_alloc_entry(pkt_cache, MM_ZERO);
 
-    pkt->size = sizeof(eth_frame_t) + size;
-    pkt->link = kzalloc(pkt->size);
+    pkt->size  = sizeof(eth_frame_t) + size;
+    pkt->link  = kzalloc(pkt->size);
+    pkt->flags = 0;
 
     pkt->net.size   = size;
     pkt->net.packet = (uint8_t *)pkt->link + sizeof(eth_frame_t);

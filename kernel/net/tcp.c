@@ -4,7 +4,9 @@
 #include <kernel/common.h>
 #include <kernel/kassert.h>
 #include <kernel/kpanic.h>
+#include <kernel/tick.h>
 #include <kernel/util.h>
+#include <lib/hashmap.h>
 #include <mm/heap.h>
 #include <net/ipv4.h>
 #include <net/ipv6.h>
@@ -12,6 +14,7 @@
 #include <net/socket.h>
 #include <net/tcp.h>
 #include <sched/sched.h>
+#include <sync/barrier.h>
 #include <sync/wait.h>
 
 #define TO_U32(ip)        ((ip[3] << 24) | (ip[2] << 16) | (ip[1] << 8) | ip[0])
@@ -22,6 +25,7 @@
 #define TCP_SYN_RETRIES        5
 #define TCP_WINDOW_SIZE     1460
 #define TCP_FLAG_MASK     0xff00
+#define TCP_RETRANSMIT       250
 
 enum {
     TCP_FLAG_FIN = 1 <<  8,
@@ -52,7 +56,16 @@ typedef struct tcp_ctx {
 
     /* TODO: accepted clients? */
     socket_t *clients[TCP_MAX_CLIENTS];
+    hashmap_t *rt_queue;
+    spinlock_t lock;
 } tcp_ctx_t;
+
+typedef struct tcp_retransmit_ctx {
+    socket_t *sock;  /* socket through which the packet was sent */
+    uint32_t seq;    /* tcp sequence number of the packet */
+    int retries;     /* how many retransmits before giving up */
+    timer_t *tmr;    /* timer for the retransmission object */
+} tcp_rt_ctx_t;
 
 static uint16_t __calculate_checksum(packet_t *pkt)
 {
@@ -116,6 +129,58 @@ static packet_t *__skb_get(tcp_skb_t *skb)
     return pkt;
 }
 
+static void __retransmit_pkt(void *ctx)
+{
+    tcp_rt_ctx_t *rt_ctx = ctx;
+    tcp_ctx_t *tcp_ctx   = rt_ctx->sock->s_private;
+    packet_t *pkt        = NULL;
+
+    spin_acquire(&tcp_ctx->lock);
+
+    if ((pkt = hm_get(tcp_ctx->rt_queue, &rt_ctx->seq))) {
+        tcp_send_pkt(pkt);
+
+        if (--rt_ctx->retries) {
+            list_init_null(&rt_ctx->tmr->list);
+            spin_release(&tcp_ctx->lock);
+            tick_install_timer(rt_ctx->tmr);
+            return;
+        } else {
+            netdev_dealloc_pkt(pkt);
+            hm_remove(tcp_ctx->rt_queue, &rt_ctx->seq);
+        }
+    }
+
+    spin_release(&tcp_ctx->lock);
+}
+
+static int __send_pkt(socket_t *sock, packet_t *pkt)
+{
+    kassert(pkt);
+
+    if (!(pkt->flags & NF_NO_RTO)) {
+        tcp_pkt_t *tcp       = pkt->transport.packet;
+        tcp_rt_ctx_t *rt_ctx = kzalloc(sizeof(timer_t));
+        tcp_ctx_t *ctx       = sock->s_private;
+
+        rt_ctx->tmr     = kzalloc(sizeof(timer_t));
+        rt_ctx->seq     = n2h_32(tcp->seq) + pkt->transport.size - sizeof(tcp_pkt_t);
+        rt_ctx->retries = TCP_SYN_RETRIES;
+        rt_ctx->sock    = sock;
+
+        rt_ctx->tmr->wait     = TCP_RETRANSMIT;
+        rt_ctx->tmr->expr     = 0;
+        rt_ctx->tmr->ctx      = rt_ctx;
+        rt_ctx->tmr->callback = __retransmit_pkt;
+
+        hm_insert(ctx->rt_queue, &rt_ctx->seq, pkt);
+        list_init_null(&rt_ctx->tmr->list);
+        tick_install_timer(rt_ctx->tmr);
+    }
+
+    return tcp_send_pkt(pkt);
+}
+
 static ssize_t __tcp_write(file_t *file, off_t flags, size_t size, void *buf)
 {
     int ret;
@@ -135,7 +200,7 @@ static ssize_t __tcp_write(file_t *file, off_t flags, size_t size, void *buf)
 
     ctx->seq += pkt->transport.size - sizeof(tcp_pkt_t);
 
-    return tcp_send_pkt(pkt);
+    return __send_pkt(sock, pkt);
 }
 
 static ssize_t __tcp_read(file_t *file, off_t flags, size_t size, void *buf)
@@ -200,6 +265,8 @@ void tcp_init_socket(file_t *fd)
     ctx->aseq     = 0;
     ctx->nclients = 0;
     ctx->flags    = TCP_STATE_NONE;
+    ctx->rt_queue = hm_alloc_hashmap(16, HM_KEY_TYPE_NUM);
+    ctx->lock     = 0;
 }
 
 int tcp_handle_pkt(packet_t *pkt)
@@ -222,157 +289,182 @@ int tcp_handle_pkt(packet_t *pkt)
 
 int tcp_send_pkt(packet_t *pkt)
 {
-    kassert(pkt);
-    tcp_pkt_t *tcp = pkt->transport.packet;
-
-    if (!(pkt->flags & NF_NO_RTO)) {
-        /* TODO: add entry to retransmission queue */
-        /* TODO: start timer for the packet */
-    }
-
     if (pkt->net.proto == PROTO_IPV4)
         return ipv4_send_pkt(pkt);
     else
         return ipv6_send_pkt(pkt);
 }
 
-/* TODO: move all this code to subroutines */
+static int __handle_connected(socket_t *sock, packet_t *pkt)
+{
+    tcp_pkt_t *tcp = pkt->transport.packet;
+    tcp_skb_t *skb = sock->tcp;
+    tcp_ctx_t *ctx = sock->s_private;
+
+    if ((tcp->off & TCP_FLAG_MASK) == (TCP_FLAG_PSH | TCP_FLAG_ACK)) {
+
+        /* packet was lost */
+        if (tcp->seq != ctx->aseq) {
+            netdev_dealloc_pkt(pkt);
+            return 0;
+        }
+        __skb_put(skb, pkt);
+
+        packet_t *ack = netdev_alloc_pkt_L4(PROTO_IPV4, sizeof(tcp_pkt_t));
+
+        tcp_pkt_t *o_tcp = ack->transport.packet;
+        ack->net.proto = PROTO_IPV4;
+
+        ack->src_addr = sock->src_addr;
+        ack->dst_addr = sock->dst_addr;
+
+        ack->transport.proto = PROTO_TCP;
+        ack->transport.size  = sizeof(tcp_pkt_t);
+
+        o_tcp->src  = h2n_16(sock->src_port);
+        o_tcp->dst  = h2n_16(sock->dst_port);
+        o_tcp->off  = TCP_NO_OPTS | TCP_FLAG_ACK;
+        o_tcp->len  = h2n_16(TCP_WINDOW_SIZE);
+        o_tcp->seq  = h2n_32(ctx->seq);
+        o_tcp->aseq = h2n_32(ctx->aseq + pkt->transport.size - sizeof(tcp_pkt_t) - 4);
+        o_tcp->cks  = 0;
+        o_tcp->cks  = __calculate_checksum(ack);
+
+        ctx->aseq += pkt->transport.size - sizeof(tcp_pkt_t) - 4;
+
+        return tcp_send_pkt(ack);
+    } else  {
+        if ((tcp->off & TCP_FLAG_MASK) == TCP_FLAG_ACK) {
+            spin_acquire(&ctx->lock);
+
+            if (hm_remove(ctx->rt_queue, &tcp->aseq) == -EINVAL)
+                kprint("tcp - received ack for an unsent segment: %u\n", tcp->aseq);
+
+            spin_release(&ctx->lock);
+
+        } else {
+            kprint("unknown packet type %x\n", tcp->off & TCP_FLAG_MASK);
+            kassert(1 == 0);
+        }
+    }
+}
+
+static int __handle_accept(socket_t *sock, packet_t *pkt)
+{
+    tcp_pkt_t *tcp = pkt->transport.packet;
+    tcp_skb_t *skb = sock->tcp;
+    tcp_ctx_t *ctx = sock->s_private;
+
+    if ((tcp->off & TCP_FLAG_MASK) == TCP_FLAG_SYN) {
+        sock->flags |= TCP_STATE_SYN_RECEIVED;
+        __skb_put(skb, pkt);
+        wq_wakeup(&sock->wq);
+        return 0;
+    }
+    
+    if ((tcp->off & TCP_FLAG_MASK) == TCP_FLAG_ACK) {
+        sock->flags |= TCP_STATE_CONNECTED;
+        wq_wakeup(&sock->wq);
+        return 0;
+    } 
+    
+    /* TODO: refactor */
+    if (ctx->nclients) {
+        /* TODO: disgusting */
+        for (int i = 0; i < ctx->nclients; ++i) {
+            socket_t *__tmp        = ctx->clients[i];
+            tcp_ctx_t *__ctx       = __tmp->s_private;
+            ipv4_datagram_t *dgram = pkt->net.packet;
+
+            if (h2n_32(dgram->src) == (uint32_t)TO_U32(__tmp->dst_addr->ipv4) &&
+                n2h_16(tcp->src) == n2h_16(__tmp->dst_port))
+            {
+                __skb_put(__tmp->tcp, pkt);
+                packet_t *ack = netdev_alloc_pkt_L4(PROTO_IPV4, sizeof(tcp_pkt_t));
+
+                tcp_pkt_t *o_tcp = ack->transport.packet;
+                ack->net.proto = PROTO_IPV4;
+
+                ack->src_addr = __tmp->src_addr;
+                ack->dst_addr = __tmp->dst_addr;
+
+                ack->transport.proto = PROTO_TCP;
+                ack->transport.size  = sizeof(tcp_pkt_t);
+
+                o_tcp->src  = h2n_16(__tmp->src_port);
+                o_tcp->dst  = h2n_16(__tmp->dst_port);
+                o_tcp->off  = TCP_NO_OPTS | TCP_FLAG_ACK;
+                o_tcp->len  = h2n_16(TCP_WINDOW_SIZE);
+                o_tcp->seq  = h2n_32(__ctx->seq);
+                o_tcp->aseq = h2n_32(__ctx->aseq + pkt->transport.size - sizeof(tcp_pkt_t) - 4);
+                o_tcp->cks  = 0;
+                o_tcp->cks  = __calculate_checksum(ack);
+
+                __ctx->aseq += pkt->transport.size - sizeof(tcp_pkt_t) - 4;
+
+                __send_pkt(sock, ack);
+                wq_wakeup(&__tmp->wq);
+                return 0;
+            }
+        }
+    }
+}
+
+static int __handle_syn(socket_t *sock, packet_t *pkt)
+{
+    tcp_pkt_t *tcp = pkt->transport.packet;
+    tcp_skb_t *skb = sock->tcp;
+    tcp_ctx_t *ctx = sock->s_private;
+
+    /* port is not open */
+    if ((tcp->off & TCP_FLAG_MASK) == (TCP_FLAG_ACK | TCP_FLAG_RST)) {
+        sock->flags &= ~TCP_STATE_SYN_SENT;
+        sock->flags |= TCP_STATE_PORT_CLOSED;
+        netdev_dealloc_pkt(pkt);
+        wq_wakeup(&sock->wq);
+        return -EFAULT;
+    }
+
+    /* response to our handshake */
+    if ((tcp->off & TCP_FLAG_MASK) == (TCP_FLAG_ACK | TCP_FLAG_SYN)) {
+        __skb_put(skb, pkt);
+        wq_wakeup(&sock->wq);
+        return 0;
+    }
+
+    kprint("tcp - discard invalid packet, syn + ack not set: %x\n", tcp->off & TCP_FLAG_MASK);
+    netdev_dealloc_pkt(pkt);
+    return -EINVAL;
+}
+
 int tcp_write_skb(socket_t *sock, packet_t *pkt)
 {
     tcp_pkt_t *tcp = pkt->transport.packet;
     tcp_skb_t *skb = sock->tcp;
     tcp_ctx_t *ctx = sock->s_private;
 
-    /* we started a handshake, expect SYN + ACK */
-    if (sock->flags & TCP_STATE_SYN_SENT) {
-        int closed   = (TCP_FLAG_ACK | TCP_FLAG_RST);
-        int accepted = (TCP_FLAG_ACK | TCP_FLAG_SYN);
+    if (sock->flags & TCP_STATE_SYN_SENT)
+        return __handle_syn(sock, pkt);
 
-        /* port is not open */
-        if ((tcp->off & TCP_FLAG_MASK) == closed) {
-            sock->flags &= ~TCP_STATE_SYN_SENT;
-            sock->flags |= TCP_STATE_PORT_CLOSED;
-            netdev_dealloc_pkt(pkt);
-            return -EFAULT;
-        }
+    if (sock->flags & TCP_STATE_PASSIVE)
+        return __handle_accept(sock, pkt);
 
-        /* response to our handshake */
-        if ((tcp->off & TCP_FLAG_MASK) == accepted) {
-            kprint("tcp - syn sent, syn + ack received\n");
-            return __skb_put(skb, pkt);
-        }
+    if (sock->flags & TCP_STATE_CONNECTED)
+        return __handle_connected(sock, pkt);
 
-        kprint("tcp - discard invalid packet, syn + ack not set: %x\n", tcp->off & TCP_FLAG_MASK);
-        netdev_dealloc_pkt(pkt);
-        return -EINVAL;
-
-    } else if (sock->flags & TCP_STATE_PASSIVE) {
-        if ((tcp->off & TCP_FLAG_MASK) == TCP_FLAG_SYN) {
-            kprint("syn received\n");
-            __skb_put(skb, pkt);
-            sock->flags |= TCP_STATE_SYN_RECEIVED;
-        } else if ((tcp->off & TCP_FLAG_MASK) == TCP_FLAG_ACK) {
-            kprint("ack received, connection established\n");
-            sock->flags |= TCP_STATE_CONNECTED;
-        } else {
-            if (ctx->nclients) {
-                /* TODO: disgusting */
-                for (int i = 0; i < ctx->nclients; ++i) {
-                    socket_t *__tmp        = ctx->clients[i];
-                    tcp_ctx_t *__ctx       = __tmp->s_private;
-                    ipv4_datagram_t *dgram = pkt->net.packet;
-
-                    if (h2n_32(dgram->src) == (uint32_t)TO_U32(__tmp->dst_addr->ipv4) &&
-                        n2h_16(tcp->src) == n2h_16(__tmp->dst_port))
-                    {
-                        __skb_put(__tmp->tcp, pkt);
-                        packet_t *ack = netdev_alloc_pkt_L4(PROTO_IPV4, sizeof(tcp_pkt_t));
-
-                        tcp_pkt_t *o_tcp = ack->transport.packet;
-                        ack->net.proto = PROTO_IPV4;
-
-                        ack->src_addr = __tmp->src_addr;
-                        ack->dst_addr = __tmp->dst_addr;
-
-                        ack->transport.proto = PROTO_TCP;
-                        ack->transport.size  = sizeof(tcp_pkt_t);
-
-                        o_tcp->src  = h2n_16(__tmp->src_port);
-                        o_tcp->dst  = h2n_16(__tmp->dst_port);
-                        o_tcp->off  = TCP_NO_OPTS | TCP_FLAG_ACK;
-                        o_tcp->len  = h2n_16(TCP_WINDOW_SIZE);
-                        o_tcp->seq  = h2n_32(__ctx->seq);
-                        o_tcp->aseq = h2n_32(__ctx->aseq + pkt->transport.size - sizeof(tcp_pkt_t) - 4);
-                        o_tcp->cks  = 0;
-                        o_tcp->cks  = __calculate_checksum(ack);
-
-                        __ctx->aseq += pkt->transport.size - sizeof(tcp_pkt_t) - 4;
-
-                        tcp_send_pkt(ack);
-                        wq_wakeup(&__tmp->wq);
-                        return 0;
-                    }
-                }
-
-                return 0;
-            }
-        }
-    } else if (sock->flags & TCP_STATE_CONNECTED) {
-        if ((tcp->off & TCP_FLAG_MASK) == (TCP_FLAG_PSH | TCP_FLAG_ACK)) {
-
-            /* packet was lost */
-            if (tcp->seq != ctx->aseq) {
-                netdev_dealloc_pkt(pkt);
-                return 0;
-            }
-            __skb_put(skb, pkt);
-
-            packet_t *ack = netdev_alloc_pkt_L4(PROTO_IPV4, sizeof(tcp_pkt_t));
-
-            tcp_pkt_t *o_tcp = ack->transport.packet;
-            ack->net.proto = PROTO_IPV4;
-
-            ack->src_addr = sock->src_addr;
-            ack->dst_addr = sock->dst_addr;
-
-            ack->transport.proto = PROTO_TCP;
-            ack->transport.size  = sizeof(tcp_pkt_t);
-
-            o_tcp->src  = h2n_16(sock->src_port);
-            o_tcp->dst  = h2n_16(sock->dst_port);
-            o_tcp->off  = TCP_NO_OPTS | TCP_FLAG_ACK;
-            o_tcp->len  = h2n_16(TCP_WINDOW_SIZE);
-            o_tcp->seq  = h2n_32(ctx->seq);
-            o_tcp->aseq = h2n_32(ctx->aseq + pkt->transport.size - sizeof(tcp_pkt_t) - 4);
-            o_tcp->cks  = 0;
-            o_tcp->cks  = __calculate_checksum(ack);
-
-            ctx->aseq += pkt->transport.size - sizeof(tcp_pkt_t) - 4;
-
-            return tcp_send_pkt(ack);
-        } else  {
-            if ((tcp->off & TCP_FLAG_MASK) == TCP_FLAG_ACK) {
-                /* TODO: check retransmission queue */
-            } else {
-                kprint("unknown packet type %x\n", tcp->off & TCP_FLAG_MASK);
-                kassert(1 == 0);
-            }
-        }
-
-    } else {
-        kprint("unhandled combination of flags/states\n");
-        kassert(1 == 0);
-    }
+    kprint("unhandled combination of flags/states: %x\n", sock->flags);
+    kassert(NULL);
 }
 
 int tcp_connect(file_t *fd, saddr_in_t *dest_addr, socklen_t addrlen)
 {
     kassert(fd && dest_addr && addrlen);
 
-    packet_t *pkt  = netdev_alloc_pkt_L4(PROTO_IPV4, sizeof(tcp_pkt_t)), *in_pkt;
-    socket_t *sock = fd->f_private;
-    tcp_pkt_t *tcp = pkt->transport.packet, *in_tcp;
-    tcp_ctx_t *ctx = sock->s_private;
+    packet_t *pkt   = netdev_alloc_pkt_L4(PROTO_IPV4, sizeof(tcp_pkt_t)), *in_pkt;
+    socket_t *sock  = fd->f_private;
+    tcp_pkt_t *tcp  = pkt->transport.packet, *in_tcp;
+    tcp_ctx_t *ctx  = sock->s_private;
+    task_t *current = sched_get_active();
 
     pkt->src_addr = sock->src_addr;
     pkt->src_port = sock->src_port;
@@ -394,19 +486,11 @@ int tcp_connect(file_t *fd, saddr_in_t *dest_addr, socklen_t addrlen)
 
     sock->flags |= TCP_STATE_SYN_SENT;
 
-    /* TODO: implement proper sleeping mechanism */
-    for (int i = 0; i < TCP_SYN_RETRIES; ++i) {
-        tcp_send_pkt(pkt);
+    tcp_send_pkt(pkt);
+    wq_wait_event(&sock->wq, current, NULL);
 
-        for (volatile int k = 0; k < 200000; ++k)
-            cpu_relax();
-
-        if (READ_ONCE(sock->tcp->npkts) || !(READ_ONCE(sock->flags) & TCP_STATE_SYN_SENT))
-            break;
-    }
-
-    if (!(READ_ONCE(sock->tcp->npkts))) {
-        if (READ_ONCE(sock->flags) & TCP_STATE_PORT_CLOSED)
+    if (!sock->tcp->npkts && sock->flags & TCP_STATE_SYN_SENT) {
+        if (sock->flags & TCP_STATE_PORT_CLOSED)
             return -EFAULT;
         return -EINVAL;
     }
@@ -414,7 +498,7 @@ int tcp_connect(file_t *fd, saddr_in_t *dest_addr, socklen_t addrlen)
     in_pkt = __skb_get(sock->tcp);
     in_tcp = in_pkt->transport.packet;
 
-    if (READ_ONCE(sock->flags) & TCP_STATE_CONNECTED)
+    if (sock->flags & TCP_STATE_CONNECTED)
         goto connected;
 
     tcp->off  = TCP_NO_OPTS | TCP_FLAG_ACK;
@@ -460,6 +544,7 @@ socket_t *tcp_accept(file_t *fd, saddr_in_t *addr, socklen_t *addrlen)
     socket_t *sock = fd->f_private;
     tcp_skb_t *skb = sock->tcp;
     tcp_ctx_t *ctx = sock->s_private;
+    task_t *cur    = sched_get_active();
 
     if (!(sock->flags & TCP_STATE_PASSIVE)) {
         errno = ENOTSUP;
@@ -471,13 +556,8 @@ socket_t *tcp_accept(file_t *fd, saddr_in_t *addr, socklen_t *addrlen)
         return NULL;
     }
 
-    for (;;) {
-        for (volatile int k = 0; k < 200000; ++k)
-            cpu_relax();
-
-        if (READ_ONCE(sock->flags) & TCP_STATE_SYN_RECEIVED)
-            break;
-    }
+    /* wait until we receive syn from client */
+    wq_wait_event(&sock->wq, cur, NULL);
 
     packet_t *in_pkt  = __skb_get(skb);
     tcp_pkt_t *in_tcp = in_pkt->transport.packet;
@@ -504,15 +584,12 @@ socket_t *tcp_accept(file_t *fd, saddr_in_t *addr, socklen_t *addrlen)
     out_tcp->cks  = 0;
     out_tcp->cks  = __calculate_checksum(out_pkt);
 
-    for (;;) {
-        tcp_send_pkt(out_pkt);
+    /* send syn+ack and wait for ack */
+    tcp_send_pkt(out_pkt);
+    wq_wait_event(&sock->wq, cur, NULL);
 
-        for (volatile int k = 0; k < 200000; ++k)
-            cpu_relax();
-
-        if (READ_ONCE(sock->flags) & TCP_STATE_CONNECTED)
-            break;
-    }
+    if (!(sock->flags & TCP_STATE_CONNECTED))
+        return -EFAULT;
 
     socket_t *client = kzalloc(sizeof(socket_t));
 
